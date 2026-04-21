@@ -1,0 +1,25 @@
+{
+  "name": "kaoyan-tutor",
+  "private": true,
+  "version": "0.0.1",
+  "description": "考研智能辅导平台 Monorepo",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "dev:web": "turbo run dev --filter=@kaoyan/web",
+    "dev:server": "turbo run dev --filter=@kaoyan/server",
+    "dev:agent": "turbo run dev --filter=@kaoyan/agent",
+    "build:web": "turbo run build --filter=@kaoyan/web"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -1,0 +1,149 @@
+@import './variables.less';
+
+// ============================================================
+// CSS Custom Properties (mapped from Less variables for
+// runtime compatibility and external CSS references)
+// ============================================================
+:root {
+  --color-primary: @color-primary;
+  --color-primary-light: @color-primary-light;
+  --color-primary-lighter: @color-primary-lighter;
+  --color-primary-dark: @color-primary-dark;
+  --color-accent: @color-accent;
+  --color-accent-light: @color-accent-light;
+  --color-accent-dark: @color-accent-dark;
+
+  --color-bg: @color-bg;
+  --color-bg-card: @color-bg-card;
+  --color-bg-sidebar: @color-bg-sidebar;
+  --color-bg-sidebar-hover: @color-bg-sidebar-hover;
+  --color-bg-sidebar-active: @color-bg-sidebar-active;
+  --color-text-primary: @color-text-primary;
+  --color-text-secondary: @color-text-secondary;
+  --color-text-muted: @color-text-muted;
+  --color-text-sidebar: @color-text-sidebar;
+  --color-text-sidebar-muted: @color-text-sidebar-muted;
+  --color-border: @color-border;
+  --color-border-light: @color-border-light;
+
+  --shadow-sm: @shadow-sm;
+  --shadow-md: @shadow-md;
+  --shadow-lg: @shadow-lg;
+
+  --font-serif: @font-serif;
+  --font-sans: @font-sans;
+
+  --sidebar-width: @sidebar-width;
+  --sidebar-collapsed-width: @sidebar-collapsed-width;
+  --header-height: @header-height;
+
+  --radius-sm: @radius-sm;
+  --radius-md: @radius-md;
+  --radius-lg: @radius-lg;
+  --radius-xl: @radius-xl;
+}
+
+// ============================================================
+// Reset & Base
+// ============================================================
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: @font-sans;
+  color: @color-text-primary;
+  background-color: @color-bg;
+  min-height: 100vh;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+// ============================================================
+// Ant Design Overrides
+// ============================================================
+.ant-btn-primary {
+  background-color: @color-primary !important;
+  border-color: @color-primary !important;
+
+  &:hover,
+  &:focus {
+    background-color: @color-primary-light !important;
+    border-color: @color-primary-light !important;
+  }
+}
+
+// ============================================================
+// Scrollbar Styling
+// ============================================================
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(26, 58, 110, 0.2);
+  border-radius: 3px;
+
+  &:hover {
+    background: rgba(26, 58, 110, 0.35);
+  }
+}
+
+// ============================================================
+// Utility Classes
+// ============================================================
+.text-primary { color: @color-primary; }
+.text-accent  { color: @color-accent; }
+.text-muted   { color: @color-text-muted; }
+.text-serif   { font-family: @font-serif; }
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.full-height { height: 100%; }
+
+// ============================================================
+// Transitions
+// ============================================================
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.25s ease;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
