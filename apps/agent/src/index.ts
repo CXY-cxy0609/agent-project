@@ -1,65 +1,185 @@
+/**
+ * Agent Service Entry Point
+ * Express HTTP 服务，对外暴露 SSE 流式接口
+ */
+
 import express from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { createContainer, loadConfig } from './container.js';
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const PORT = process.env.PORT ?? 8001;
+const config = loadConfig();
+const { orchestratorAgent, knowledgeBaseAgent } = createContainer(config);
+
+// ─── Health ───────────────────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'kaoyan-agent', timestamp: new Date().toISOString() });
 });
 
+// ─── Chat Stream ──────────────────────────────────────────────────────────────
+
 /**
  * POST /chat/stream
- * Body: { conversationId?, subjectId, content, model, userId, generateVideo? }
- * Streams SSE response from the LangGraph agent
+ * 流式问答接口，返回 SSE 格式
  */
 app.post('/chat/stream', async (req, res) => {
-  const { content, subjectId, conversationId, model, userId, generateVideo } = req.body;
-
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
+  const {
+    content,
+    subjectId,
+    conversationId,
+    userId = 'anonymous',
+    imageBase64,
+    imageMediaType,
+  } = req.body as {
+    content: string;
+    subjectId?: string;
+    conversationId?: string;
+    userId?: string;
+    imageBase64?: string;
+    imageMediaType?: string;
+  };
+
+  const ctx = {
+    userId,
+    sessionId: conversationId ?? uuidv4(),
+    traceId: uuidv4(),
+  };
+
+  const sendEvent = (data: unknown) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
   try {
-    // Placeholder: invoke the chat agent graph
-    const { chatGraph } = await import('./graphs/chat.js');
-    const stream = await chatGraph.stream(
-      { content, subjectId, conversationId, model, userId, generateVideo },
-      { streamMode: 'updates' },
+    sendEvent({ type: 'start', traceId: ctx.traceId });
+
+    const result = await orchestratorAgent.run(
+      {
+        userMessage: content,
+        subjectId,
+        conversationId,
+        imageBase64,
+        imageMediaType,
+      },
+      ctx,
     );
 
-    for await (const chunk of stream) {
-      const data = JSON.stringify(chunk);
-      res.write(`data: ${data}\n\n`);
-    }
+    sendEvent({
+      type: 'reply',
+      content: result.reply,
+      intent: result.intent,
+      videoUrl: result.videoUrl,
+      conversationId: result.conversationId,
+    });
 
-    res.write('data: [DONE]\n\n');
+    sendEvent({ type: 'done' });
     res.end();
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    res.write(`data: ${JSON.stringify({ type: 'error', message: errMsg })}\n\n`);
+    sendEvent({ type: 'error', message: errMsg });
     res.end();
   }
 });
 
+// ─── Learning Report ──────────────────────────────────────────────────────────
+
 /**
- * POST /analytics/generate
- * Body: { subjectId, userId }
- * Triggers the learning analytics agent
+ * GET /analytics/:userId/report
+ * 获取用户学情报告
  */
-app.post('/analytics/generate', async (req, res) => {
-  const { subjectId, userId } = req.body;
+app.get('/analytics/:userId/report', async (req, res) => {
+  const { userId } = req.params;
+  const { subjectId } = req.query as { subjectId?: string };
+
+  const ctx = { userId, sessionId: 'report', traceId: uuidv4() };
+
   try {
-    const { analyticsGraph } = await import('./graphs/analytics.js');
-    const result = await analyticsGraph.invoke({ subjectId, userId });
-    res.json({ summary: result.summary });
+    const result = await orchestratorAgent.run(
+      {
+        userMessage: '生成学情报告',
+        subjectId,
+      },
+      ctx,
+    );
+    res.json({ report: result.reply });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: msg });
   }
 });
 
+// ─── Knowledge Base ───────────────────────────────────────────────────────────
+
+/**
+ * POST /kb/upload
+ * 上传文档到知识库（管理员接口）
+ */
+app.post('/kb/upload', async (req, res) => {
+  const { knowledgeBaseId, subjectId, fileContentBase64, filename, docName } = req.body as {
+    knowledgeBaseId: string;
+    subjectId: string;
+    fileContentBase64: string;
+    filename: string;
+    docName?: string;
+  };
+
+  const ctx = { userId: 'admin', sessionId: 'kb', traceId: uuidv4() };
+
+  try {
+    const result = await knowledgeBaseAgent.run(
+      {
+        action: 'index_document',
+        knowledgeBaseId,
+        subjectId,
+        fileContentBase64,
+        filename,
+        docName,
+      },
+      ctx,
+    );
+    res.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: msg });
+  }
+});
+
+/**
+ * DELETE /kb/:knowledgeBaseId/:docId
+ * 从知识库删除文档（管理员接口）
+ */
+app.delete('/kb/:knowledgeBaseId/:docId', async (req, res) => {
+  const { knowledgeBaseId, docId } = req.params;
+  const { subjectId } = req.query as { subjectId?: string };
+
+  const ctx = { userId: 'admin', sessionId: 'kb', traceId: uuidv4() };
+
+  try {
+    const result = await knowledgeBaseAgent.run(
+      {
+        action: 'delete_document',
+        knowledgeBaseId,
+        subjectId: subjectId ?? '',
+        docId,
+      },
+      ctx,
+    );
+    res.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+
 app.listen(PORT, () => {
-  console.log(`🤖 Agent service running on http://localhost:${PORT}`);
+  console.log(`Agent service running on http://localhost:${PORT}`);
 });

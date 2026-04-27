@@ -2,26 +2,28 @@
   "name": "@kaoyan/agent",
   "version": "0.0.1",
   "private": true,
-  "description": "考研辅导平台 Agent 服务 (LangGraph TypeScript)",
+  "description": "大学生学习辅导平台 Agent 服务 (TypeScript)",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node --experimental-specifier-resolution=node dist/index.js",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts",
+    "eval": "tsx src/eval/runner.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
     "@kaoyan/shared": "workspace:*",
-    "@langchain/anthropic": "^0.3.12",
-    "@langchain/community": "^0.3.22",
-    "@langchain/core": "^0.3.28",
-    "@langchain/langgraph": "^0.2.36",
     "express": "^4.21.2",
-    "zod": "^3.24.1"
+    "ioredis": "^5.4.1",
+    "js-yaml": "^4.1.0",
+    "uuid": "^11.0.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.5",
+    "@types/uuid": "^10.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

@@ -1,23 +1,21 @@
 [project]
 name = "kaoyan-rag"
 version = "0.0.1"
-description = "考研辅导平台 RAG 知识库服务 (FastAPI + LangChain)"
+description = "考研辅导平台 RAG 知识库服务 (FastAPI + Qdrant，无 LangChain)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
-    "langchain>=0.3.0",
-    "langchain-anthropic>=0.3.0",
-    "langchain-community>=0.3.0",
-    "langchain-text-splitters>=0.3.0",
+    "qdrant-client>=1.12.0",
+    "sentence-transformers>=3.0.0",
     "pypdf>=5.0.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
-    "qdrant-client>=1.12.0",
-    "sentence-transformers>=3.0.0",
     "python-multipart>=0.0.12",
     "httpx>=0.28.0",
+    "redis>=5.0.0",
+    "tiktoken>=0.7.0",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +23,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.8.0",
+    "httpx>=0.28.0",
 ]
 
 [build-system]
