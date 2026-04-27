@@ -7,6 +7,8 @@ RAG 检索 Pipeline — 完整的 5 步流程
 ⑤ 上下文构建（拼接片段 + Metadata）
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from typing import Optional

@@ -6,6 +6,8 @@
   3. 过短的 Chunk（< minChunkSize tokens）与相邻合并
 """
 
+from __future__ import annotations
+
 import re
 import logging
 from dataclasses import dataclass
@@ -14,19 +16,26 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-try:
-    import tiktoken
+_tokenizer = None
 
-    _tokenizer = tiktoken.get_encoding("cl100k_base")
 
-    def count_tokens(text: str) -> int:
-        return len(_tokenizer.encode(text))
+def _get_tokenizer():
+    """懒加载 tiktoken 分词器，避免模块导入时触发网络请求"""
+    global _tokenizer
+    if _tokenizer is None:
+        try:
+            import tiktoken
+            _tokenizer = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:
+            logger.warning(f"tiktoken unavailable ({e}), using character-based approximation")
+    return _tokenizer
 
-except ImportError:
-    logger.warning("tiktoken not available, using character-based approximation")
 
-    def count_tokens(text: str) -> int:
-        return len(text) // 4  # 粗略：4 字符 ≈ 1 token
+def count_tokens(text: str) -> int:
+    tokenizer = _get_tokenizer()
+    if tokenizer is not None:
+        return len(tokenizer.encode(text))
+    return len(text) // 4  # 粗略：4 字符 ≈ 1 token
 
 
 @dataclass

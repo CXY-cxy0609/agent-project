@@ -3,6 +3,8 @@
 封装 Qdrant 的 upsert / search / delete 操作
 """
 
+from __future__ import annotations
+
 import uuid
 import logging
 from typing import Optional

@@ -8,6 +8,8 @@
   - 文档解析接口
 """
 
+from __future__ import annotations
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware

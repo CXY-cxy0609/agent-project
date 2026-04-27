@@ -4,6 +4,8 @@
 ② 拼接片段 + Metadata（来源文档、章节、页码），注入 Prompt
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

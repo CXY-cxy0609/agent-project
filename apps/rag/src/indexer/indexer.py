@@ -2,6 +2,8 @@
 IndexerService — 文档解析、Chunking、向量化、写入向量数据库的完整 Pipeline
 """
 
+from __future__ import annotations
+
 import uuid
 import logging
 from typing import Optional

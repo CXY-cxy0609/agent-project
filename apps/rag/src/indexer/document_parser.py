@@ -3,6 +3,8 @@
 直接使用 pypdf，无 LangChain 包装
 """
 
+from __future__ import annotations
+
 import io
 import logging
 from dataclasses import dataclass

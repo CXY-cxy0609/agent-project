@@ -4,6 +4,8 @@ Memory Service — 向量记忆接口
 ② 内容级向量缓存（ContentVectorCache）：全局共享，Video Agent 使用
 """
 
+from __future__ import annotations
+
 import uuid
 import logging
 from dataclasses import dataclass

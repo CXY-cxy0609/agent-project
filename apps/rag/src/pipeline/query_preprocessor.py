@@ -4,6 +4,8 @@ Query 预处理器
 ② Query 扩展（HyDE）— 生成假设性答案，提升检索召回率
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from typing import Optional

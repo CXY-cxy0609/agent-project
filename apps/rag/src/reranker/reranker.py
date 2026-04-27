@@ -3,6 +3,8 @@ Reranker — 使用 Cross-Encoder 对候选片段重排序，提升精度
 直接使用 sentence-transformers CrossEncoder，无框架包装
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 
