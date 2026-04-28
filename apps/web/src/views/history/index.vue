@@ -55,7 +55,7 @@ import { useSubjectStore } from '@/stores/subject';
 import { useChatStore } from '@/stores/chat';
 import HistoryFilter from '@/components/history/HistoryFilter.vue';
 import HistoryItem from '@/components/history/HistoryItem.vue';
-import type { Conversation } from '@kaoyan/shared';
+import type { Conversation } from '@tutor/shared';
 
 const router = useRouter();
 const subjectStore = useSubjectStore();

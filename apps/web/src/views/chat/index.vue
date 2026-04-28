@@ -98,7 +98,7 @@ import ChatWelcome from '@/components/chat/ChatWelcome.vue';
 import VideoProgressBar from '@/components/chat/VideoProgressBar.vue';
 import LearningPanel from '@/components/chat/LearningPanel.vue';
 import MessageSender from '@/components/chat/MessageSender.vue';
-import type { Conversation, Message } from '@kaoyan/shared';
+import type { Conversation, Message } from '@tutor/shared';
 
 const chatStore = useChatStore();
 const subjectStore = useSubjectStore();

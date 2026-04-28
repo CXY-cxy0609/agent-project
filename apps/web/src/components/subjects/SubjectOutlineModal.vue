@@ -77,7 +77,7 @@
 import { ref, watch } from 'vue';
 import { DeleteOutlined, CloseOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import OutlineTree from '@/components/common/OutlineTree.vue';
-import type { UserSubject, SubjectOutline } from '@kaoyan/shared';
+import type { UserSubject, SubjectOutline } from '@tutor/shared';
 
 const props = defineProps<{
   open: boolean;

@@ -43,7 +43,7 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
-import type { KnowledgeBase } from '@kaoyan/shared';
+import type { KnowledgeBase } from '@tutor/shared';
 
 defineProps<{
   kb: KnowledgeBase;

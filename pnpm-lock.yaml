@@ -20,7 +20,7 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.36.3
         version: 0.36.3
-      '@kaoyan/shared':
+      '@tutor/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       express:
@@ -60,7 +60,7 @@ importers:
 
   apps/server:
     dependencies:
-      '@kaoyan/shared':
+      '@tutor/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@nestjs/common':
@@ -151,7 +151,7 @@ importers:
       '@ant-design/icons-vue':
         specifier: ^7.0.1
         version: 7.0.1(vue@3.5.32(typescript@5.9.3))
-      '@kaoyan/shared':
+      '@tutor/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@vueuse/core':

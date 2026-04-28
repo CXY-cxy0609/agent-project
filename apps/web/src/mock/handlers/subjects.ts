@@ -1,4 +1,4 @@
-import type { Subject, UserSubject, CreateSubjectDto, UpdateSubjectDto, SubjectOutline } from '@kaoyan/shared';
+import type { Subject, UserSubject, CreateSubjectDto, UpdateSubjectDto, SubjectOutline } from '@tutor/shared';
 import { MOCK_SUBJECTS, MOCK_ALL_SUBJECTS } from '../data';
 
 const delay = (ms = 400) => new Promise<void>((resolve) => setTimeout(resolve, ms));

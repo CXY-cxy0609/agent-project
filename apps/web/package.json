@@ -1,5 +1,5 @@
 {
-  "name": "@kaoyan/web",
+  "name": "@tutor/web",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
-    "@kaoyan/shared": "workspace:*",
+    "@tutor/shared": "workspace:*",
     "@vueuse/core": "^11.3.0",
     "ant-design-vue": "^4.2.6",
     "ant-design-x-vue": "^1.0.2",

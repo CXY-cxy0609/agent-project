@@ -97,7 +97,7 @@ import { useSubjectStore } from '@/stores/subject';
 import KbCard from '@/components/knowledge/KbCard.vue';
 import KbFormModal from '@/components/knowledge/KbFormModal.vue';
 import KbDetailDrawer from '@/components/knowledge/KbDetailDrawer.vue';
-import type { KnowledgeBase } from '@kaoyan/shared';
+import type { KnowledgeBase } from '@tutor/shared';
 
 const subjectStore = useSubjectStore();
 

@@ -43,7 +43,7 @@
 import { h } from 'vue';
 import { MessageOutlined, CalendarOutlined, ArrowRightOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
-import type { Conversation } from '@kaoyan/shared';
+import type { Conversation } from '@tutor/shared';
 
 defineProps<{
   conversation: Conversation;

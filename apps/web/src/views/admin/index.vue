@@ -172,7 +172,7 @@ import { subjectsApi } from '@/api/subjects';
 import { knowledgeApi } from '@/api/knowledge';
 import AdminStatsRow from '@/components/admin/AdminStatsRow.vue';
 import OutlineTree from '@/components/common/OutlineTree.vue';
-import type { User, Subject, KnowledgeBase, SubjectOutline } from '@kaoyan/shared';
+import type { User, Subject, KnowledgeBase, SubjectOutline } from '@tutor/shared';
 
 const activeTab = ref('users');
 

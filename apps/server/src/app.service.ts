@@ -5,7 +5,7 @@ export class AppService {
   health() {
     return {
       status: 'ok',
-      service: 'kaoyan-server',
+      service: 'tutor-server',
       timestamp: new Date().toISOString(),
     };
   }

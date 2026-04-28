@@ -114,7 +114,7 @@ import {
   TagOutlined,
   DeleteOutlined,
 } from '@ant-design/icons-vue';
-import type { KnowledgeBase, KnowledgeFile } from '@kaoyan/shared';
+import type { KnowledgeBase, KnowledgeFile } from '@tutor/shared';
 
 // Simple draggable stub (matches parent's impl)
 const draggable = {

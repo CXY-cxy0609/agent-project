@@ -22,7 +22,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { LearningAnalytics } from '@kaoyan/shared';
+import type { LearningAnalytics } from '@tutor/shared';
 
 const props = defineProps<{
   analytics: LearningAnalytics | null;

@@ -1,4 +1,4 @@
-import type { LearningAnalytics } from '@kaoyan/shared';
+import type { LearningAnalytics } from '@tutor/shared';
 import { MOCK_ANALYTICS } from '../data';
 
 const delay = (ms = 400) => new Promise<void>((resolve) => setTimeout(resolve, ms));

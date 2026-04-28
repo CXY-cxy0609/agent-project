@@ -1,5 +1,5 @@
 import http from './http';
-import type { KnowledgeBase, KnowledgeFile, CreateKnowledgeBaseDto, UpdateKnowledgeBaseDto, KnowledgeBaseQuery } from '@kaoyan/shared';
+import type { KnowledgeBase, KnowledgeFile, CreateKnowledgeBaseDto, UpdateKnowledgeBaseDto, KnowledgeBaseQuery } from '@tutor/shared';
 import { USE_MOCK } from '@/mock/config';
 import { mockKnowledgeApi } from '@/mock/handlers/knowledge';
 

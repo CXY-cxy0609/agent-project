@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { User, AuthToken } from '@kaoyan/shared';
+import type { User, AuthToken } from '@tutor/shared';
 
 export const useAuthStore = defineStore(
   'auth',
@@ -31,7 +31,7 @@ export const useAuthStore = defineStore(
   },
   {
     persist: {
-      key: 'kaoyan-auth',
+      key: 'tutor-auth',
       storage: localStorage,
     },
   },

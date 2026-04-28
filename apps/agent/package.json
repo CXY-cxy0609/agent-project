@@ -1,19 +1,19 @@
 {
-  "name": "@kaoyan/agent",
+  "name": "@tutor/agent",
   "version": "0.0.1",
   "private": true,
   "description": "大学生学习辅导平台 Agent 服务 (TypeScript)",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && cp -r src/prompt dist/prompt",
     "start": "node --experimental-specifier-resolution=node dist/index.js",
     "lint": "eslint src/**/*.ts",
     "eval": "tsx src/eval/runner.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
-    "@kaoyan/shared": "workspace:*",
+    "@tutor/shared": "workspace:*",
     "express": "^4.21.2",
     "ioredis": "^5.4.1",
     "js-yaml": "^4.1.0",

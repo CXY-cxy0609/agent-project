@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { LearningAnalytics, WeaknessLevel } from '@kaoyan/shared';
+import type { LearningAnalytics, WeaknessLevel } from '@tutor/shared';
 
 defineProps<{
   analytics: LearningAnalytics | null;

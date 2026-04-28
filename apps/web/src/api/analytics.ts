@@ -1,5 +1,5 @@
 import http from './http';
-import type { LearningAnalytics } from '@kaoyan/shared';
+import type { LearningAnalytics } from '@tutor/shared';
 import { USE_MOCK } from '@/mock/config';
 import { mockAnalyticsApi } from '@/mock/handlers/analytics';
 

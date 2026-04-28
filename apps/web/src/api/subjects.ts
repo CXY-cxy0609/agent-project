@@ -1,5 +1,5 @@
 import http from './http';
-import type { Subject, UserSubject, CreateSubjectDto, UpdateSubjectDto, SubjectOutline } from '@kaoyan/shared';
+import type { Subject, UserSubject, CreateSubjectDto, UpdateSubjectDto, SubjectOutline } from '@tutor/shared';
 import { USE_MOCK } from '@/mock/config';
 import { mockSubjectsApi } from '@/mock/handlers/subjects';
 

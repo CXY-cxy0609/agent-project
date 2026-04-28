@@ -74,7 +74,7 @@ import WeakPointsCard from '@/components/analytics/WeakPointsCard.vue';
 import AnalyticsSummaryCard from '@/components/analytics/AnalyticsSummaryCard.vue';
 import AnalyticsStatsCard from '@/components/analytics/AnalyticsStatsCard.vue';
 import SubjectOutlineCard from '@/components/analytics/SubjectOutlineCard.vue';
-import type { LearningAnalytics } from '@kaoyan/shared';
+import type { LearningAnalytics } from '@tutor/shared';
 
 const subjectStore = useSubjectStore();
 

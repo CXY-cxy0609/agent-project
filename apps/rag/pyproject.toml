@@ -1,5 +1,5 @@
 [project]
-name = "kaoyan-rag"
+name = "tutor-rag"
 version = "0.0.1"
 description = "考研辅导平台 RAG 知识库服务 (FastAPI + Qdrant，无 LangChain)"
 requires-python = ">=3.9"

@@ -1,4 +1,4 @@
-import type { LoginByPasswordDto, LoginByCodeDto, RegisterDto, UpdatePasswordDto, User } from '@kaoyan/shared';
+import type { LoginByPasswordDto, LoginByCodeDto, RegisterDto, UpdatePasswordDto, User } from '@tutor/shared';
 import { MOCK_USER, MOCK_TOKEN } from '../data';
 import type { LoginResponse } from '@/api/auth';
 

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { UserSubject } from '@kaoyan/shared';
+import type { UserSubject } from '@tutor/shared';
 
 export const useSubjectStore = defineStore('subject', () => {
   const subjects = ref<UserSubject[]>([]);

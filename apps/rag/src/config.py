@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     # Vector Store (Qdrant)
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str = ""
-    qdrant_collection: str = "kaoyan_knowledge"
-    qdrant_user_memory_collection: str = "kaoyan_user_memory"
-    qdrant_video_cache_collection: str = "kaoyan_video_cache"
+    qdrant_collection: str = "tutor_knowledge"
+    qdrant_user_memory_collection: str = "tutor_user_memory"
+    qdrant_video_cache_collection: str = "tutor_video_cache"
 
     # Embedding Model
     embedding_model: str = "BAAI/bge-m3"

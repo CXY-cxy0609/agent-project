@@ -49,7 +49,7 @@ import { ref, h, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { SearchOutlined } from '@ant-design/icons-vue';
 import { subjectsApi } from '@/api/subjects';
-import type { Subject } from '@kaoyan/shared';
+import type { Subject } from '@tutor/shared';
 
 const props = defineProps<{
   open: boolean;

@@ -1,5 +1,5 @@
 import http from './http';
-import type { LoginByPasswordDto, LoginByCodeDto, RegisterDto, UpdatePasswordDto, User, AuthToken } from '@kaoyan/shared';
+import type { LoginByPasswordDto, LoginByCodeDto, RegisterDto, UpdatePasswordDto, User, AuthToken } from '@tutor/shared';
 import { USE_MOCK } from '@/mock/config';
 import { mockAuthApi } from '@/mock/handlers/auth';
 

@@ -34,7 +34,7 @@
 <script setup lang="ts">
 import { QuestionCircleOutlined, SyncOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
-import type { LearningAnalytics } from '@kaoyan/shared';
+import type { LearningAnalytics } from '@tutor/shared';
 
 defineProps<{
   analytics: LearningAnalytics | null;

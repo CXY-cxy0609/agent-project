@@ -1,4 +1,4 @@
-# RAG 服务（`kaoyan-rag`）
+# RAG 服务（`tutor-rag`）
 
 基于 FastAPI + Qdrant + sentence-transformers 的知识检索服务，负责文档解析、切分、向量化、检索与重排，并向 Agent 提供统一 HTTP 接口。
 

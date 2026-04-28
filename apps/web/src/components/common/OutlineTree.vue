@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import type { SubjectOutline } from '@kaoyan/shared';
+import type { SubjectOutline } from '@tutor/shared';
 
 interface WeakPoint {
   keyword: string;

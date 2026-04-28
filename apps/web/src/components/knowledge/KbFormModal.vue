@@ -36,7 +36,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { KnowledgeBase } from '@kaoyan/shared';
+import type { KnowledgeBase } from '@tutor/shared';
 
 interface KbFormData {
   name: string;

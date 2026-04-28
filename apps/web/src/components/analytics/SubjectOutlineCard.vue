@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import OutlineTree from '@/components/common/OutlineTree.vue';
-import type { UserSubject } from '@kaoyan/shared';
+import type { UserSubject } from '@tutor/shared';
 
 interface WeakPoint {
   keyword: string;

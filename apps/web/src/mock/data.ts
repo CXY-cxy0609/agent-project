@@ -7,7 +7,7 @@ import type {
   Message,
   KnowledgeBase,
   LearningAnalytics,
-} from '@kaoyan/shared';
+} from '@tutor/shared';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 

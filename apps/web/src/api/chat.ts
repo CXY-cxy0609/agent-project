@@ -1,5 +1,5 @@
 import http from './http';
-import type { Conversation, Message, ConversationListQuery, PageResult } from '@kaoyan/shared';
+import type { Conversation, Message, ConversationListQuery, PageResult } from '@tutor/shared';
 import { USE_MOCK } from '@/mock/config';
 import { mockChatApi } from '@/mock/handlers/chat';
 
@@ -27,7 +27,7 @@ const realChatApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('kaoyan-auth') ? JSON.parse(localStorage.getItem('kaoyan-auth')!).token?.accessToken : ''}`,
+        Authorization: `Bearer ${localStorage.getItem('tutor-auth') ? JSON.parse(localStorage.getItem('tutor-auth')!).token?.accessToken : ''}`,
       },
       body: JSON.stringify(data),
       signal: ctrl.signal,

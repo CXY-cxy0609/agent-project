@@ -1,4 +1,4 @@
-import type { KnowledgeBase, KnowledgeFile, CreateKnowledgeBaseDto, UpdateKnowledgeBaseDto, KnowledgeBaseQuery } from '@kaoyan/shared';
+import type { KnowledgeBase, KnowledgeFile, CreateKnowledgeBaseDto, UpdateKnowledgeBaseDto, KnowledgeBaseQuery } from '@tutor/shared';
 import { MOCK_KNOWLEDGE_BASES } from '../data';
 
 const delay = (ms = 400) => new Promise<void>((resolve) => setTimeout(resolve, ms));

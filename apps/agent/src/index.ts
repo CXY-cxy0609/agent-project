@@ -11,13 +11,13 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 
 const PORT = process.env.PORT ?? 8001;
-const config = loadConfig();
-const { orchestratorAgent, knowledgeBaseAgent } = createContainer(config);
+const config = loadConfig();  // 加载配置
+const { orchestratorAgent, knowledgeBaseAgent } = createContainer(config);  // 创建容器
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'kaoyan-agent', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'tutor-agent', timestamp: new Date().toISOString() });
 });
 
 // ─── Chat Stream ──────────────────────────────────────────────────────────────
@@ -49,21 +49,21 @@ app.post('/chat/stream', async (req, res) => {
 
   const ctx = {
     userId,
-    sessionId: conversationId ?? uuidv4(),
-    traceId: uuidv4(),
+    sessionId: conversationId ?? uuidv4(),  // 会话 ID
+    traceId: uuidv4(),  // 链路 ID
   };
 
-  const sendEvent = (data: unknown) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const sendEvent = (data: unknown) => {  // 发送事件
+    res.write(`data: ${JSON.stringify(data)}\n\n`);  // 发送 SSE 事件
   };
 
   try {
-    sendEvent({ type: 'start', traceId: ctx.traceId });
+    sendEvent({ type: 'start', traceId: ctx.traceId });  // 发送开始事件
 
-    const result = await orchestratorAgent.run(
+    const result = await orchestratorAgent.run(  // 运行 orchestratorAgent
       {
         userMessage: content,
-        subjectId,
+        subjectId,  // 学科 ID
         conversationId,
         imageBase64,
         imageMediaType,
@@ -71,12 +71,12 @@ app.post('/chat/stream', async (req, res) => {
       ctx,
     );
 
-    sendEvent({
+    sendEvent({  // 发送回复事件
       type: 'reply',
       content: result.reply,
-      intent: result.intent,
-      videoUrl: result.videoUrl,
-      conversationId: result.conversationId,
+      intent: result.intent,  // 意图
+      videoUrl: result.videoUrl,  // 视频 URL
+      conversationId: result.conversationId,  // 会话 ID
     });
 
     sendEvent({ type: 'done' });

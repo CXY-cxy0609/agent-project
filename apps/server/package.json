@@ -1,5 +1,5 @@
 {
-  "name": "@kaoyan/server",
+  "name": "@tutor/server",
   "version": "0.0.1",
   "private": true,
   "description": "考研辅导平台后端服务 (NestJS)",
@@ -12,7 +12,7 @@
     "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
-    "@kaoyan/shared": "workspace:*",
+    "@tutor/shared": "workspace:*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",

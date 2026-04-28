@@ -1,4 +1,4 @@
-import type { Conversation, Message, ConversationListQuery, PageResult } from '@kaoyan/shared';
+import type { Conversation, Message, ConversationListQuery, PageResult } from '@tutor/shared';
 import { MOCK_CONVERSATIONS, MOCK_MESSAGES, MOCK_STREAM_RESPONSE } from '../data';
 
 const delay = (ms = 400) => new Promise<void>((resolve) => setTimeout(resolve, ms));

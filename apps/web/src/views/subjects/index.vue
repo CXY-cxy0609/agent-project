@@ -106,7 +106,7 @@ import { useSubjectStore } from '@/stores/subject';
 import SubjectFormModal from '@/components/subjects/SubjectFormModal.vue';
 import SubjectSearchModal from '@/components/subjects/SubjectSearchModal.vue';
 import SubjectOutlineModal from '@/components/subjects/SubjectOutlineModal.vue';
-import type { UserSubject, SubjectOutline } from '@kaoyan/shared';
+import type { UserSubject, SubjectOutline } from '@tutor/shared';
 
 const subjectStore = useSubjectStore();
 

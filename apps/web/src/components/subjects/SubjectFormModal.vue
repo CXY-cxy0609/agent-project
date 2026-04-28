@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { UserSubject } from '@kaoyan/shared';
+import type { UserSubject } from '@tutor/shared';
 
 interface SubjectFormData {
   name: string;
