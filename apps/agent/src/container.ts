@@ -4,7 +4,7 @@
  */
 
 import Redis from 'ioredis';
-import { LLMClient } from './harness/core/llm-client.js';
+import { createLLMClient } from './harness/core/llm-client.js';
 import { ToolRegistry } from './harness/tool/tool.js';
 import { RagClient } from './harness/rag-client/rag-client.js';
 import { InMemoryShortTermMemory, RedisShortTermMemory } from './harness/memory/short-term.js';
@@ -24,7 +24,14 @@ import { createStorageUploadTool } from './tools/storage-upload.tool.js';
 import { eventBus, EVENTS, type QaCompletedEvent } from './events/event-bus.js';
 
 export interface AppConfig {
+  /** LLM Provider 选择，默认 anthropic */
+  llmProvider?: 'anthropic' | 'doubao';
+  /** Anthropic API Key */
   anthropicApiKey?: string;
+  /** 豆包（火山引擎）API Key */
+  doubaoApiKey?: string;
+  /** 豆包 API BaseURL，默认火山引擎北京区 */
+  doubaoBaseUrl?: string;
   ragServiceUrl: string;
   serverUrl: string;
   internalToken: string;
@@ -40,7 +47,12 @@ export interface AppContainer {
 
 export function createContainer(config: AppConfig): AppContainer {
   // ─── 核心基础设施 ──────────────────────────────────────────────────
-  const llm = new LLMClient(config.anthropicApiKey);
+  const llm = createLLMClient({
+    provider: config.llmProvider,
+    anthropicApiKey: config.anthropicApiKey,
+    doubaoApiKey: config.doubaoApiKey,
+    doubaoBaseUrl: config.doubaoBaseUrl,
+  });
 
   let redis: Redis | undefined;
   const memory = (() => {
@@ -140,7 +152,10 @@ export function createContainer(config: AppConfig): AppContainer {
 
 export function loadConfig(): AppConfig {
   return {
+    llmProvider: (process.env.LLM_PROVIDER as 'anthropic' | 'doubao' | undefined) ?? 'anthropic',
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    doubaoApiKey: process.env.DOUBAO_API_KEY,
+    doubaoBaseUrl: process.env.DOUBAO_BASE_URL,
     ragServiceUrl: process.env.RAG_SERVICE_URL ?? 'http://localhost:8000',
     serverUrl: process.env.SERVER_URL ?? 'http://localhost:3000',
     internalToken: process.env.INTERNAL_TOKEN ?? '',
