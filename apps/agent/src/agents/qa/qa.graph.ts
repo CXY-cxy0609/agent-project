@@ -63,10 +63,13 @@ export function buildQANodes(
     const question = state.processedQuestion ?? state.question;
     const subject = state.subjectId ?? '通用';
 
+    const ragContext = state.ragContext
+      ? `### 知识库参考资料\n\n${state.ragContext}`
+      : '';
+
     const { messages, systemPrompt, cacheBreakpoint } = new PromptBuilder()
       .setPersona(QA_PERSONA, { subject })
-      .setContext(state.ragContext ?? '')
-      .setTask(QA_TASK, { question })
+      .setTask(QA_TASK, { question, ragContext })
       .setOutputFormat(QA_OUTPUT_SCHEMA)
       .build();
 

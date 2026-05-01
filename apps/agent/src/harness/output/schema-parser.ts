@@ -28,7 +28,9 @@ export class SchemaParser {
       })
       .join('\n');
 
-    return `请严格按照以下 YAML 格式输出，不要输出其他内容：
+    return `## 输出要求
+
+请严格按照以下 YAML 格式输出，不要输出其他内容：
 
 \`\`\`yaml
 ${schema.fields.map((f) => `${f.name}: <${f.type}>`).join('\n')}

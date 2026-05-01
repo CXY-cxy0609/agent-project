@@ -1,11 +1,13 @@
 /**
  * 分层 Prompt 构建器
  *
- * 四层结构（从下到上）：
- *   Layer 1: 角色定义（Persona）      ← 静态，适合 cache breakpoint
- *   Layer 2: 任务描述（Task）         ← 动态，包含用户输入
- *   Layer 3: 上下文信息（Context）    ← 动态，RAG 召回内容
- *   Layer 4: 输出要求（Output Format） ← 静态规则，可加入 Persona cache
+ * 四层结构（system / user 两条消息）：
+ *   system = [角色定义 Persona] + [输出要求 OutputFormat]
+ *   user   = [任务要求 + 上下文信息 Task]
+ *
+ * 上下文信息（RAG、对话历史等）优先通过 task.md 模板变量（{{ragContext}} 等）注入，
+ * 使 prompt 文件本身即为完整的结构文档。
+ * setContext() 保留作为备用，适用于无法提前在模板中声明的动态上下文。
  */
 
 import type { Message } from '../core/types.js';

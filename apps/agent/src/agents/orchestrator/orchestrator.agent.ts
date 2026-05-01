@@ -79,7 +79,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
       .setPersona(ORCHESTRATOR_PERSONA, {})
       .setTask(ORCHESTRATOR_TASK, {
         userMessage: input.userMessage,
-        subjectHint: input.subjectId ? `（用户当前科目：${input.subjectId}）` : '',
+        subjectHint: input.subjectId ? `### 当前科目\n\n${input.subjectId}` : '',
       })
       .setOutputFormat(INTENT_OUTPUT_SCHEMA)
       .build();
