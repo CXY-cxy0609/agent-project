@@ -10,17 +10,17 @@
 
 from __future__ import annotations
 
-import uvicorn
+import uvicorn  # 启动 FastAPI 应用
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel  # 数据模型
 from typing import Optional
 
-from .config import settings
-from .pipeline.retrieval_pipeline import retrieval_pipeline
-from .indexer.indexer import indexer_service
-from .indexer.document_parser import parse_document
-from .services.memory_service import user_memory_service, content_cache_service
+from .config import settings  # 配置
+from .pipeline.retrieval_pipeline import retrieval_pipeline  # 检索管道
+from .indexer.indexer import indexer_service  # 索引器
+from .indexer.document_parser import parse_document  # 文档解析器
+from .services.memory_service import user_memory_service, content_cache_service  # 记忆服务
 
 app = FastAPI(
     title="考研辅导 RAG 服务",
@@ -29,11 +29,11 @@ app = FastAPI(
 )
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware,  # 跨域中间件
+    allow_origins=["*"],  # 允许所有源
+    allow_credentials=True,  # 允许携带凭证
+    allow_methods=["*"],  # 允许所有方法
+    allow_headers=["*"],  # 允许所有头
 )
 
 
@@ -41,31 +41,31 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tutor-rag"}
+    return {"status": "ok", "service": "tutor-rag"}  # 健康检查
 
 
 # ─── Retrieve ────────────────────────────────────────────────────────────────
 
 class RetrieveRequest(BaseModel):
-    query: str
-    subject_id: Optional[str] = None
-    knowledge_base_id: Optional[str] = None
-    top_k: int = 5
+    query: str  # 查询
+    subject_id: Optional[str] = None  # 学科 ID
+    knowledge_base_id: Optional[str] = None  # 知识库 ID
+    top_k: int = 5  # 返回数量
 
 
 class ChunkInfo(BaseModel):
-    content: str
-    score: float
-    metadata: dict
+    content: str  # 内容
+    score: float  # 分数
+    metadata: dict  # 元数据
 
 
 class RetrieveResponse(BaseModel):
-    context: str
-    chunks: list[ChunkInfo]
+    context: str  # 上下文
+    chunks: list[ChunkInfo]  # 块信息
 
 
 @app.post("/retrieve", response_model=RetrieveResponse)
-async def retrieve(req: RetrieveRequest):
+async def retrieve(req: RetrieveRequest):  # 检索
     """
     RAG 检索接口：Query 预处理 → 向量检索 → Rerank → 上下文构建
     """
@@ -96,7 +96,7 @@ class IndexResponse(BaseModel):
 
 
 @app.post("/index/upload", response_model=IndexResponse)
-async def index_upload(
+async def index_upload(  # 上传文档
     file: UploadFile = File(...),
     knowledge_base_id: str = Form(...),
     subject_id: str = Form(...),
