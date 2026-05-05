@@ -41,88 +41,174 @@ export const MOCK_TOKEN: AuthToken = {
 
 export const MOCK_SUBJECTS: UserSubject[] = [
   {
-    id: 'subj-001',
+    id: 101,
     name: '高等数学',
-    code: 'MATH101',
+    code: 1001,
+    parentId: null,
+    level: 1,
     description: '理工科考研必备，涵盖微积分、级数、微分方程等核心内容',
     isOwner: false,
     createdAt: '2025-01-10T00:00:00.000Z',
     updatedAt: '2025-03-01T00:00:00.000Z',
     outline: {
-      chapters: [
+      modules: [
         {
-          id: 'ch-001',
+          id: 10001,
           title: '函数与极限',
           order: 1,
-          sections: [
-            { id: 'sec-001', title: '函数的概念与性质', order: 1 },
-            { id: 'sec-002', title: '数列极限', order: 2 },
-            { id: 'sec-003', title: '函数极限', order: 3 },
+          topics: [
+            {
+              id: 11001,
+              title: '函数基础',
+              order: 1,
+              points: [
+                { id: 12001, title: '函数的概念与性质', order: 1 },
+                { id: 12002, title: '初等函数定义域与值域', order: 2 },
+              ],
+            },
+            {
+              id: 11002,
+              title: '极限理论',
+              order: 2,
+              points: [
+                { id: 12003, title: '数列极限', order: 1 },
+                { id: 12004, title: '函数极限', order: 2 },
+                { id: 12005, title: '夹逼定理与洛必达法则', order: 3 },
+              ],
+            },
           ],
         },
         {
-          id: 'ch-002',
+          id: 10002,
           title: '导数与微分',
           order: 2,
-          sections: [
-            { id: 'sec-004', title: '导数的概念', order: 1 },
-            { id: 'sec-005', title: '求导法则', order: 2 },
-            { id: 'sec-006', title: '高阶导数', order: 3 },
+          topics: [
+            {
+              id: 11003,
+              title: '导数计算',
+              order: 1,
+              points: [
+                { id: 12006, title: '导数的概念', order: 1 },
+                { id: 12007, title: '求导法则', order: 2 },
+                { id: 12008, title: '高阶导数', order: 3 },
+              ],
+            },
+            {
+              id: 11004,
+              title: '应用题型',
+              order: 2,
+              points: [
+                { id: 12009, title: '隐函数求导', order: 1 },
+                { id: 12010, title: '相关变化率', order: 2 },
+              ],
+            },
           ],
         },
         {
-          id: 'ch-003',
+          id: 10003,
           title: '积分学',
           order: 3,
-          sections: [
-            { id: 'sec-007', title: '不定积分', order: 1 },
-            { id: 'sec-008', title: '定积分', order: 2 },
-            { id: 'sec-009', title: '广义积分', order: 3 },
+          topics: [
+            {
+              id: 11005,
+              title: '积分计算',
+              order: 1,
+              points: [
+                { id: 12011, title: '不定积分', order: 1 },
+                { id: 12012, title: '定积分', order: 2 },
+                { id: 12013, title: '分部积分与换元法', order: 3 },
+              ],
+            },
+            {
+              id: 11006,
+              title: '广义积分',
+              order: 2,
+              points: [
+                { id: 12014, title: '广义积分收敛判别', order: 1 },
+              ],
+            },
           ],
         },
       ],
     },
   },
   {
-    id: 'subj-002',
+    id: 102,
     name: '线性代数',
-    code: 'MATH102',
+    code: 1002,
+    parentId: null,
+    level: 1,
     description: '矩阵、行列式、向量空间、线性变换等基础内容',
     isOwner: false,
     createdAt: '2025-01-10T00:00:00.000Z',
     updatedAt: '2025-02-15T00:00:00.000Z',
     outline: {
-      chapters: [
+      modules: [
         {
-          id: 'ch-101',
+          id: 20001,
           title: '行列式',
           order: 1,
-          sections: [
-            { id: 'sec-101', title: '行列式的定义', order: 1 },
-            { id: 'sec-102', title: '行列式的性质', order: 2 },
+          topics: [
+            {
+              id: 21001,
+              title: '核心概念',
+              order: 1,
+              points: [
+                { id: 22001, title: '行列式的定义', order: 1 },
+                { id: 22002, title: '行列式的性质', order: 2 },
+              ],
+            },
           ],
         },
         {
-          id: 'ch-102',
+          id: 20002,
           title: '矩阵',
           order: 2,
-          sections: [
-            { id: 'sec-103', title: '矩阵的运算', order: 1 },
-            { id: 'sec-104', title: '逆矩阵', order: 2 },
-            { id: 'sec-105', title: '矩阵的秩', order: 3 },
+          topics: [
+            {
+              id: 21002,
+              title: '基础运算',
+              order: 1,
+              points: [
+                { id: 22003, title: '矩阵的运算', order: 1 },
+                { id: 22004, title: '逆矩阵', order: 2 },
+              ],
+            },
+            {
+              id: 21003,
+              title: '结构分析',
+              order: 2,
+              points: [
+                { id: 22005, title: '矩阵的秩', order: 1 },
+                { id: 22006, title: '特征值与特征向量', order: 2 },
+              ],
+            },
           ],
         },
       ],
     },
   },
   {
-    id: 'subj-003',
+    id: 103,
     name: '英语',
-    code: 'ENG101',
+    code: 2001,
+    parentId: null,
+    level: 1,
     description: '考研英语一/二，阅读理解、完型填空、写作全覆盖',
     isOwner: false,
     createdAt: '2025-01-10T00:00:00.000Z',
     updatedAt: '2025-03-10T00:00:00.000Z',
+  },
+  {
+    id: 201,
+    name: '高数（强化）',
+    code: 100101,
+    parentId: 101,
+    level: 2,
+    description: '高等数学强化阶段子学科，聚焦高频题型与跨章节综合',
+    isOwner: true,
+    createdAt: '2025-03-20T00:00:00.000Z',
+    updatedAt: '2025-04-10T00:00:00.000Z',
   },
 ];
 
@@ -134,7 +220,7 @@ export const MOCK_CONVERSATIONS: Conversation[] = [
   {
     id: 'conv-001',
     title: '如何求解极限 lim(x→0) sinx/x？',
-    subjectId: 'subj-001',
+    subjectId: 101,
     subjectName: '高等数学',
     userId: 'mock-user-001',
     messageCount: 4,
@@ -144,7 +230,7 @@ export const MOCK_CONVERSATIONS: Conversation[] = [
   {
     id: 'conv-002',
     title: '矩阵乘法的结合律证明',
-    subjectId: 'subj-002',
+    subjectId: 102,
     subjectName: '线性代数',
     userId: 'mock-user-001',
     messageCount: 6,
@@ -154,7 +240,7 @@ export const MOCK_CONVERSATIONS: Conversation[] = [
   {
     id: 'conv-003',
     title: '完型填空解题技巧',
-    subjectId: 'subj-003',
+    subjectId: 103,
     subjectName: '英语',
     userId: 'mock-user-001',
     messageCount: 2,
@@ -232,7 +318,7 @@ export const MOCK_KNOWLEDGE_BASES: KnowledgeBase[] = [
   {
     id: 'kb-001',
     name: '高数真题解析',
-    subjectId: 'subj-001',
+    subjectId: 101,
     subjectName: '高等数学',
     type: 'public',
     userId: 'mock-user-001',
@@ -269,7 +355,7 @@ export const MOCK_KNOWLEDGE_BASES: KnowledgeBase[] = [
   {
     id: 'kb-002',
     name: '线性代数笔记',
-    subjectId: 'subj-002',
+    subjectId: 102,
     subjectName: '线性代数',
     type: 'private',
     userId: 'mock-user-001',
@@ -296,10 +382,10 @@ export const MOCK_KNOWLEDGE_BASES: KnowledgeBase[] = [
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 
-export const MOCK_ANALYTICS: Record<string, LearningAnalytics> = {
-  'subj-001': {
+export const MOCK_ANALYTICS: Record<number, LearningAnalytics> = {
+  101: {
     userId: 'mock-user-001',
-    subjectId: 'subj-001',
+    subjectId: 101,
     subjectName: '高等数学',
     weakPoints: [
       { id: 'wp-001', keyword: '洛必达法则', level: 'high', count: 8, relatedChapter: '函数与极限' },
@@ -323,9 +409,9 @@ export const MOCK_ANALYTICS: Record<string, LearningAnalytics> = {
     summaryGeneratedAt: '2025-04-15T10:00:00.000Z',
     updatedAt: '2025-04-15T10:00:00.000Z',
   },
-  'subj-002': {
+  102: {
     userId: 'mock-user-001',
-    subjectId: 'subj-002',
+    subjectId: 102,
     subjectName: '线性代数',
     weakPoints: [
       { id: 'wp-101', keyword: '特征值与特征向量', level: 'high', count: 7, relatedChapter: '矩阵' },

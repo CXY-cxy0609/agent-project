@@ -25,10 +25,10 @@
         v-model:activeKey="activeSubjectId"
         class="subject-tabs"
         type="card"
-        @change="loadAnalytics"
+        @change="handleTabChange"
       >
         <a-tab-pane
-          v-for="subject in subjectStore.subjects"
+          v-for="subject in rootSubjects"
           :key="subject.id"
           :tab="subject.name"
         />
@@ -36,29 +36,38 @@
 
       <a-spin :spinning="loading" class="analytics-content">
         <a-row :gutter="[16, 16]">
-          <a-col :span="16">
+          <a-col :xs="24" :xl="16">
             <weak-points-card :analytics="analytics" />
           </a-col>
 
-          <a-col :span="8">
-            <analytics-summary-card
-              :analytics="analytics"
-              :generating-summary="generatingSummary"
-              @generate="generateSummary"
-            />
-            <analytics-stats-card
-              :analytics="analytics"
-              style="margin-top: 16px"
-            />
+          <a-col :xs="24" :xl="8">
+            <div class="analytics-side-column">
+              <analytics-summary-card
+                :analytics="analytics"
+                :generating-summary="generatingSummary"
+                @generate="generateSummary"
+              />
+              <analytics-stats-card :analytics="analytics" />
+            </div>
           </a-col>
         </a-row>
 
-        <subject-outline-card
-          v-if="activeSubject?.outline"
-          :subject="activeSubject"
-          :weak-points="analytics?.weakPoints"
-          style="margin-top: 16px"
-        />
+        <div class="outline-section">
+          <subject-outline-card
+            v-if="activeSubjectWithOutline"
+            :subject="activeSubjectWithOutline"
+            :weak-points="analytics?.weakPoints"
+          />
+
+          <div v-if="secondarySubjectsForOutline.length > 0" class="secondary-outline-grid">
+            <subject-outline-card
+              v-for="subject in secondarySubjectsForOutline"
+              :key="subject.id"
+              :subject="subject"
+              :weak-points="analytics?.weakPoints"
+            />
+          </div>
+        </div>
       </a-spin>
     </template>
   </div>
@@ -74,21 +83,42 @@ import WeakPointsCard from '@/components/analytics/WeakPointsCard.vue';
 import AnalyticsSummaryCard from '@/components/analytics/AnalyticsSummaryCard.vue';
 import AnalyticsStatsCard from '@/components/analytics/AnalyticsStatsCard.vue';
 import SubjectOutlineCard from '@/components/analytics/SubjectOutlineCard.vue';
-import type { LearningAnalytics } from '@tutor/shared';
+import type { LearningAnalytics, UserSubject } from '@tutor/shared';
 
 const subjectStore = useSubjectStore();
 
 const loading = ref(false);
 const generatingSummary = ref(false);
-const activeSubjectId = ref<string>('');
+const activeSubjectId = ref<number>();
 const analytics = ref<LearningAnalytics | null>(null);
 
+const rootSubjects = computed(() =>
+  subjectStore.subjects
+    .filter((subject) => subject.level === 1)
+    .sort((a, b) => a.code - b.code),
+);
+
 const activeSubject = computed(() =>
-  subjectStore.subjects.find((s) => s.id === activeSubjectId.value),
+  rootSubjects.value.find((s) => s.id === activeSubjectId.value),
+);
+
+const activeSubjectWithOutline = computed(() => {
+  if (!activeSubject.value?.outline) return null;
+  return activeSubject.value as UserSubject & { outline: NonNullable<UserSubject['outline']> };
+});
+
+const secondarySubjectsForOutline = computed(() =>
+  subjectStore.subjects
+    .filter((subject) => subject.level === 2 && subject.parentId === activeSubjectId.value)
+    .sort((a, b) => a.code - b.code)
+    .map((subject) => ({
+      ...subject,
+      outline: subject.outline ?? { modules: [] },
+    })) as Array<UserSubject & { outline: NonNullable<UserSubject['outline']> }>,
 );
 
 async function loadAnalytics() {
-  if (!activeSubjectId.value) return;
+  if (activeSubjectId.value === undefined) return;
   loading.value = true;
   try {
     analytics.value = await analyticsApi.getAnalytics(activeSubjectId.value);
@@ -99,8 +129,14 @@ async function loadAnalytics() {
   }
 }
 
+function handleTabChange(id: number) {
+  subjectStore.setActiveSubject(id);
+  activeSubjectId.value = id;
+  loadAnalytics();
+}
+
 async function generateSummary() {
-  if (!activeSubjectId.value) return;
+  if (activeSubjectId.value === undefined) return;
   generatingSummary.value = true;
   try {
     const result = await analyticsApi.generateSummary(activeSubjectId.value);
@@ -116,8 +152,13 @@ async function generateSummary() {
 
 onMounted(async () => {
   await subjectsApi.getMySubjects().then((list) => subjectStore.setSubjects(list)).catch(() => {});
-  if (subjectStore.subjects.length > 0) {
-    activeSubjectId.value = subjectStore.activeSubjectId || subjectStore.subjects[0].id;
+  if (rootSubjects.value.length > 0) {
+    const preferredId = subjectStore.activeSubjectId;
+    const initialRoot =
+      rootSubjects.value.find((subject) => subject.id === preferredId) ??
+      rootSubjects.value.find((subject) => subject.id === subjectStore.subjects.find((s) => s.id === preferredId)?.parentId) ??
+      rootSubjects.value[0];
+    activeSubjectId.value = initialRoot.id;
     await loadAnalytics();
   }
 });
@@ -126,10 +167,15 @@ onMounted(async () => {
 <style scoped lang="less">
 .page-container {
   padding: 24px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .page-header {
   margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .page-title {
@@ -152,6 +198,9 @@ onMounted(async () => {
 
 .subject-tabs {
   margin-bottom: 20px;
+  :deep(.ant-tabs-nav-wrap) {
+    overflow-x: auto;
+  }
 }
 
 :deep(.ant-tabs-card .ant-tabs-tab) {
@@ -169,5 +218,25 @@ onMounted(async () => {
 
 .analytics-content {
   width: 100%;
+  overflow: visible;
+}
+
+.outline-section {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.secondary-outline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.analytics-side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 </style>

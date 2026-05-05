@@ -3,6 +3,7 @@
     <div class="card-header">
       <span class="card-title">{{ subject.name }} 大纲</span>
       <span class="outline-legend">
+        <span class="legend-label">薄弱等级：</span>
         <span class="legend-item high">高危</span>
         <span class="legend-item medium">需注意</span>
         <span class="legend-item low">良好</span>
@@ -59,7 +60,14 @@ defineProps<{
 
 .outline-legend {
   display: flex;
+  align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.legend-label {
+  font-size: 12px;
+  color: @color-text-muted;
 }
 
 .legend-item {

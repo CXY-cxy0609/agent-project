@@ -3,16 +3,16 @@ import { MOCK_ANALYTICS } from '../data';
 
 const delay = (ms = 400) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-const _analytics: Record<string, LearningAnalytics> = JSON.parse(JSON.stringify(MOCK_ANALYTICS));
+const _analytics: Record<number, LearningAnalytics> = JSON.parse(JSON.stringify(MOCK_ANALYTICS));
 
 export const mockAnalyticsApi = {
-  async getAnalytics(subjectId: string): Promise<LearningAnalytics> {
+  async getAnalytics(subjectId: number): Promise<LearningAnalytics> {
     await delay();
     const data = _analytics[subjectId];
     if (!data) {
       return {
         userId: 'mock-user-001',
-        subjectId,
+        subjectId: Number(subjectId),
         subjectName: '未知学科',
         weakPoints: [],
         wordCloud: [],
@@ -22,7 +22,7 @@ export const mockAnalyticsApi = {
     return { ...data };
   },
 
-  async generateSummary(subjectId: string): Promise<{ summary: string }> {
+  async generateSummary(subjectId: number): Promise<{ summary: string }> {
     await delay(1200);
     const summary =
       _analytics[subjectId]?.summary ??

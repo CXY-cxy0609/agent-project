@@ -25,49 +25,74 @@
     <!-- Edit Mode -->
     <div v-else class="outline-edit">
       <div
-        v-for="(chapter, ci) in localOutline.chapters"
-        :key="chapter.id"
-        class="oe-chapter"
+        v-for="(module, mi) in localOutline.modules"
+        :key="module.id"
+        class="oe-module"
       >
-        <div class="oe-chapter-header">
-          <span class="oe-num">第 {{ chapter.order }} 章</span>
+        <div class="oe-module-header">
+          <span class="oe-num">模块 {{ module.order }}</span>
           <a-input
-            v-model:value="chapter.title"
+            v-model:value="module.title"
             size="small"
-            placeholder="章节标题"
+            placeholder="一级标题（如：函数与极限）"
             class="oe-title-input"
           />
-          <a-button size="small" type="text" danger @click="removeChapter(ci)">
+          <a-button size="small" type="text" danger @click="removeModule(mi)">
             <DeleteOutlined />
           </a-button>
         </div>
 
-        <div class="oe-sections">
+        <div class="oe-topics">
           <div
-            v-for="(sec, si) in chapter.sections"
-            :key="sec.id"
-            class="oe-section"
+            v-for="(topic, ti) in module.topics"
+            :key="topic.id"
+            class="oe-topic"
           >
-            <span class="oe-sec-num">{{ sec.order }}.</span>
-            <a-input
-              v-model:value="sec.title"
-              size="small"
-              placeholder="小节标题"
-              class="oe-title-input"
-            />
-            <a-button size="small" type="text" danger @click="removeSection(ci, si)">
-              <CloseOutlined />
+            <div class="oe-topic-header">
+              <span class="oe-sec-num">{{ module.order }}.{{ topic.order }}</span>
+              <a-input
+                v-model:value="topic.title"
+                size="small"
+                placeholder="二级标题（如：极限理论）"
+                class="oe-title-input"
+              />
+              <a-button size="small" type="text" danger @click="removeTopic(mi, ti)">
+                <CloseOutlined />
+              </a-button>
+            </div>
+
+            <div class="oe-points">
+              <div
+                v-for="(point, pi) in topic.points"
+                :key="point.id"
+                class="oe-point"
+              >
+                <span class="oe-point-num">{{ module.order }}.{{ topic.order }}.{{ point.order }}</span>
+                <a-input
+                  v-model:value="point.title"
+                  size="small"
+                  placeholder="三级知识点（如：夹逼定理）"
+                  class="oe-title-input"
+                />
+                <a-button size="small" type="text" danger @click="removePoint(mi, ti, pi)">
+                  <CloseOutlined />
+                </a-button>
+              </div>
+            </div>
+
+            <a-button size="small" type="dashed" class="add-point-btn" @click="addPoint(mi, ti)">
+              <PlusOutlined /> 添加三级知识点
             </a-button>
           </div>
         </div>
 
-        <a-button size="small" type="dashed" class="add-section-btn" @click="addSection(ci)">
-          <PlusOutlined /> 添加小节
+        <a-button size="small" type="dashed" class="add-topic-btn" @click="addTopic(mi)">
+          <PlusOutlined /> 添加二级标题
         </a-button>
       </div>
 
-      <a-button type="dashed" block class="add-chapter-btn" @click="addChapter">
-        <PlusOutlined /> 添加章节
+      <a-button type="dashed" block class="add-module-btn" @click="addModule">
+        <PlusOutlined /> 添加一级模块
       </a-button>
     </div>
   </a-modal>
@@ -92,7 +117,7 @@ const emit = defineEmits<{
 }>();
 
 const outlineMode = ref<'view' | 'edit'>('view');
-const localOutline = ref<SubjectOutline>({ chapters: [] });
+const localOutline = ref<SubjectOutline>({ modules: [] });
 
 watch(
   () => props.open,
@@ -101,7 +126,7 @@ watch(
       outlineMode.value = 'view';
       localOutline.value = props.initialOutline
         ? JSON.parse(JSON.stringify(props.initialOutline))
-        : { chapters: [] };
+        : { modules: [] };
     }
   },
 );
@@ -115,33 +140,53 @@ watch(
   },
 );
 
-function addChapter() {
-  localOutline.value.chapters.push({
-    id: `new-${Date.now()}`,
+function nextId(seed = 0) {
+  return Date.now() + Math.floor(Math.random() * 1000) + seed;
+}
+
+function addModule() {
+  localOutline.value.modules.push({
+    id: nextId(),
     title: '',
-    sections: [],
-    order: localOutline.value.chapters.length + 1,
+    topics: [],
+    order: localOutline.value.modules.length + 1,
   });
 }
 
-function removeChapter(idx: number) {
-  localOutline.value.chapters.splice(idx, 1);
-  localOutline.value.chapters.forEach((c, i) => { c.order = i + 1; });
+function removeModule(idx: number) {
+  localOutline.value.modules.splice(idx, 1);
+  localOutline.value.modules.forEach((m, i) => { m.order = i + 1; });
 }
 
-function addSection(chapterIdx: number) {
-  const chapter = localOutline.value.chapters[chapterIdx];
-  chapter.sections.push({
-    id: `new-${Date.now()}`,
+function addTopic(moduleIdx: number) {
+  const module = localOutline.value.modules[moduleIdx];
+  module.topics.push({
+    id: nextId(1),
     title: '',
-    order: chapter.sections.length + 1,
+    points: [],
+    order: module.topics.length + 1,
   });
 }
 
-function removeSection(chapterIdx: number, sectionIdx: number) {
-  const chapter = localOutline.value.chapters[chapterIdx];
-  chapter.sections.splice(sectionIdx, 1);
-  chapter.sections.forEach((s, i) => { s.order = i + 1; });
+function removeTopic(moduleIdx: number, topicIdx: number) {
+  const module = localOutline.value.modules[moduleIdx];
+  module.topics.splice(topicIdx, 1);
+  module.topics.forEach((topic, i) => { topic.order = i + 1; });
+}
+
+function addPoint(moduleIdx: number, topicIdx: number) {
+  const topic = localOutline.value.modules[moduleIdx].topics[topicIdx];
+  topic.points.push({
+    id: nextId(2),
+    title: '',
+    order: topic.points.length + 1,
+  });
+}
+
+function removePoint(moduleIdx: number, topicIdx: number, pointIdx: number) {
+  const topic = localOutline.value.modules[moduleIdx].topics[topicIdx];
+  topic.points.splice(pointIdx, 1);
+  topic.points.forEach((point, i) => { point.order = i + 1; });
 }
 
 function handleSave() {
@@ -163,17 +208,19 @@ function handleSave() {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 480px;
+  max-height: min(65vh, 560px);
   overflow-y: auto;
+  padding-right: 4px;
 }
 
-.oe-chapter {
+.oe-module {
   border: 1px solid @color-border;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 12px 14px;
+  background: linear-gradient(180deg, #fff 0%, #fafcff 100%);
 }
 
-.oe-chapter-header {
+.oe-module-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -192,15 +239,23 @@ function handleSave() {
   flex: 1;
 }
 
-.oe-sections {
+.oe-topics {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 8px;
-  padding-left: 16px;
+  padding-left: 12px;
+  border-left: 2px solid @color-border-light;
 }
 
-.oe-section {
+.oe-topic {
+  border: 1px dashed @color-border;
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(26, 58, 110, 0.02);
+}
+
+.oe-topic-header {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -213,13 +268,40 @@ function handleSave() {
   min-width: 20px;
 }
 
-.add-section-btn {
-  margin-top: 4px;
-  width: calc(100% - 16px);
-  margin-left: 16px;
+.oe-points {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 16px;
 }
 
-.add-chapter-btn {
+.oe-point {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.oe-point-num {
+  font-size: 12px;
+  color: @color-text-muted;
+  min-width: 48px;
+  flex-shrink: 0;
+}
+
+.add-point-btn {
+  margin-top: 8px;
+  margin-left: 16px;
+  width: calc(100% - 16px);
+}
+
+.add-topic-btn {
+  margin-top: 6px;
+  margin-left: 12px;
+  width: calc(100% - 12px);
+}
+
+.add-module-btn {
   margin-top: 4px;
 }
 </style>

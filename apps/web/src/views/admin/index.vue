@@ -213,7 +213,7 @@ const adminSubjectOptions = computed(() =>
 const adminKbs = ref<KnowledgeBase[]>([]);
 const kbsLoading = ref(false);
 const kbSearch = ref('');
-const kbSubjectFilter = ref<string | undefined>();
+const kbSubjectFilter = ref<number | undefined>();
 
 const kbColumns = [
   { title: '知识库名称', dataIndex: 'name', key: 'name' },
@@ -225,7 +225,7 @@ const kbColumns = [
 
 const outlineViewVisible = ref(false);
 const viewingSubject = ref<Subject | null>(null);
-const viewingOutline = ref<SubjectOutline>({ chapters: [] });
+const viewingOutline = ref<SubjectOutline>({ modules: [] });
 
 async function loadUsers() {
   usersLoading.value = true;
@@ -254,7 +254,7 @@ async function loadAdminSubjects() {
   }
 }
 
-async function adminDeleteSubject(id: string) {
+async function adminDeleteSubject(id: number) {
   await subjectsApi.adminDeleteSubject(id);
   message.success('已删除');
   loadAdminSubjects();
@@ -266,7 +266,7 @@ async function viewOutline(subject: Subject) {
   try {
     viewingOutline.value = await subjectsApi.getOutline(subject.id);
   } catch {
-    viewingOutline.value = { chapters: [] };
+    viewingOutline.value = { modules: [] };
   }
 }
 

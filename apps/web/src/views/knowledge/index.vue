@@ -105,7 +105,7 @@ const loading = ref(false);
 const saving = ref(false);
 const uploading = ref(false);
 
-const activeSubjectId = ref<string>('');
+const activeSubjectId = ref<number>();
 const typeFilter = ref('');
 const searchName = ref('');
 const knowledgeBases = ref<KnowledgeBase[]>([]);
@@ -120,7 +120,7 @@ const activeSubjectName = computed(
 );
 
 async function loadKnowledgeBases() {
-  if (!activeSubjectId.value) return;
+  if (activeSubjectId.value === undefined) return;
   loading.value = true;
   try {
     const params: Parameters<typeof knowledgeApi.getKnowledgeBases>[0] = {
@@ -155,6 +155,10 @@ async function saveKb(data: { name: string; type: 'public' | 'private'; descript
       await knowledgeApi.updateKnowledgeBase(editingKb.value.id, data);
       message.success('更新成功');
     } else {
+      if (activeSubjectId.value === undefined) {
+        message.warning('请先选择学科');
+        return;
+      }
       await knowledgeApi.createKnowledgeBase({ ...data, subjectId: activeSubjectId.value });
       message.success('创建成功');
     }

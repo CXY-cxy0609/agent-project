@@ -51,7 +51,7 @@ import { LeftOutlined, RightOutlined, BarChartOutlined, BookOutlined } from '@an
 
 interface Subject {
   name: string;
-  code: string;
+  code: number;
 }
 
 interface WeakPoint {

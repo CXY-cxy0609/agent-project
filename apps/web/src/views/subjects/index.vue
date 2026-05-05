@@ -10,7 +10,7 @@
           <SearchOutlined /> 添加已有学科
         </a-button>
         <a-button type="primary" @click="openCreateModal">
-          <PlusOutlined /> 新建学科
+          <PlusOutlined /> 新建一级学科
         </a-button>
       </div>
     </div>
@@ -24,7 +24,7 @@
       >
         <template #extra>
           <a-button @click="searchModalVisible = true">搜索已有学科</a-button>
-          <a-button type="primary" @click="openCreateModal" style="margin-left: 8px">新建学科</a-button>
+          <a-button type="primary" @click="openCreateModal" style="margin-left: 8px">新建一级学科</a-button>
         </template>
       </a-result>
     </div>
@@ -32,11 +32,13 @@
     <!-- Subjects Table -->
     <div v-else class="subjects-table-wrap">
       <a-table
-        :data-source="subjects"
+        :data-source="tableSubjects"
         :columns="columns"
         :loading="loading"
         row-key="id"
         :pagination="false"
+        :expandable="expandableConfig"
+        :row-class-name="rowClassName"
         class="subjects-table"
       >
         <template #bodyCell="{ column, record }">
@@ -45,6 +47,14 @@
           </template>
           <template v-if="column.key === 'actions'">
             <div class="table-actions">
+              <a-button
+                v-if="record.level === 1"
+                size="small"
+                type="text"
+                @click="openCreateChildModal(record)"
+              >
+                <PlusOutlined /> 子学科
+              </a-button>
               <a-button size="small" type="text" @click="openOutlineModal(record)">
                 <UnorderedListOutlined /> 大纲
               </a-button>
@@ -72,6 +82,7 @@
     <subject-form-modal
       v-model:open="formModalVisible"
       :editing-subject="editingSubject"
+      :creating-parent-subject="creatingParentSubject"
       :saving="saving"
       @save="saveSubject"
     />
@@ -92,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { message } from 'ant-design-vue';
 import {
   SearchOutlined,
@@ -106,7 +117,7 @@ import { useSubjectStore } from '@/stores/subject';
 import SubjectFormModal from '@/components/subjects/SubjectFormModal.vue';
 import SubjectSearchModal from '@/components/subjects/SubjectSearchModal.vue';
 import SubjectOutlineModal from '@/components/subjects/SubjectOutlineModal.vue';
-import type { UserSubject, SubjectOutline } from '@tutor/shared';
+import type { UserSubject, SubjectOutline, SubjectLevel } from '@tutor/shared';
 
 const subjectStore = useSubjectStore();
 
@@ -120,23 +131,68 @@ const searchModalVisible = ref(false);
 const outlineModalVisible = ref(false);
 
 const editingSubject = ref<UserSubject | null>(null);
+const creatingParentSubject = ref<UserSubject | null>(null);
 const outlineSubject = ref<UserSubject | null>(null);
-const currentOutline = ref<SubjectOutline>({ chapters: [] });
+const currentOutline = ref<SubjectOutline>({ modules: [] });
+type SubjectTreeNode = UserSubject & { children?: UserSubject[] };
+
+const tableSubjects = computed<SubjectTreeNode[]>(() => {
+  const roots = subjects.value
+    .filter((subject) => subject.level === 1)
+    .sort((a, b) => a.code - b.code);
+
+  const childrenByParent = new Map<number, UserSubject[]>();
+  subjects.value
+    .filter((subject) => subject.level === 2 && subject.parentId)
+    .forEach((subject) => {
+      const parentId = subject.parentId as number;
+      const children = childrenByParent.get(parentId) ?? [];
+      children.push(subject);
+      childrenByParent.set(parentId, children);
+    });
+
+  return roots.map((root) => ({
+    ...root,
+    children: (childrenByParent.get(root.id) ?? []).sort((a, b) => a.code - b.code),
+  }));
+});
+
+const expandableConfig = computed(() => ({
+  defaultExpandAllRows: true,
+  childrenColumnName: 'children',
+  rowExpandable: (record: SubjectTreeNode) => !!record.children?.length,
+}));
+
+function rowClassName(record: UserSubject) {
+  return record.level === 2 ? 'subject-row-child' : 'subject-row-root';
+}
 
 const columns = [
-  { title: '学科 ID', dataIndex: 'id', key: 'id', width: 120, ellipsis: true },
-  { title: '学科名称', dataIndex: 'name', key: 'name' },
-  { title: '学科编号', dataIndex: 'code', key: 'code', width: 120 },
+  { title: 'ID', dataIndex: 'id', key: 'id', width: 90, ellipsis: true },
+  { title: '学科名称', dataIndex: 'name', key: 'name', width: 280, ellipsis: true },
+  {
+    title: '层级',
+    key: 'level',
+    width: 100,
+    customRender: ({ record }: { record: UserSubject }) => (record.level === 1 ? '一级学科' : '二级学科'),
+  },
+  { title: '学科编号', dataIndex: 'code', key: 'code', width: 110 },
   { title: '说明', dataIndex: 'description', key: 'description', ellipsis: true },
-  { title: '操作', key: 'actions', width: 200, align: 'center' as const },
+  { title: '操作', key: 'actions', width: 260 },
 ];
 
 async function loadSubjects() {
   loading.value = true;
   try {
     const list = await subjectsApi.getMySubjects();
-    subjects.value = list;
-    subjectStore.setSubjects(list);
+    const normalized: UserSubject[] = list
+      .map((subject) => ({
+        ...subject,
+        level: (subject.parentId ? 2 : 1) as SubjectLevel,
+      }))
+      .sort((a, b) => a.code - b.code);
+    subjects.value = normalized;
+    subjectStore.setSubjects(normalized);
   } finally {
     loading.value = false;
   }
@@ -144,26 +200,43 @@ async function loadSubjects() {
 
 function openCreateModal() {
   editingSubject.value = null;
+  creatingParentSubject.value = null;
+  formModalVisible.value = true;
+}
+
+function openCreateChildModal(parent: UserSubject) {
+  creatingParentSubject.value = parent;
+  editingSubject.value = null;
   formModalVisible.value = true;
 }
 
 function openEditModal(subject: UserSubject) {
+  creatingParentSubject.value = null;
   editingSubject.value = subject;
   formModalVisible.value = true;
 }
 
-async function saveSubject(data: { name: string; code: string; description: string }) {
-  if (!data.name || !data.code) {
+async function saveSubject(data: { name: string; code: number | null; parentId: number | null; description: string }) {
+  if (!data.name || data.code === null) {
     message.warning('学科名称和编号为必填项');
     return;
   }
+  const payload = {
+    name: data.name.trim(),
+    code: data.code,
+    parentId: editingSubject.value
+      ? editingSubject.value.parentId
+      : (creatingParentSubject.value?.id ?? null),
+    description: data.description.trim(),
+  };
+
   saving.value = true;
   try {
     if (editingSubject.value) {
-      await subjectsApi.updateSubject(editingSubject.value.id, data);
+      await subjectsApi.updateSubject(editingSubject.value.id, payload);
       message.success('更新成功');
     } else {
-      await subjectsApi.createSubject(data);
+      await subjectsApi.createSubject(payload);
       message.success('创建成功');
     }
     formModalVisible.value = false;
@@ -173,7 +246,7 @@ async function saveSubject(data: { name: string; code: string; description: stri
   }
 }
 
-async function removeSubject(id: string) {
+async function removeSubject(id: number) {
   await subjectsApi.removeMySubject(id);
   message.success('已移除');
   loadSubjects();
@@ -181,13 +254,13 @@ async function removeSubject(id: string) {
 
 async function openOutlineModal(subject: UserSubject) {
   outlineSubject.value = subject;
-  currentOutline.value = { chapters: [] };
+  currentOutline.value = { modules: [] };
   outlineModalVisible.value = true;
   try {
     const result = await subjectsApi.getOutline(subject.id);
-    currentOutline.value = result ?? { chapters: [] };
+    currentOutline.value = result ?? { modules: [] };
   } catch {
-    currentOutline.value = { chapters: [] };
+    currentOutline.value = { modules: [] };
   }
 }
 
@@ -215,6 +288,8 @@ onMounted(loadSubjects);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 24px;
 }
 
@@ -248,10 +323,12 @@ onMounted(loadSubjects);
   border: 1px solid @color-border;
   overflow: hidden;
   box-shadow: @shadow-sm;
+  overflow-x: auto;
 }
 
 .subjects-table {
   width: 100%;
+  min-width: 920px;
 }
 
 :deep(.ant-table-thead > tr > th) {
@@ -268,7 +345,34 @@ onMounted(loadSubjects);
 .table-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+
+:deep(.subject-row-child td) {
+  background: rgba(26, 58, 110, 0.02);
+}
+
+:deep(.ant-table-row-expand-icon) {
+  border-radius: 6px;
+}
+
+:deep(.ant-table-row-expand-icon-cell) {
+  width: 44px;
+}
+
+:deep(.ant-table-cell) {
+  vertical-align: middle;
+}
+
+@media (max-width: 1280px) {
+  .page-container {
+    padding: 20px;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 </style>

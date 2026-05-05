@@ -103,7 +103,7 @@ import type { Conversation, Message } from '@tutor/shared';
 const chatStore = useChatStore();
 const subjectStore = useSubjectStore();
 
-const selectedSubjectId = ref<string | null>(subjectStore.activeSubjectId);
+const selectedSubjectId = ref<number | null>(subjectStore.activeSubjectId);
 const selectedModel = ref('claude-3-5-sonnet');
 const inputValue = ref('');
 const generateVideo = ref(false);
@@ -199,7 +199,7 @@ async function startNewChat() {
   videoProgress.value = null;
 }
 
-function handleSubjectChange(id: string) {
+function handleSubjectChange(id: number) {
   selectedSubjectId.value = id;
   subjectStore.setActiveSubject(id);
   chatStore.setActiveConversation(null);

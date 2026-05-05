@@ -54,12 +54,12 @@ import type { Dayjs } from 'dayjs';
 
 interface SubjectOption {
   label: string;
-  value: string;
+  value: number;
 }
 
 interface Filters {
   title: string;
-  subjectId: string | undefined;
+  subjectId: number | undefined;
   dateRange: [Dayjs, Dayjs] | null;
   knowledgeKeyword: string;
 }

@@ -1,7 +1,9 @@
 export interface Subject {
-  id: string;
+  id: number;
   name: string;
-  code: string;
+  code: number;
+  parentId: number | null;
+  level: SubjectLevel;
   description?: string;
   outline?: SubjectOutline;
   createdAt: string;
@@ -9,25 +11,35 @@ export interface Subject {
 }
 
 export interface SubjectOutline {
-  chapters: OutlineChapter[];
+  modules: OutlineModule[];
 }
 
-export interface OutlineChapter {
-  id: string;
+export interface OutlineModule {
+  id: number;
   title: string;
-  sections: OutlineSection[];
+  topics: OutlineTopic[];
   order: number;
 }
 
-export interface OutlineSection {
-  id: string;
+export interface OutlineTopic {
+  id: number;
+  title: string;
+  points: OutlinePoint[];
+  order: number;
+}
+
+export interface OutlinePoint {
+  id: number;
   title: string;
   order: number;
 }
+
+export type SubjectLevel = 1 | 2;
 
 export interface CreateSubjectDto {
   name: string;
-  code: string;
+  code: number;
+  parentId?: number | null;
   description?: string;
 }
 

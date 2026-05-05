@@ -19,7 +19,7 @@ import AppSidebar from './components/AppSidebar.vue';
 
 <style scoped lang="less">
 .basic-layout {
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
 }
@@ -29,11 +29,14 @@ import AppSidebar from './components/AppSidebar.vue';
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
 .page-content {
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
   background: @color-bg;
+  min-height: 0;
 }
 </style>

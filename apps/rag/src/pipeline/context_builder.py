@@ -11,7 +11,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-MAX_CONTEXT_TOKENS = 3000
+MAX_CONTEXT_TOKENS = 5000
 
 
 def _estimate_tokens(text: str) -> int:

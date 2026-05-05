@@ -15,7 +15,7 @@
         style="width: 100%"
         size="small"
         :options="subjectOptions"
-        @change="(id: string) => $emit('subject-change', id)"
+        @change="(id: number) => $emit('subject-change', id)"
       >
         <template #notFoundContent>
           <div class="empty-subject">
@@ -54,20 +54,20 @@ interface ConversationItem {
 
 interface SubjectOption {
   label: string;
-  value: string;
+  value: number;
 }
 
 defineProps<{
   conversations: ConversationItem[];
   activeConversationId: string | null;
-  selectedSubjectId: string | null;
+  selectedSubjectId: number | null;
   subjectOptions: SubjectOption[];
 }>();
 
 defineEmits<{
   'new-chat': [];
   'select-conversation': [key: string];
-  'subject-change': [id: string];
+  'subject-change': [id: number];
 }>();
 </script>
 

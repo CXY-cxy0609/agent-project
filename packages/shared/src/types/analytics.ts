@@ -1,6 +1,6 @@
 export interface LearningAnalytics {
   userId: string;
-  subjectId: string;
+  subjectId: number;
   subjectName: string;
   weakPoints: WeakPoint[];
   wordCloud: WordCloudItem[];
@@ -26,5 +26,5 @@ export interface WordCloudItem {
 }
 
 export interface AnalyticsSummaryRequest {
-  subjectId: string;
+  subjectId: number;
 }

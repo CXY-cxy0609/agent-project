@@ -17,7 +17,7 @@ const realChatApi = {
     http.delete(`/conversations/${id}`),
 
   sendMessage(
-    data: { conversationId?: string; subjectId: string; content: string; model: string; generateVideo?: boolean },
+    data: { conversationId?: string; subjectId: number; content: string; model: string; generateVideo?: boolean },
     onChunk: (text: string) => void,
     onDone: (conversation: Conversation) => void,
     onError: (err: Error) => void,

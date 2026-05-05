@@ -23,7 +23,8 @@
         >
           <div class="search-result-info">
             <span class="sr-name">{{ s.name }}</span>
-            <a-tag size="small">{{ s.code }}</a-tag>
+            <a-tag size="small">编号 {{ s.code }}</a-tag>
+            <a-tag size="small" color="blue">ID {{ s.id }}</a-tag>
             <span class="sr-desc">{{ s.description }}</span>
           </div>
           <a-button
@@ -63,7 +64,7 @@ const emit = defineEmits<{
 const searchKeyword = ref('');
 const searchResults = ref<Subject[]>([]);
 const searching = ref(false);
-const addingId = ref<string | null>(null);
+const addingId = ref<number | null>(null);
 
 watch(() => props.open, (val) => {
   if (val) {
@@ -90,7 +91,7 @@ function onSearchInput() {
   }, 300);
 }
 
-async function addSubject(id: string) {
+async function addSubject(id: number) {
   addingId.value = id;
   try {
     await subjectsApi.addMySubject(id);

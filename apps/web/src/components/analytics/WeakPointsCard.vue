@@ -70,7 +70,6 @@ function levelLabel(level: WeaknessLevel) {
   padding: 20px;
   border: 1px solid @color-border;
   box-shadow: @shadow-sm;
-  height: 100%;
 }
 
 .card-header {

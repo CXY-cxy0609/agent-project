@@ -69,7 +69,7 @@ const pageSize = 15;
 
 const activeFilters = ref<{
   title?: string;
-  subjectId?: string;
+  subjectId?: number;
   dateRange?: [dayjs.Dayjs, dayjs.Dayjs] | null;
   knowledgeKeyword?: string;
 }>({});
@@ -78,10 +78,10 @@ const subjectOptions = computed(() =>
   subjectStore.subjects.map((s) => ({ label: s.name, value: s.id })),
 );
 
-const subjectColorMap: Record<string, string> = {};
+const subjectColorMap: Record<number, string> = {};
 const colorPalette = ['blue', 'purple', 'cyan', 'geekblue', 'magenta', 'volcano'];
 
-function subjectColor(subjectId: string) {
+function subjectColor(subjectId: number) {
   if (!subjectColorMap[subjectId]) {
     const idx = Object.keys(subjectColorMap).length % colorPalette.length;
     subjectColorMap[subjectId] = colorPalette[idx];

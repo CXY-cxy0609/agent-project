@@ -5,7 +5,7 @@ export type MessageStatus = 'pending' | 'streaming' | 'done' | 'error';
 export interface Conversation {
   id: string;
   title: string;
-  subjectId: string;
+  subjectId: number;
   subjectName: string;
   userId: string;
   createdAt: string;
@@ -55,7 +55,7 @@ export interface VideoProgress {
 
 export interface SendMessageDto {
   conversationId?: string;
-  subjectId: string;
+  subjectId: number;
   content: string;
   model: string;
   attachments?: File[];
@@ -66,7 +66,7 @@ export interface ConversationListQuery {
   page?: number;
   pageSize?: number;
   title?: string;
-  subjectId?: string;
+  subjectId?: number;
   knowledgeKeyword?: string;
   startDate?: string;
   endDate?: string;

@@ -13,28 +13,28 @@ const realSubjectsApi = {
   createSubject: (data: CreateSubjectDto) =>
     http.post<Subject, Subject>('/subjects', data),
 
-  updateSubject: (id: string, data: UpdateSubjectDto) =>
+  updateSubject: (id: number, data: UpdateSubjectDto) =>
     http.put<Subject, Subject>(`/subjects/${id}`, data),
 
-  deleteSubject: (id: string) =>
+  deleteSubject: (id: number) =>
     http.delete(`/subjects/${id}`),
 
-  addMySubject: (subjectId: string) =>
+  addMySubject: (subjectId: number) =>
     http.post('/subjects/my', { subjectId }),
 
-  removeMySubject: (subjectId: string) =>
+  removeMySubject: (subjectId: number) =>
     http.delete(`/subjects/my/${subjectId}`),
 
-  getOutline: (id: string) =>
+  getOutline: (id: number) =>
     http.get<SubjectOutline, SubjectOutline>(`/subjects/${id}/outline`),
 
-  updateOutline: (id: string, outline: SubjectOutline) =>
+  updateOutline: (id: number, outline: SubjectOutline) =>
     http.put(`/subjects/${id}/outline`, { outline }),
 
   adminGetAll: () =>
     http.get<Subject[], Subject[]>('/admin/subjects'),
 
-  adminDeleteSubject: (id: string) =>
+  adminDeleteSubject: (id: number) =>
     http.delete(`/admin/subjects/${id}`),
 };
 

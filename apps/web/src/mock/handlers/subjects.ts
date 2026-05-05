@@ -14,16 +14,26 @@ export const mockSubjectsApi = {
   async searchSubjects(keyword: string): Promise<Subject[]> {
     await delay(300);
     const kw = keyword.toLowerCase();
+    const numericKeyword = Number(keyword.trim());
+    const hasNumericKeyword = Number.isFinite(numericKeyword);
     return MOCK_ALL_SUBJECTS.filter(
-      (s) => s.name.includes(kw) || s.code.toLowerCase().includes(kw),
+      (s) =>
+        s.name.toLowerCase().includes(kw) ||
+        String(s.code).includes(keyword.trim()) ||
+        String(s.id).includes(keyword.trim()) ||
+        (hasNumericKeyword && s.code === numericKeyword),
     );
   },
 
   async createSubject(data: CreateSubjectDto): Promise<Subject> {
     await delay();
+    const parentSubject = data.parentId ? _subjects.find((subject) => subject.id === data.parentId) : null;
+    const parentId = parentSubject?.level === 1 ? parentSubject.id : null;
     const newSubject: Subject = {
-      id: `subj-${Date.now()}`,
+      id: Date.now(),
       ...data,
+      parentId,
+      level: parentId ? 2 : 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -31,21 +41,32 @@ export const mockSubjectsApi = {
     return newSubject;
   },
 
-  async updateSubject(id: string, data: UpdateSubjectDto): Promise<Subject> {
+  async updateSubject(id: number, data: UpdateSubjectDto): Promise<Subject> {
     await delay();
     const idx = _subjects.findIndex((s) => s.id === id);
     if (idx !== -1) {
-      _subjects[idx] = { ..._subjects[idx], ...data, updatedAt: new Date().toISOString() };
+      const requestedParent = data.parentId !== undefined ? data.parentId : _subjects[idx].parentId;
+      const parentSubject = requestedParent
+        ? _subjects.find((subject) => subject.id === requestedParent)
+        : null;
+      const nextParentId = parentSubject?.level === 1 ? parentSubject.id : null;
+      _subjects[idx] = {
+        ..._subjects[idx],
+        ...data,
+        parentId: nextParentId,
+        level: nextParentId ? 2 : 1,
+        updatedAt: new Date().toISOString(),
+      };
     }
     return _subjects[idx] as Subject;
   },
 
-  async deleteSubject(id: string): Promise<void> {
+  async deleteSubject(id: number): Promise<void> {
     await delay();
     _subjects = _subjects.filter((s) => s.id !== id);
   },
 
-  async addMySubject(subjectId: string): Promise<void> {
+  async addMySubject(subjectId: number): Promise<void> {
     await delay();
     const subject = MOCK_ALL_SUBJECTS.find((s) => s.id === subjectId);
     if (subject && !_subjects.find((s) => s.id === subjectId)) {
@@ -53,18 +74,18 @@ export const mockSubjectsApi = {
     }
   },
 
-  async removeMySubject(subjectId: string): Promise<void> {
+  async removeMySubject(subjectId: number): Promise<void> {
     await delay();
     _subjects = _subjects.filter((s) => s.id !== subjectId);
   },
 
-  async getOutline(id: string): Promise<SubjectOutline> {
+  async getOutline(id: number): Promise<SubjectOutline> {
     await delay(300);
     const subject = _subjects.find((s) => s.id === id);
-    return subject?.outline ?? { chapters: [] };
+    return subject?.outline ?? { modules: [] };
   },
 
-  async updateOutline(id: string, outline: SubjectOutline): Promise<void> {
+  async updateOutline(id: number, outline: SubjectOutline): Promise<void> {
     await delay();
     const idx = _subjects.findIndex((s) => s.id === id);
     if (idx !== -1) {
@@ -77,7 +98,7 @@ export const mockSubjectsApi = {
     return [...MOCK_ALL_SUBJECTS];
   },
 
-  async adminDeleteSubject(id: string): Promise<void> {
+  async adminDeleteSubject(id: number): Promise<void> {
     await delay();
     _subjects = _subjects.filter((s) => s.id !== id);
   },

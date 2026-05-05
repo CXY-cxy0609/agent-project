@@ -4,7 +4,7 @@ export type KnowledgeFileType = 'pdf' | 'md';
 export interface KnowledgeBase {
   id: string;
   name: string;
-  subjectId: string;
+  subjectId: number;
   subjectName: string;
   type: KnowledgeBaseType;
   userId: string;
@@ -30,7 +30,7 @@ export interface KnowledgeFile {
 
 export interface CreateKnowledgeBaseDto {
   name: string;
-  subjectId: string;
+  subjectId: number;
   type: KnowledgeBaseType;
   description?: string;
 }
@@ -41,7 +41,7 @@ export interface UpdateKnowledgeBaseDto {
 }
 
 export interface KnowledgeBaseQuery {
-  subjectId?: string;
+  subjectId?: number;
   name?: string;
   type?: KnowledgeBaseType;
 }

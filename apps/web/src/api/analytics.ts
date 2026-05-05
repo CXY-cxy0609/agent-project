@@ -4,10 +4,10 @@ import { USE_MOCK } from '@/mock/config';
 import { mockAnalyticsApi } from '@/mock/handlers/analytics';
 
 const realAnalyticsApi = {
-  getAnalytics: (subjectId: string) =>
+  getAnalytics: (subjectId: number) =>
     http.get<LearningAnalytics, LearningAnalytics>(`/analytics/${subjectId}`),
 
-  generateSummary: (subjectId: string) =>
+  generateSummary: (subjectId: number) =>
     http.post<{ summary: string }, { summary: string }>(`/analytics/${subjectId}/summary`),
 };
 
