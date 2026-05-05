@@ -159,12 +159,14 @@ curl http://127.0.0.1:8000/health
 curl -X POST "http://127.0.0.1:8000/index/text" \
   -H "Content-Type: application/json" \
   -d '{
-    "text":"高等数学中，导数表示函数在某一点的变化率。",
+    "text":"# 导数基础\n\n导数表示函数在某一点附近的瞬时变化率。设函数 y=f(x)，当自变量 x 发生一个很小的增量时，函数值也会产生变化。若变化比值在增量趋近于零时存在极限，则该极限称为导数。导数可以用于研究函数单调性、极值与凹凸性，也常用于物理中的速度和加速度计算。",
     "knowledge_base_id":"kb_demo",
     "subject_id":"math",
     "doc_name":"test_doc"
   }'
 ```
+
+> 如果返回 `{"chunks":0,"status":"empty"}`，通常是文本太短，被最小切分阈值过滤（默认 `min_chunk_size=50`）。
 
 ### 6.2 快速检索测试
 
@@ -200,6 +202,7 @@ curl -X POST "http://127.0.0.1:8000/retrieve" \
 
 - 是否先执行了 `/index/text` 或 `/index/upload`
 - `knowledge_base_id`、`subject_id` 检索条件是否和入库一致
+- 入库文本是否过短（默认 `min_chunk_size=50`，太短会出现 `chunks=0`）
 
 ### 7.4 首次启动慢
 

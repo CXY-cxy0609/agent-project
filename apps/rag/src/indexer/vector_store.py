@@ -89,15 +89,15 @@ def search(
         if must_conditions:
             qdrant_filter = Filter(must=must_conditions)
 
-    results = client.search(
+    response = client.query_points(
         collection_name=collection_name,
-        query_vector=query_vector,
+        query=query_vector,
         limit=top_k,
         query_filter=qdrant_filter,
         with_payload=True,
     )
 
-    return results
+    return list(response.points)
 
 
 def delete_by_filter(collection_name: str, filter_conditions: dict) -> None:
