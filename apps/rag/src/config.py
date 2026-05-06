@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     max_chunk_size: int = 512   # tokens
     chunk_overlap: float = 0.1  # 10% 重叠
     min_chunk_size: int = 50    # tokens
+    chunker_v2_enabled: bool = True
+
+    # Parse Strategy
+    parse_default_mode: str = "balanced"
+    parse_max_upgrade_pages: int = 3
+    parse_budget_tokens: int = 4000
 
     # RAG Pipeline
     top_k_retrieve: int = 20    # 向量检索候选数

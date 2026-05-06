@@ -44,7 +44,11 @@ class RetrievalPipeline:
         subject_id: Optional[str] = None,
         knowledge_base_id: Optional[str] = None,
         top_k: int | None = None,
+        retrieval_mode: str = "text_only",
+        budget_tokens: Optional[int] = None,
+        max_upgrade_pages: Optional[int] = None,
     ) -> RetrievalResult:
+        _ = retrieval_mode, budget_tokens, max_upgrade_pages
         top_k = top_k or settings.top_k_rerank
 
         # ① 查询预处理

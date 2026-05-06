@@ -7,7 +7,15 @@ import { RagClient } from '../harness/rag-client/rag-client.js';
 
 export function createRagRetrievalTool(ragClient: RagClient) {
   return defineTool<
-    { query: string; subject_id: string; knowledge_base_id?: string; top_k?: number },
+    {
+      query: string;
+      subject_id: string;
+      knowledge_base_id?: string;
+      top_k?: number;
+      retrieval_mode?: 'text_only' | 'hybrid_visual';
+      budget_tokens?: number;
+      max_upgrade_pages?: number;
+    },
     { context: string; has_results: boolean }
   >({
     name: 'rag_retrieval',
@@ -32,6 +40,19 @@ export function createRagRetrievalTool(ragClient: RagClient) {
           type: 'number',
           description: '返回的最相关片段数量，默认 5',
         },
+        retrieval_mode: {
+          type: 'string',
+          description: '检索策略：text_only 或 hybrid_visual',
+          enum: ['text_only', 'hybrid_visual'],
+        },
+        budget_tokens: {
+          type: 'number',
+          description: '检索升级预算 token（可选）',
+        },
+        max_upgrade_pages: {
+          type: 'number',
+          description: '检索最多升级页数（可选）',
+        },
       },
       required: ['query', 'subject_id'],
     },
@@ -40,6 +61,9 @@ export function createRagRetrievalTool(ragClient: RagClient) {
         subjectId: input.subject_id,
         knowledgeBaseId: input.knowledge_base_id,
         topK: input.top_k ?? 5,
+        retrievalMode: input.retrieval_mode,
+        budgetTokens: input.budget_tokens,
+        maxUpgradePages: input.max_upgrade_pages,
       });
 
       return {

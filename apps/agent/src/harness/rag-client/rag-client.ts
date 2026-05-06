@@ -10,6 +10,8 @@ import { createHash } from 'crypto';
 const DEFAULT_TIMEOUT_MS = 5000;
 const CACHE_TTL_SECONDS = 300; // 5 分钟
 
+export type RetrievalMode = 'text_only' | 'hybrid_visual';
+
 export interface RetrievedChunk {
   content: string;
   source: 'document' | 'database';
@@ -26,6 +28,9 @@ export interface RetrievalOptions {
   subjectId: string;
   knowledgeBaseId?: string;
   topK?: number;
+  retrievalMode?: RetrievalMode;
+  budgetTokens?: number;
+  maxUpgradePages?: number;
 }
 
 export interface RetrieveResponse {
@@ -40,7 +45,7 @@ export class RagClient {
   ) {}
 
   async retrieve(query: string, options: RetrievalOptions): Promise<RetrieveResponse> {
-    const cacheKey = this.makeCacheKey(query, options.subjectId);
+    const cacheKey = this.makeCacheKey(query, options);
 
     // 尝试从 Redis 缓存读取
     if (this.redis) {
@@ -62,6 +67,9 @@ export class RagClient {
           subject_id: options.subjectId,
           knowledge_base_id: options.knowledgeBaseId,
           top_k: options.topK ?? 5,
+          retrieval_mode: options.retrievalMode ?? 'text_only',
+          budget_tokens: options.budgetTokens,
+          max_upgrade_pages: options.maxUpgradePages,
         }),
       },
       DEFAULT_TIMEOUT_MS,
@@ -89,8 +97,25 @@ export class RagClient {
     return result;
   }
 
-  private makeCacheKey(query: string, subjectId: string): string {
-    const hash = createHash('md5').update(`${query}:${subjectId}`).digest('hex');
+  private makeCacheKey(query: string, options: RetrievalOptions): string {
+    const dynamicPolicyParts: string[] = [];
+    if (options.retrievalMode) dynamicPolicyParts.push(`mode=${options.retrievalMode}`);
+    if (typeof options.budgetTokens === 'number') {
+      dynamicPolicyParts.push(`budget=${options.budgetTokens}`);
+    }
+    if (typeof options.maxUpgradePages === 'number') {
+      dynamicPolicyParts.push(`pages=${options.maxUpgradePages}`);
+    }
+    const policySuffix = dynamicPolicyParts.length ? `:${dynamicPolicyParts.join('|')}` : '';
+    const hash = createHash('md5')
+      .update(`${query}:${options.subjectId}:${options.knowledgeBaseId ?? ''}${policySuffix}`)
+      .digest('hex');
     return `rag:cache:${hash}`;
   }
+}
+
+function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }

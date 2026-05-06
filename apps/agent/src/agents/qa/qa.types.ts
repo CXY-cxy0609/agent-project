@@ -1,4 +1,5 @@
 import type { Message } from '../../harness/core/types.js';
+import type { RetrievalMode } from '../../harness/rag-client/rag-client.js';
 
 export interface QAInput {
   question: string;
@@ -29,6 +30,11 @@ export interface QAState {
   ocrText?: string;
   /** 最终使用的问题文本（含 OCR 结果） */
   processedQuestion?: string;
+  /** 根据 OCR 与输入推断的检索模式 */
+  retrievalMode?: RetrievalMode;
+  /** 动态预算约束 */
+  ragBudgetTokens?: number;
+  ragMaxUpgradePages?: number;
   /** RAG 检索结果 */
   ragContext?: string;
   /** LLM 生成的结构化答案 */

@@ -15,6 +15,7 @@ import type { QAInput, QAOutput, QAState } from './qa.types.js';
 import type { VideoAgent } from '../video/video.agent.js';
 import { buildQANodes } from './qa.graph.js';
 import { eventBus, EVENTS, type QaCompletedEvent } from '../../events/event-bus.js';
+import type { QARetrievalPolicyConfig } from './retrieval-policy.js';
 
 export class QAAgent extends BaseAgent<QAInput, QAOutput> {
   constructor(
@@ -23,6 +24,7 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
     private readonly ragClient: RagClient,
     private readonly toolRegistry: ToolRegistry,
     private readonly videoAgent: VideoAgent,
+    private readonly retrievalPolicyConfig: QARetrievalPolicyConfig,
   ) {
     super(llm, observer, eventBus);
   }
@@ -34,6 +36,7 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
       this.toolRegistry,
       this.videoAgent,
       ctx,
+      this.retrievalPolicyConfig,
     );
 
     const graph = new StateGraph<QAState>({

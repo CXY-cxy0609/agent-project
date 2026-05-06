@@ -20,6 +20,7 @@ from .config import settings  # 配置
 from .pipeline.retrieval_pipeline import retrieval_pipeline  # 检索管道
 from .indexer.indexer import indexer_service  # 索引器
 from .indexer.document_parser import parse_document  # 文档解析器
+from .indexer.parser_models import ParseOptions, ParseMode
 from .services.memory_service import user_memory_service, content_cache_service  # 记忆服务
 
 app = FastAPI(
@@ -51,6 +52,9 @@ class RetrieveRequest(BaseModel):
     subject_id: Optional[str] = None  # 学科 ID
     knowledge_base_id: Optional[str] = None  # 知识库 ID
     top_k: int = 5  # 返回数量
+    retrieval_mode: str = "text_only"  # text_only | hybrid_visual
+    budget_tokens: Optional[int] = None
+    max_upgrade_pages: Optional[int] = None
 
 
 class ChunkInfo(BaseModel):
@@ -75,6 +79,9 @@ async def retrieve(req: RetrieveRequest):  # 检索
             subject_id=req.subject_id,
             knowledge_base_id=req.knowledge_base_id,
             top_k=req.top_k,
+            retrieval_mode=req.retrieval_mode,
+            budget_tokens=req.budget_tokens,
+            max_upgrade_pages=req.max_upgrade_pages,
         )
         return RetrieveResponse(
             context=result.context,
@@ -162,17 +169,34 @@ class ParseResponse(BaseModel):
     text: str
     page_count: int
     doc_type: str
+    parse_profile: dict
+    page_signals: list[dict]
 
 
 @app.post("/parse", response_model=ParseResponse)
-async def parse_file(file: UploadFile = File(...)):
+async def parse_file(
+    file: UploadFile = File(...),
+    mode: ParseMode = Form(settings.parse_default_mode),
+    max_upgrade_pages: int = Form(settings.parse_max_upgrade_pages),
+    budget_tokens: int = Form(settings.parse_budget_tokens),
+):
     """仅解析文档，返回文本内容（不入库）"""
     content = await file.read()
-    parsed = parse_document(content, file.filename or "unknown")
+    parsed = parse_document(
+        content,
+        file.filename or "unknown",
+        options=ParseOptions(
+            mode=mode,
+            max_upgrade_pages=max_upgrade_pages,
+            budget_tokens=budget_tokens,
+        ),
+    )
     return ParseResponse(
         text=parsed.text,
         page_count=parsed.page_count,
         doc_type=parsed.doc_type,
+        parse_profile=parsed.parse_profile,
+        page_signals=[signal.__dict__ for signal in parsed.page_signals],
     )
 
 

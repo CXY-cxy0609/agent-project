@@ -15,6 +15,10 @@ import type { QAState, QAAnswerRaw } from './qa.types.js';
 import type { VideoAgent } from '../video/video.agent.js';
 import type { AgentContext } from '../../harness/core/types.js';
 import { withRetry } from '../../harness/core/retry.js';
+import {
+  decideRetrievalPolicy,
+  type QARetrievalPolicyConfig,
+} from './retrieval-policy.js';
 
 const schemaParser = new SchemaParser();
 
@@ -24,10 +28,16 @@ export function buildQANodes(
   toolRegistry: ToolRegistry,
   videoAgent: VideoAgent,
   ctx: AgentContext,
+  retrievalPolicyConfig: QARetrievalPolicyConfig,
 ) {
   async function ocrNode(state: Readonly<QAState>): Promise<Partial<QAState>> {
     if (!state.imageBase64) {
-      return { processedQuestion: state.question };
+      return {
+        processedQuestion: state.question,
+        retrievalMode: 'text_only',
+        ragBudgetTokens: undefined,
+        ragMaxUpgradePages: undefined,
+      };
     }
 
     const ocrTool = toolRegistry.get('image_ocr');
@@ -43,7 +53,18 @@ export function buildQANodes(
       ? `${state.question}\n\n[图片内容识别]\n${ocrText}`
       : state.question;
 
-    return { ocrText, processedQuestion };
+    const retrievalPolicy = decideRetrievalPolicy(
+      state.question,
+      ocrText,
+      retrievalPolicyConfig,
+    );
+    return {
+      ocrText,
+      processedQuestion,
+      retrievalMode: retrievalPolicy.mode,
+      ragBudgetTokens: retrievalPolicy.budgetTokens,
+      ragMaxUpgradePages: retrievalPolicy.maxUpgradePages,
+    };
   }
 
   async function ragNode(state: Readonly<QAState>): Promise<Partial<QAState>> {
@@ -52,6 +73,9 @@ export function buildQANodes(
       const result = await ragClient.retrieve(query, {
         subjectId: state.subjectId,
         topK: 5,
+        retrievalMode: state.retrievalMode ?? 'text_only',
+        budgetTokens: state.ragBudgetTokens,
+        maxUpgradePages: state.ragMaxUpgradePages,
       });
       return { ragContext: result.context || undefined };
     } catch {

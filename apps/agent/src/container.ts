@@ -22,6 +22,10 @@ import { createFileParserTool } from './tools/file-parser.tool.js';
 import { createManimRunnerTool } from './tools/manim-runner.tool.js';
 import { createStorageUploadTool } from './tools/storage-upload.tool.js';
 import { eventBus, EVENTS, type QaCompletedEvent } from './events/event-bus.js';
+import {
+  DEFAULT_QA_RETRIEVAL_POLICY,
+  type QARetrievalPolicyConfig,
+} from './agents/qa/retrieval-policy.js';
 
 export interface AppConfig {
   /** LLM Provider 选择，默认 anthropic */
@@ -38,6 +42,7 @@ export interface AppConfig {
   manimServiceUrl?: string;
   storageServiceUrl?: string;
   redisUrl?: string;
+  qaRetrievalPolicy?: Partial<QARetrievalPolicyConfig>;
 }
 
 export interface AppContainer {
@@ -99,7 +104,18 @@ export function createContainer(config: AppConfig): AppContainer {
     structuredMemory,
   );
 
-  const qaAgent = new QAAgent(llm, defaultObserver, ragClient, toolRegistry, videoAgent);
+  const qaRetrievalPolicy: QARetrievalPolicyConfig = {
+    ...DEFAULT_QA_RETRIEVAL_POLICY,
+    ...config.qaRetrievalPolicy,
+  };
+  const qaAgent = new QAAgent(
+    llm,
+    defaultObserver,
+    ragClient,
+    toolRegistry,
+    videoAgent,
+    qaRetrievalPolicy,
+  );
 
   const orchestratorAgent = new OrchestratorAgent(
     llm,
@@ -162,5 +178,10 @@ export function loadConfig(): AppConfig {
     manimServiceUrl: process.env.MANIM_SERVICE_URL,
     storageServiceUrl: process.env.STORAGE_SERVICE_URL,
     redisUrl: process.env.REDIS_URL,
+    qaRetrievalPolicy: {
+      minOcrLengthForTextOnly: Number(process.env.QA_MIN_OCR_LENGTH_FOR_TEXT_ONLY ?? 120),
+      hybridBudgetTokens: Number(process.env.QA_HYBRID_BUDGET_TOKENS ?? 3000),
+      hybridMaxUpgradePages: Number(process.env.QA_HYBRID_MAX_UPGRADE_PAGES ?? 3),
+    },
   };
 }
