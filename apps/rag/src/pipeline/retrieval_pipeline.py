@@ -10,6 +10,7 @@ RAG 检索 Pipeline — 完整的 5 步流程
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -48,8 +49,10 @@ class RetrievalPipeline:
         budget_tokens: Optional[int] = None,
         max_upgrade_pages: Optional[int] = None,
     ) -> RetrievalResult:
-        _ = retrieval_mode, budget_tokens, max_upgrade_pages
-        top_k = top_k or settings.top_k_rerank
+        start = time.perf_counter()
+        top_k = max(1, top_k or settings.top_k_rerank)
+        mode = retrieval_mode if retrieval_mode in {"text_only", "hybrid_visual"} else "text_only"
+        effective_budget = budget_tokens if isinstance(budget_tokens, int) and budget_tokens > 0 else None
 
         # ① 查询预处理
         preprocessed = query_preprocessor.preprocess(query, subject_id)
@@ -66,10 +69,22 @@ class RetrievalPipeline:
             original_query=preprocessed.processed_query,
             hyde_query=preprocessed.hyde_query,
             filter_conditions=filter_conditions or None,
-            top_k_retrieve=settings.top_k_retrieve,
+            top_k_retrieve=self._resolve_top_k_retrieve(
+                top_k=top_k,
+                retrieval_mode=mode,
+                max_upgrade_pages=max_upgrade_pages,
+            ),
         )
 
         if not candidates:
+            elapsed_ms = int((time.perf_counter() - start) * 1000)
+            logger.info(
+                "retrieval.done mode=%s top_k=%s candidates=0 reranked=0 budget=%s elapsed_ms=%s",
+                mode,
+                top_k,
+                effective_budget,
+                elapsed_ms,
+            )
             return RetrievalResult(context="", chunks=[], subject=preprocessed.detected_subject)
 
         # ③ Rerank
@@ -81,7 +96,11 @@ class RetrievalPipeline:
         )
 
         # ④⑤ 上下文压缩 + 构建
-        context = build_context(reranked)
+        context = build_context(
+            reranked,
+            max_tokens=effective_budget,
+            query=preprocessed.original_query,
+        )
 
         chunks = [
             RetrievedChunk(
@@ -91,6 +110,18 @@ class RetrievalPipeline:
             )
             for c in reranked
         ]
+
+        elapsed_ms = int((time.perf_counter() - start) * 1000)
+        logger.info(
+            "retrieval.done mode=%s top_k=%s candidates=%s reranked=%s budget=%s context_tokens=%s elapsed_ms=%s",
+            mode,
+            top_k,
+            len(candidates),
+            len(reranked),
+            effective_budget,
+            len(context) // 4,
+            elapsed_ms,
+        )
 
         return RetrievalResult(context=context, chunks=chunks, subject=preprocessed.detected_subject)
 
@@ -132,6 +163,27 @@ class RetrievalPipeline:
         # 按分数降序
         all_candidates.sort(key=lambda x: x["score"], reverse=True)
         return all_candidates[:top_k_retrieve]
+
+    def _resolve_top_k_retrieve(
+        self,
+        top_k: int,
+        retrieval_mode: str,
+        max_upgrade_pages: Optional[int],
+    ) -> int:
+        """
+        根据检索模式和升级预算动态决定候选召回规模。
+        - text_only: 使用默认候选数
+        - hybrid_visual: 增加候选池，给后续 rerank 更多可选片段
+        """
+        candidate_top_k = max(settings.top_k_retrieve, top_k)
+
+        if retrieval_mode == "hybrid_visual":
+            candidate_top_k = max(candidate_top_k, top_k * 2)
+
+        if isinstance(max_upgrade_pages, int) and max_upgrade_pages > 0:
+            candidate_top_k = max(candidate_top_k, top_k + max_upgrade_pages)
+
+        return candidate_top_k
 
 
 retrieval_pipeline = RetrievalPipeline()

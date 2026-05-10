@@ -38,6 +38,20 @@ export interface VideoState {
   retryCount: number;
   /** 上次渲染错误信息 */
   lastError?: string;
+  /** 错误分类 */
+  errorType?: 'syntax' | 'import' | 'name' | 'attribute' | 'latex' | 'timeout' | 'runtime' | 'unknown';
+  /** 当前修复策略 */
+  fixStrategy?: 'rule' | 'local_patch' | 'full_rewrite';
+  /** 脚本版本号，每次修复成功递增 */
+  scriptVersion: number;
+  /** 修复历史，便于回溯与可观测 */
+  fixHistory: Array<{
+    attempt: number;
+    strategy: 'rule' | 'local_patch' | 'full_rewrite';
+    reason: string;
+  }>;
+  /** 脚本校验结果（失败时记录） */
+  validationReport?: string;
   /** 最终视频 URL */
   videoUrl?: string;
   /** 是否成功 */

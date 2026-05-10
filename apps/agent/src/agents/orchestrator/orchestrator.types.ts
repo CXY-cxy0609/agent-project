@@ -29,7 +29,7 @@ export interface OrchestratorOutput {
 export interface OrchestratorState {
   input: OrchestratorInput;
   history: Message[];
-  intent?: IntentClassification;
+  intent: IntentClassification;
   subAgentReply?: string;
   videoUrl?: string;
 }

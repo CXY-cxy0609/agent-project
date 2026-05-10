@@ -5,6 +5,7 @@
 
 import Redis from 'ioredis';
 import { createLLMClient } from './harness/core/llm-client.js';
+import { RedisGraphCheckpointStore } from './harness/core/redis-checkpoint-store.js';
 import { ToolRegistry } from './harness/tool/tool.js';
 import { RagClient } from './harness/rag-client/rag-client.js';
 import { InMemoryShortTermMemory, RedisShortTermMemory } from './harness/memory/short-term.js';
@@ -14,8 +15,10 @@ import { defaultObserver } from './harness/observer/tracer.js';
 import { OrchestratorAgent } from './agents/orchestrator/orchestrator.agent.js';
 import { QAAgent } from './agents/qa/qa.agent.js';
 import { VideoAgent } from './agents/video/video.agent.js';
+import type { VideoState } from './agents/video/video.types.js';
 import { KnowledgeBaseAgent } from './agents/knowledge-base/knowledge-base.agent.js';
 import { LearningRecordAgent } from './agents/learning-record/learning-record.agent.js';
+import type { QAState } from './agents/qa/qa.types.js';
 import { createRagRetrievalTool } from './tools/rag-retrieval.tool.js';
 import { createImageOcrTool } from './tools/image-ocr.tool.js';
 import { createFileParserTool } from './tools/file-parser.tool.js';
@@ -77,6 +80,13 @@ export function createContainer(config: AppConfig): AppContainer {
     redis,
   );
 
+  const qaCheckpointStore = redis
+    ? new RedisGraphCheckpointStore<QAState>(redis, 'agent:graph:qa')
+    : undefined;
+  const videoCheckpointStore = redis
+    ? new RedisGraphCheckpointStore<VideoState>(redis, 'agent:graph:video')
+    : undefined;
+
   const userVectorMemory = new HttpUserVectorMemory(config.ragServiceUrl);
   const contentVectorCache = new HttpContentVectorCache(config.ragServiceUrl);
   const structuredMemory = new HttpStructuredMemory(config.serverUrl, config.internalToken);
@@ -96,7 +106,13 @@ export function createContainer(config: AppConfig): AppContainer {
   }
 
   // ─── Agent 实例 ────────────────────────────────────────────────────
-  const videoAgent = new VideoAgent(llm, defaultObserver, contentVectorCache, toolRegistry);
+  const videoAgent = new VideoAgent(
+    llm,
+    defaultObserver,
+    contentVectorCache,
+    toolRegistry,
+    videoCheckpointStore,
+  );
 
   const learningRecordAgent = new LearningRecordAgent(
     llm,
@@ -115,6 +131,7 @@ export function createContainer(config: AppConfig): AppContainer {
     toolRegistry,
     videoAgent,
     qaRetrievalPolicy,
+    qaCheckpointStore,
   );
 
   const orchestratorAgent = new OrchestratorAgent(

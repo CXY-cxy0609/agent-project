@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 import uuid
 import base64
+import hashlib
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Optional
 from urllib import error, request
@@ -104,6 +107,7 @@ class BaseScene(Scene):
         self._title_text: Optional[Text] = None
         self._subtitle_text: Optional[Text] = None
         self._page_text: Optional[Text] = None
+        self._subtitle_font_size = 30
 
     def _draw_layout_guides(self) -> None:
         guides = VGroup(self.title_rect, self.content_rect, self.subtitle_rect)
@@ -122,6 +126,7 @@ class BaseScene(Scene):
         return self._title_text
 
     def set_subtitle(self, subtitle: str, font_size: int = 30) -> Text:
+        self._subtitle_font_size = font_size
         if self._subtitle_text is not None:
             self.remove(self._subtitle_text)
         self._subtitle_text = Text(
@@ -131,6 +136,21 @@ class BaseScene(Scene):
             font_size=font_size,
         ).move_to(self.subtitle_rect.get_center())
         self.play(FadeIn(self._subtitle_text), run_time=0.35)
+        return self._subtitle_text
+
+    def _set_subtitle_instant(self, subtitle: str, font_size: Optional[int] = None) -> Text:
+        effective_size = font_size or self._subtitle_font_size
+        if self._subtitle_text is not None:
+            self.remove(self._subtitle_text)
+        self._subtitle_text = Text(
+            subtitle,
+            font=self.default_font,
+            color=self.default_color,
+            font_size=effective_size,
+            line_spacing=0.75,
+        ).move_to(self.subtitle_rect.get_center())
+        self._subtitle_text.width = min(self._subtitle_text.width, self.subtitle_rect.width * 0.94)
+        self.add(self._subtitle_text)
         return self._subtitle_text
 
     def set_page_number(self, page: int, total: Optional[int] = None) -> Text:
@@ -316,6 +336,89 @@ class BaseScene(Scene):
         )
         output_path.write_bytes(audio_bytes)
         return str(output_path)
+
+    def _estimate_speech_seconds(self, text: str, chars_per_second: float = 4.8) -> float:
+        clean_text = "".join(ch for ch in text if not ch.isspace())
+        return max(1.0, len(clean_text) / chars_per_second)
+
+    def _probe_audio_seconds(self, audio_path: str) -> Optional[float]:
+        if shutil.which("ffprobe") is None:
+            return None
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    audio_path,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return float(result.stdout.strip())
+        except (subprocess.SubprocessError, ValueError):
+            return None
+
+    def _tts_cache_key(
+        self, text: str, speaker: str, sample_rate: int, resource_id: str, endpoint: str
+    ) -> str:
+        digest = hashlib.sha256(
+            f"{speaker}|{sample_rate}|{resource_id}|{endpoint}|{text}".encode("utf-8")
+        ).hexdigest()
+        return digest[:24]
+
+    def speak_with_subtitles(
+        self,
+        lines: list[str],
+        *,
+        subtitle_font_size: int = 30,
+        speaker: Optional[str] = None,
+        api_key: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        sample_rate: int = 24000,
+        pause_between: float = 0.12,
+    ) -> None:
+        """
+        Speak lines one by one and keep subtitle in sync with audio duration.
+        """
+        resolved_endpoint = endpoint or self.BYTEDANCE_TTS_ENDPOINT
+        resolved_resource_id = resource_id or self.BYTEDANCE_TTS_RESOURCE_ID
+        resolved_speaker = speaker or self.BYTEDANCE_TTS_SPEAKER
+
+        cache_dir = Path("media/tts-cache")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        for raw_line in lines:
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            self._set_subtitle_instant(line, subtitle_font_size)
+            cache_key = self._tts_cache_key(
+                line, resolved_speaker, sample_rate, resolved_resource_id, resolved_endpoint
+            )
+            audio_path = cache_dir / f"{cache_key}.mp3"
+
+            if not audio_path.exists():
+                self.generate_tts_bytedance(
+                    line,
+                    output_file=str(audio_path),
+                    speaker=resolved_speaker,
+                    api_key=api_key,
+                    endpoint=resolved_endpoint,
+                    resource_id=resolved_resource_id,
+                    sample_rate=sample_rate,
+                )
+
+            self.add_sound(str(audio_path))
+            duration = self._probe_audio_seconds(str(audio_path)) or self._estimate_speech_seconds(line)
+            self.wait(duration + pause_between)
 
     @staticmethod
     def _parse_streaming_json_objects(raw_response: str) -> list[dict[str, Any]]:

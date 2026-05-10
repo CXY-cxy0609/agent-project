@@ -6,6 +6,8 @@
 
 import { BaseAgent } from '../../harness/core/agent.js';
 import { StateGraph } from '../../harness/core/graph.js';
+import type { GraphCheckpointStore } from '../../harness/core/checkpoint.js';
+import { resolveGraphExecutionControl } from '../../harness/core/workflow-control.js';
 import type { ContentVectorCache, AgentContext } from '../../harness/core/types.js';
 import type { ToolRegistry } from '../../harness/tool/tool.js';
 import type { LLMClient } from '../../harness/core/llm-client.js';
@@ -21,11 +23,12 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
     observer: Observer,
     private readonly videoCache: ContentVectorCache,
     private readonly toolRegistry: ToolRegistry,
+    private readonly checkpointStore?: GraphCheckpointStore<VideoState>,
   ) {
     super(llm, observer);
   }
 
-  async execute(input: VideoAgentInput, _ctx: AgentContext): Promise<VideoAgentOutput> {
+  async execute(input: VideoAgentInput, ctx: AgentContext): Promise<VideoAgentOutput> {
     const nodes = buildVideoNodes(this.llm, this.videoCache, this.toolRegistry);
 
     const graph = new StateGraph<VideoState>({
@@ -35,6 +38,8 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
       cacheScoreThreshold: input.cacheScoreThreshold ?? DEFAULT_CACHE_THRESHOLD,
       cacheHit: false,
       retryCount: 0,
+      scriptVersion: 0,
+      fixHistory: [],
       success: false,
     })
       .addNode('checkCache', nodes.checkCacheNode)
@@ -43,7 +48,7 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
       .addNode('renderManim', nodes.renderManimNode)
       .addNode('fixScript', nodes.fixManimScriptNode)
       .addNode('uploadVideo', nodes.uploadVideoNode)
-      .addNode('returnCached', (s) => ({ videoUrl: s.videoUrl }))
+      .addNode('returnCached', async (s) => ({ videoUrl: s.videoUrl }))
 
       .addConditionalEdge('checkCache', nodes.shouldUseCached, {
         cached: 'returnCached',
@@ -61,7 +66,15 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
       .addEdge('uploadVideo', nodes.END)
       .compile();
 
-    const finalState = await graph.run({});
+    const graphControl = resolveGraphExecutionControl(ctx, 'video');
+    const finalState = await graph.run({}, this.checkpointStore
+      ? {
+          workflowId: graphControl.workflowId,
+          checkpointStore: this.checkpointStore,
+          resumeFromCheckpoint: graphControl.resumeFromCheckpoint,
+          clearCheckpointOnDone: graphControl.clearCheckpointOnDone,
+        }
+      : undefined);
 
     // 成功时异步写入视频缓存
     if (finalState.success && finalState.videoUrl) {

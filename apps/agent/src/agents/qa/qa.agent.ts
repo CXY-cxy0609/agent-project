@@ -6,6 +6,8 @@
 
 import { BaseAgent } from '../../harness/core/agent.js';
 import { StateGraph } from '../../harness/core/graph.js';
+import type { GraphCheckpointStore } from '../../harness/core/checkpoint.js';
+import { resolveGraphExecutionControl } from '../../harness/core/workflow-control.js';
 import type { RagClient } from '../../harness/rag-client/rag-client.js';
 import type { ToolRegistry } from '../../harness/tool/tool.js';
 import type { AgentContext } from '../../harness/core/types.js';
@@ -25,6 +27,7 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
     private readonly toolRegistry: ToolRegistry,
     private readonly videoAgent: VideoAgent,
     private readonly retrievalPolicyConfig: QARetrievalPolicyConfig,
+    private readonly checkpointStore?: GraphCheckpointStore<QAState>,
   ) {
     super(llm, observer, eventBus);
   }
@@ -60,7 +63,15 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
       .addEdge('video', nodes.END)
       .compile();
 
-    const finalState = await graph.run({});
+    const graphControl = resolveGraphExecutionControl(ctx, 'qa');
+    const finalState = await graph.run({}, this.checkpointStore
+      ? {
+          workflowId: graphControl.workflowId,
+          checkpointStore: this.checkpointStore,
+          resumeFromCheckpoint: graphControl.resumeFromCheckpoint,
+          clearCheckpointOnDone: graphControl.clearCheckpointOnDone,
+        }
+      : undefined);
 
     const output: QAOutput = {
       answer: finalState.answer ?? '抱歉，无法生成回答，请重试。',

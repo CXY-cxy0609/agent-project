@@ -188,7 +188,7 @@ QAState 初始化
 
 ### 1.6 Video Agent 内部 Graph
 
-Video Agent 实现 **Plan-and-Execute** 模式，内置缓存命中短路和渲染失败重试机制：
+Video Agent 实现 **Plan-and-Execute** 模式，内置缓存命中短路、脚本校验与分级修复机制：
 
 ```
 VideoState 初始化
@@ -212,7 +212,7 @@ VideoState 初始化
                │
                ▼
       ┌──────────────────┐
-      │ generateScript   │  LLM 生成 Manim Python 代码
+      │ generateScript   │  LLM 生成 Manim Python 代码（含校验循环）
       └────────┬─────────┘
                │
                ▼
@@ -225,10 +225,14 @@ VideoState 初始化
                │               │ uploadVideo│──▶ END  （写入对象存储 + 向量缓存）
                │               └────────────┘
                ├─ retry ───▶ ┌────────────┐
-               │              │ fixScript  │  LLM 修复报错代码，回到 renderManim
+               │              │ fixScript  │  错误分类 + 策略路由（规则补丁/局部修复/重写）
                │              └────────────┘
-               └─ fail ────▶ END  （超出重试次数，降级无视频）
+               └─ fail ────▶ END  （超出重试次数，返回结构化失败原因）
 ```
+
+其中 `generateScript` 与 `fixScript` 节点内部使用 `ReasoningLoop` 执行
+`run -> verify -> retry`，并通过 `validateManimScript` 做静态约束校验（导入、Scene 类、
+construct 方法等），降低无效渲染重试次数。
 
 ---
 
@@ -288,6 +292,32 @@ createLLMClient(config)
 - 状态合并：框架做 `Object.assign` 浅合并，规则完全透明
 - 支持普通边（`addEdge`）和条件边（`addConditionalEdge`）
 - 支持流式模式（`runStream`）逐节点推送事件
+- 支持可选 checkpoint 续跑：`run(input, { workflowId, checkpointStore, resumeFromCheckpoint })`
+
+#### Graph Checkpoint（断点续跑）
+
+`StateGraph` 新增断点能力，默认关闭；仅在传入 `GraphRunOptions` 时启用：
+
+- 每个节点执行前后写入 checkpoint（`running` + `nextNode` + `state`）
+- 流程结束写入 `completed`，异常写入 `failed` + `error`
+- `resumeFromCheckpoint=true` 时优先从已有状态续跑
+- 内置两种存储实现：
+  - `InMemoryGraphCheckpointStore`（本地开发）
+  - `RedisGraphCheckpointStore`（生产持久化）
+
+在当前工程中，`QAAgent` 与 `VideoAgent` 已接入该能力。当配置了 `REDIS_URL` 时，
+容器会自动注入 Redis checkpoint store。可通过 `ctx.metadata` 控制：
+
+- `workflowId`：指定工作流 ID（不传则默认 `sessionId:traceId`）
+- `resumeFromCheckpoint`：是否启用续跑
+- `clearCheckpointOnDone`：成功后是否删除 checkpoint
+
+#### ReasoningLoop（新增）
+
+用于复杂节点内的“微循环推理”，统一实现：
+- 失败反馈回注（上一轮校验失败原因作为下一轮输入）
+- 最大尝试次数限制（防止无穷修复）
+- 结果与尝试过程记录（便于指标观测和问题排查）
 
 ---
 
@@ -326,6 +356,12 @@ apps/agent
 │   │   ├── graph.ts                # StateGraph / GraphRunner
 │   │   ├── retry.ts                # 指数退避重试
 │   │   └── types.ts                # 所有公共类型定义
+│   ├── reasoning
+│   │   └── loop.ts                 # 节点内推理微循环（run/verify/retry）
+│   ├── video
+│   │   ├── error-classifier.ts     # Manim 报错分类
+│   │   ├── fix-policy.ts           # 分级修复策略（rule/local_patch/rewrite）
+│   │   └── script-validator.ts     # Manim 脚本静态校验
 │   ├── memory
 │   │   ├── short-term.ts           # Redis / 内存短期记忆
 │   │   ├── vector-memory.ts        # 用户向量记忆 + 内容向量缓存

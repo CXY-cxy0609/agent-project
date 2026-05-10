@@ -5,6 +5,7 @@
  */
 
 import type { GraphStreamEvent } from './types.js';
+import { GRAPH_END, type GraphCheckpoint, type GraphCheckpointStore } from './checkpoint.js';
 
 export const END = '__end__' as const;
 export type END = typeof END;
@@ -71,23 +72,14 @@ export class GraphRunner<S extends object> {
     private readonly conditionalEdges: ConditionalEdgeDef<S>[],
   ) {}
 
-  /** 非流式：执行完毕后返回最终状态 */
-  async run(input: Partial<S>): Promise<S> {
-    let state: S = { ...this.initialState, ...input };
-    let current = this.findEntryNode();
-
-    while (current !== END) {
-      const fn = this.nodes.get(current);
-      if (!fn) throw new Error(`Node "${current}" not found in graph`);
-
-      const delta = await fn(state as Readonly<S>);
-      state = { ...state, ...delta };
-
-      current = this.resolveNext(current, state);
-    }
-
-    return state;
+  async run(
+    input: Partial<S>,
+    options?: GraphRunOptions<S>,
+  ): Promise<S> {
+    return this.execute(input, options);
   }
+
+  /** 非流式：执行完毕后返回最终状态 */
 
   /** 流式：逐节点/逐 token 推送事件 */
   async *runStream(input: Partial<S>): AsyncGenerator<GraphStreamEvent<S>> {
@@ -141,4 +133,109 @@ export class GraphRunner<S extends object> {
 
     return END;
   }
+
+  private async execute(
+    input: Partial<S>,
+    options?: GraphRunOptions<S>,
+  ): Promise<S> {
+    const checkpointStore = options?.checkpointStore;
+    const workflowId = options?.workflowId;
+    const useCheckpoint = Boolean(checkpointStore && workflowId);
+    const clearOnDone = options?.clearCheckpointOnDone ?? false;
+
+    let state: S = { ...this.initialState, ...input };
+    let current = this.findEntryNode();
+
+    if (useCheckpoint && options?.resumeFromCheckpoint) {
+      const checkpoint = await checkpointStore!.load(workflowId!);
+      if (checkpoint) {
+        state = { ...checkpoint.state, ...input };
+        current = checkpoint.nextNode === GRAPH_END ? END : checkpoint.nextNode;
+
+        if (checkpoint.status === 'completed') {
+          return state;
+        }
+      }
+    }
+
+    try {
+      while (current !== END) {
+        if (useCheckpoint) {
+          await this.persistCheckpoint(checkpointStore!, {
+            workflowId: workflowId!,
+            status: 'running',
+            nextNode: current,
+            state,
+            updatedAt: new Date().toISOString(),
+          }, options?.onCheckpoint);
+        }
+
+        const fn = this.nodes.get(current);
+        if (!fn) throw new Error(`Node "${current}" not found in graph`);
+
+        const delta = await fn(state as Readonly<S>);
+        state = { ...state, ...delta };
+
+        current = this.resolveNext(current, state);
+
+        if (useCheckpoint) {
+          await this.persistCheckpoint(checkpointStore!, {
+            workflowId: workflowId!,
+            status: 'running',
+            nextNode: current,
+            state,
+            updatedAt: new Date().toISOString(),
+          }, options?.onCheckpoint);
+        }
+      }
+
+      if (useCheckpoint) {
+        await this.persistCheckpoint(checkpointStore!, {
+          workflowId: workflowId!,
+          status: 'completed',
+          nextNode: GRAPH_END,
+          state,
+          updatedAt: new Date().toISOString(),
+        }, options?.onCheckpoint);
+
+        if (clearOnDone && checkpointStore!.clear) {
+          await checkpointStore!.clear(workflowId!);
+        }
+      }
+
+      return state;
+    } catch (err) {
+      if (useCheckpoint) {
+        const message = err instanceof Error ? err.message : String(err);
+        await this.persistCheckpoint(checkpointStore!, {
+          workflowId: workflowId!,
+          status: 'failed',
+          nextNode: current === END ? GRAPH_END : current,
+          state,
+          updatedAt: new Date().toISOString(),
+          error: message,
+        }, options?.onCheckpoint);
+      }
+      throw err;
+    }
+  }
+
+  private async persistCheckpoint(
+    checkpointStore: GraphCheckpointStore<S>,
+    checkpoint: GraphCheckpoint<S>,
+    onCheckpoint?: (checkpoint: GraphCheckpoint<S>) => Promise<void> | void,
+  ): Promise<void> {
+    await checkpointStore.save(checkpoint);
+    await onCheckpoint?.(checkpoint);
+  }
+}
+
+export interface GraphRunOptions<S extends object> {
+  workflowId?: string;
+  checkpointStore?: GraphCheckpointStore<S>;
+  /** 为 true 时尝试加载已有 checkpoint 并续跑 */
+  resumeFromCheckpoint?: boolean;
+  /** 完成后自动清理 checkpoint */
+  clearCheckpointOnDone?: boolean;
+  onCheckpoint?: (checkpoint: GraphCheckpoint<S>) => Promise<void> | void;
 }
