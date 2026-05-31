@@ -15,7 +15,7 @@
         </div>
         <div class="visual-card">
           <TrophyOutlined class="vc-icon" />
-          <span>个性化复习计划，高效备考</span>
+          <span>个性化学习计划，高效提升</span>
         </div>
       </div>
     </auth-left-panel>
@@ -24,7 +24,7 @@
       <div class="auth-card">
         <div class="auth-card-header">
           <h2 class="auth-title">欢迎回来</h2>
-          <p class="auth-subtitle">登录您的账号，继续备考之旅</p>
+          <p class="auth-subtitle">登录您的账号，继续高效学习</p>
         </div>
 
         <!-- Login Mode Tabs -->

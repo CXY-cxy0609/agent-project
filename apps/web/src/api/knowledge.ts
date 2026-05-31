@@ -6,12 +6,12 @@ import { mockKnowledgeApi } from '@/mock/handlers/knowledge';
 const realKnowledgeApi = {
   getKnowledgeBases: (params?: KnowledgeBaseQuery) =>
     http
-      .get<{ list?: KnowledgeBase[] }, { list?: KnowledgeBase[] }>('/knowledge-bases', { params })
+      .post<{ list?: KnowledgeBase[] }, { list?: KnowledgeBase[] }>('/knowledge-bases/list', params ?? {})
       .then((payload) => payload.list ?? []),
 
   getKnowledgeBase: (id: string) =>
     http
-      .get<{ knowledgeBase?: KnowledgeBase } & Partial<KnowledgeBase>, { knowledgeBase?: KnowledgeBase } & Partial<KnowledgeBase>>(`/knowledge-bases/${id}`)
+      .post<{ knowledgeBase?: KnowledgeBase } & Partial<KnowledgeBase>, { knowledgeBase?: KnowledgeBase } & Partial<KnowledgeBase>>('/knowledge-bases/detail', { id })
       .then((payload) => payload.knowledgeBase ?? (payload as KnowledgeBase)),
 
   createKnowledgeBase: (data: CreateKnowledgeBaseDto) =>
@@ -21,17 +21,18 @@ const realKnowledgeApi = {
 
   updateKnowledgeBase: (id: string, data: UpdateKnowledgeBaseDto) =>
     http
-      .put<{ knowledgeBase?: KnowledgeBase } & Partial<KnowledgeBase>, { knowledgeBase?: KnowledgeBase } & Partial<KnowledgeBase>>(`/knowledge-bases/${id}`, data)
+      .post<{ knowledgeBase?: KnowledgeBase } & Partial<KnowledgeBase>, { knowledgeBase?: KnowledgeBase } & Partial<KnowledgeBase>>('/knowledge-bases/update', { id, ...data })
       .then((payload) => payload.knowledgeBase ?? (payload as KnowledgeBase)),
 
   deleteKnowledgeBase: (id: string) =>
-    http.delete(`/knowledge-bases/${id}`),
+    http.post('/knowledge-bases/delete', { id }),
 
   uploadFile: (knowledgeBaseId: string, file: File) => {
     const form = new FormData();
+    form.append('knowledgeBaseId', knowledgeBaseId);
     form.append('file', file);
     return http
-      .post<{ file?: KnowledgeFile } & Partial<KnowledgeFile>, { file?: KnowledgeFile } & Partial<KnowledgeFile>>(`/knowledge-bases/${knowledgeBaseId}/files`, form, {
+      .post<{ file?: KnowledgeFile } & Partial<KnowledgeFile>, { file?: KnowledgeFile } & Partial<KnowledgeFile>>('/knowledge-bases/files/upload', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       .then((payload) => payload.file ?? (payload as KnowledgeFile));
@@ -39,17 +40,21 @@ const realKnowledgeApi = {
 
   updateFile: (knowledgeBaseId: string, fileId: string, data: { displayName?: string; content?: string; order?: number }) =>
     http
-      .put<{ file?: KnowledgeFile } & Partial<KnowledgeFile>, { file?: KnowledgeFile } & Partial<KnowledgeFile>>(`/knowledge-bases/${knowledgeBaseId}/files/${fileId}`, data)
+      .post<{ file?: KnowledgeFile } & Partial<KnowledgeFile>, { file?: KnowledgeFile } & Partial<KnowledgeFile>>('/knowledge-bases/files/update', {
+        knowledgeBaseId,
+        fileId,
+        ...data,
+      })
       .then((payload) => payload.file ?? (payload as KnowledgeFile)),
 
   deleteFile: (knowledgeBaseId: string, fileId: string) =>
-    http.delete(`/knowledge-bases/${knowledgeBaseId}/files/${fileId}`),
+    http.post('/knowledge-bases/files/delete', { knowledgeBaseId, fileId }),
 
   reorderFiles: (knowledgeBaseId: string, fileIds: string[]) =>
-    http.put(`/knowledge-bases/${knowledgeBaseId}/files/reorder`, { fileIds }),
+    http.post('/knowledge-bases/files/reorder', { knowledgeBaseId, fileIds }),
 
   getFileContent: (knowledgeBaseId: string, fileId: string) =>
-    http.get<{ content: string }, { content: string }>(`/knowledge-bases/${knowledgeBaseId}/files/${fileId}/content`),
+    http.post<{ content: string }, { content: string }>('/knowledge-bases/files/content', { knowledgeBaseId, fileId }),
 };
 
 export const knowledgeApi = USE_MOCK ? mockKnowledgeApi : realKnowledgeApi;

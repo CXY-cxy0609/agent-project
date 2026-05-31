@@ -16,6 +16,8 @@ import type {
 } from './types.js';
 import { withRetry, isRetryableLLMError } from './retry.js';
 
+const DEFAULT_LOG_MAX_CHARS = 4000;
+
 // ─── 公共接口 ─────────────────────────────────────────────────────────────────
 
 export interface ILLMClient {
@@ -91,6 +93,7 @@ class AnthropicLLMClient implements ILLMClient {
       if (event.type === 'content_block_delta') {
         if (event.delta.type === 'text_delta') {
           fullText += event.delta.text;
+          logLLMStreamDelta('anthropic', event.delta.text);
           yield { type: 'text_delta', delta: event.delta.text };
         }
       } else if (event.type === 'message_stop') {
@@ -104,6 +107,7 @@ class AnthropicLLMClient implements ILLMClient {
           latencyMs: Date.now() - start,
           stopReason: (finalMsg.stop_reason ?? 'end_turn') as LLMResponse['stopReason'],
         };
+        logLLMResponse('anthropic', 'stream', options, response);
         yield { type: 'done', finalResponse: response };
       }
     }
@@ -126,7 +130,7 @@ class AnthropicLLMClient implements ILLMClient {
       .map((b) => (b.type === 'text' ? b.text : ''))
       .join('');
 
-    return {
+    const parsed: LLMResponse = {
       content: textContent,
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       usage: extractAnthropicUsage(response.usage),
@@ -134,6 +138,8 @@ class AnthropicLLMClient implements ILLMClient {
       latencyMs: Date.now() - start,
       stopReason: (response.stop_reason ?? 'end_turn') as LLMResponse['stopReason'],
     };
+    logLLMResponse('anthropic', 'call', options, parsed);
+    return parsed;
   }
 
   private buildParams(options: LLMCallOptions): Anthropic.MessageCreateParamsNonStreaming {
@@ -197,7 +203,7 @@ class DoubaoLLMClient implements ILLMClient {
     const choice = response.choices[0];
     const toolCalls = extractOpenAIToolCalls(choice.message.tool_calls ?? []);
 
-    return {
+    const parsed: LLMResponse = {
       content: choice.message.content ?? '',
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       usage: {
@@ -208,6 +214,8 @@ class DoubaoLLMClient implements ILLMClient {
       latencyMs: Date.now() - start,
       stopReason: mapOpenAIStopReason(choice.finish_reason),
     };
+    logLLMResponse('doubao', 'call', options, parsed);
+    return parsed;
   }
 
   async *stream(options: LLMCallOptions): AsyncGenerator<StreamChunk> {
@@ -246,6 +254,7 @@ class DoubaoLLMClient implements ILLMClient {
 
       if (delta.content) {
         fullText += delta.content;
+        logLLMStreamDelta('doubao', delta.content);
         yield { type: 'text_delta', delta: delta.content };
       }
 
@@ -273,16 +282,18 @@ class DoubaoLLMClient implements ILLMClient {
       input: safeParseJSON(tc.args),
     }));
 
+    const finalResponse: LLMResponse = {
+      content: fullText,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      usage,
+      model: options.model,
+      latencyMs: Date.now() - start,
+      stopReason: mapOpenAIStopReason(finishReason),
+    };
+    logLLMResponse('doubao', 'stream', options, finalResponse);
     yield {
       type: 'done',
-      finalResponse: {
-        content: fullText,
-        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        usage,
-        model: options.model,
-        latencyMs: Date.now() - start,
-        stopReason: mapOpenAIStopReason(finishReason),
-      },
+      finalResponse,
     };
   }
 }
@@ -412,4 +423,59 @@ function safeParseJSON(s: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+function logLLMResponse(
+  provider: 'anthropic' | 'doubao',
+  mode: 'call' | 'stream',
+  options: LLMCallOptions,
+  response: LLMResponse,
+): void {
+  if (!isLLMResponseLogEnabled()) return;
+  const maxChars = getLogMaxChars();
+  const content = truncateForLog(response.content ?? '', maxChars);
+  const toolCalls = response.toolCalls?.map((item) => item.name).join(', ') ?? 'none';
+  const requestMaxTokens = options.maxTokens ?? 4096;
+  console.log('[LLM_RESPONSE] ==================================================');
+  console.log(
+    `[LLM_RESPONSE] provider=${provider} mode=${mode} model=${response.model} stopReason=${response.stopReason}`,
+  );
+  console.log(
+    `[LLM_RESPONSE] promptTokens=${response.usage.promptTokens} completionTokens=${response.usage.completionTokens} latencyMs=${response.latencyMs} requestMaxTokens=${requestMaxTokens}`,
+  );
+  console.log(`[LLM_RESPONSE] toolCalls=${toolCalls}`);
+  console.log('[LLM_RESPONSE] content_start');
+  console.log(content || '[empty]');
+  console.log('[LLM_RESPONSE] content_end');
+}
+
+function isLLMResponseLogEnabled(): boolean {
+  const value = process.env.LLM_LOG_RESPONSES;
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function getLogMaxChars(): number {
+  const raw = Number(process.env.LLM_LOG_MAX_CHARS ?? DEFAULT_LOG_MAX_CHARS);
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_LOG_MAX_CHARS;
+  return Math.floor(raw);
+}
+
+function truncateForLog(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}\n...[truncated ${text.length - maxChars} chars]`;
+}
+
+function logLLMStreamDelta(provider: 'anthropic' | 'doubao', delta: string): void {
+  if (!isLLMStreamDeltaLogEnabled()) return;
+  if (!delta) return;
+  console.log(`[LLM_STREAM_DELTA] provider=${provider} delta=${JSON.stringify(delta)}`);
+}
+
+function isLLMStreamDeltaLogEnabled(): boolean {
+  const value = process.env.LLM_LOG_STREAM_DELTAS;
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }

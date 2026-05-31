@@ -4,13 +4,6 @@
       {{ title || '新对话' }}
     </div>
     <div class="chat-header-actions">
-      <a-select
-        :value="selectedModel"
-        size="small"
-        style="width: 160px"
-        :options="modelOptions"
-        @change="(v: string) => $emit('update:selectedModel', v)"
-      />
       <a-tooltip title="删除对话">
         <a-button
           size="small"
@@ -27,19 +20,11 @@
 import { h } from 'vue';
 import { DeleteOutlined } from '@ant-design/icons-vue';
 
-interface ModelOption {
-  label: string;
-  value: string;
-}
-
 defineProps<{
   title?: string;
-  selectedModel: string;
-  modelOptions: ModelOption[];
 }>();
 
 defineEmits<{
-  'update:selectedModel': [value: string];
   'delete': [];
 }>();
 </script>

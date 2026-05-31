@@ -62,6 +62,34 @@ grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 "$(go env GOPATH)/bin/air" -c .air.toml
 ```
 
+### 端口占用排查（`listen tcp :3000: bind: address already in use`）
+
+当 `pnpm dev` 启动失败并提示 `address already in use` 时，说明 `3000` 端口已被其他进程占用。
+
+1) 查看占用 `3000` 的进程：
+
+```bash
+lsof -nP -iTCP:3000 -sTCP:LISTEN
+```
+
+2) 停止占用进程（示例 `PID` 为 `40922`）：
+
+```bash
+kill 40922
+```
+
+3) 如果进程未退出，再强制停止：
+
+```bash
+kill -9 40922
+```
+
+4) 确认端口已释放（无输出即表示已释放）：
+
+```bash
+lsof -nP -iTCP:3000 -sTCP:LISTEN
+```
+
 ## 环境变量与迁移注意事项
 
 关键原则：**不要清空已有 `.env` 中真实云配置**（数据库、Redis、内网地址等），只做增量迁移。
@@ -71,7 +99,6 @@ grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 - 数据库支持旧字段：`DB_HOST/DB_PORT/DB_USERNAME/DB_PASSWORD/DB_NAME`
 - 新增 `DB_DRIVER`（默认 `mysql`，可切 `postgres`）
 - 新增 `DB_DSN`（优先级高于拆分字段）
-- 新增 `DB_REPOSITORY_MODE`（`memory` | `sql`）
 - Redis 支持旧字段：`REDIS_HOST/REDIS_PORT`，也支持新字段 `REDIS_ADDR`
 - Redis 可选新增 `REDIS_USERNAME`
 
@@ -79,7 +106,6 @@ grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 
 - `DB_DRIVER`
 - `DB_DSN`
-- `DB_REPOSITORY_MODE`
 - `REDIS_ADDR`
 - `REDIS_USERNAME`
 - `KAFKA_BROKERS`
@@ -100,6 +126,6 @@ grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 
 ## 下一步规划（代码层）
 
-- 将 `memory` 仓储切换到 `sql`（设置 `DB_REPOSITORY_MODE=sql`）
+- 持续完善 SQL 仓储与索引优化
 - 完成 gRPC service 注册与 proto stub 生成接线
 - 加入 OpenTelemetry 指标与 tracing

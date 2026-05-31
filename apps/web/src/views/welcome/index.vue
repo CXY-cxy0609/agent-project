@@ -11,8 +11,8 @@
     <!-- Navigation -->
     <nav class="welcome-nav">
       <div class="nav-brand">
-        <div class="brand-icon">研</div>
-        <span class="brand-name">研智辅导</span>
+        <div class="brand-icon">学</div>
+        <span class="brand-name">学智助手</span>
       </div>
       <div class="nav-actions">
         <a-button @click="$router.push('/login')">登录</a-button>
@@ -25,15 +25,15 @@
       <div class="hero-content">
         <div class="hero-badge">
           <span class="badge-dot"></span>
-          AI 驱动的考研智能辅导
+          AI 驱动的个性化智能学习
         </div>
         <h1 class="hero-title">
-          让考研复习<br />
+          让学习成长<br />
           <span class="title-highlight">更聪明、更高效</span>
         </h1>
         <p class="hero-desc">
-          基于大模型 AI，为考研学生提供知识点深度讲解、智能题目解析、
-          个性化学情分析，让每一分钟复习都精准有效。
+          基于大模型 AI，为不同年龄段学习者提供知识点深度讲解、智能题目解析、
+          个性化学习分析，让每一分钟学习都精准有效。
         </p>
         <div class="hero-actions">
           <a-button type="primary" size="large" class="cta-btn" @click="$router.push('/register')">
@@ -98,7 +98,7 @@
     <section class="features-section">
       <div class="section-header">
         <div class="section-tag">核心功能</div>
-        <h2 class="section-title">三大场景，全面覆盖考研需求</h2>
+        <h2 class="section-title">三大场景，全面覆盖学习需求</h2>
       </div>
       <div class="features-grid">
         <div v-for="feature in features" :key="feature.title" class="feature-card">
@@ -120,8 +120,8 @@
     <!-- CTA Section -->
     <section class="cta-section">
       <div class="cta-content">
-        <h2 class="cta-title">准备好开始你的智能备考之旅了吗？</h2>
-        <p class="cta-desc">注册即可免费使用，支持多学科、多模型，随时随地备考</p>
+        <h2 class="cta-title">准备好开启你的智能学习之旅了吗？</h2>
+        <p class="cta-desc">注册即可免费使用，支持多学科、多模型，随时随地高效学习</p>
         <a-button type="primary" size="large" class="cta-main-btn" @click="$router.push('/register')">
           免费注册，立即体验
         </a-button>
@@ -130,7 +130,7 @@
 
     <!-- Footer -->
     <footer class="welcome-footer">
-      <span>© 2025 研智辅导 · 智能考研辅导平台</span>
+      <span>© 2025 学智助手 · 个性化智能学习平台</span>
     </footer>
   </div>
 </template>
@@ -147,7 +147,7 @@ import {
 } from '@ant-design/icons-vue';
 
 const stats = [
-  { value: '10,000+', label: '考研学生使用' },
+  { value: '10,000+', label: '学习者使用' },
   { value: '50+', label: '学科知识库' },
   { value: '98%', label: '知识点讲解准确率' },
 ];
@@ -158,7 +158,7 @@ const features = [
     bg: 'linear-gradient(135deg, #e8f0fe, #c7d7fc)',
     title: '知识点讲解',
     desc: '输入任意知识点，AI 自动讲解核心概念、易错点与应用场景',
-    points: ['深度解析知识点结构', '自动关联真题考点', '支持公式渲染'],
+    points: ['深度解析知识点结构', '自动关联典型题型与场景', '支持公式渲染'],
   },
   {
     icon: BulbOutlined,
@@ -171,7 +171,7 @@ const features = [
     icon: LineChartOutlined,
     bg: 'linear-gradient(135deg, #e8fef0, #b0f0cc)',
     title: '学情分析',
-    desc: '根据对话记录生成薄弱知识点图谱，给出个性化复习建议',
+    desc: '根据对话记录生成薄弱知识点图谱，给出个性化学习建议',
     points: ['词云展示薄弱点', '分学科深度分析', '一键生成复习报告'],
   },
 ];

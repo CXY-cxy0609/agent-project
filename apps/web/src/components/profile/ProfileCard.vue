@@ -22,7 +22,7 @@
       <div class="profile-username">{{ user?.username }}</div>
       <div class="profile-role">
         <a-tag :color="user?.role === 'admin' ? 'gold' : 'blue'">
-          {{ user?.role === 'admin' ? '管理员' : '学生' }}
+          {{ user?.role === 'admin' ? '管理员' : '学习者' }}
         </a-tag>
       </div>
       <div class="profile-phone">{{ maskedPhone }}</div>

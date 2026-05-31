@@ -21,11 +21,15 @@ interface ServerConversation {
   messageCount?: number;
 }
 
+interface CreateConversationPayload {
+  conversation?: ServerConversation;
+}
+
 interface SendMessagePayload {
   conversationId?: string;
   subjectId?: number;
   content: string;
-  model: string;
+  model?: string;
   generateVideo?: boolean;
   userId?: string;
   availableSubjects?: Array<{ id: number; name: string; code?: number | string }>;
@@ -78,34 +82,29 @@ function normalizeConversationPage(payload: unknown): PageResult<Conversation> {
 const realChatApi = {
   getConversations: (params?: ConversationListQuery) =>
     http
-      .get<unknown, unknown>('/conversations', {
-        params: {
-          ...params,
-          subject_id: params?.subjectId,
-          page_size: params?.pageSize,
-          knowledge_keyword: params?.knowledgeKeyword,
-          start_date: params?.startDate,
-          end_date: params?.endDate,
-        },
+      .post<unknown, unknown>('/conversations/list', {
+        ...params,
       })
       .then(normalizeConversationPage),
 
   getConversation: (id: string) =>
-    http.get<ServerConversation, ServerConversation>(`/conversations/${id}`).then(normalizeConversation),
+    http.post<ServerConversation, ServerConversation>('/conversations/detail', { id }).then(normalizeConversation),
 
   getMessages: (conversationId: string) =>
     http
-      .get<{ list?: Message[] }, { list?: Message[] }>(`/conversations/${conversationId}/messages`)
+      .post<{ list?: Message[] }, { list?: Message[] }>('/conversations/messages/list', { id: conversationId })
       .then((payload) => payload.list ?? []),
 
   deleteConversation: (id: string) =>
-    http.delete(`/conversations/${id}`),
+    http.post('/conversations/delete', { id }),
 
-  createConversation: (data: { id: string; title: string; subjectId?: number; userId?: string }) =>
-    http.post(`/conversations`, data),
+  createConversation: (data: { id?: string; title: string; subjectId?: number; userId?: string }) =>
+    http
+      .post<CreateConversationPayload, CreateConversationPayload>('/conversations', data)
+      .then((payload) => normalizeConversation(payload.conversation ?? {})),
 
   appendMessage: (conversationId: string, data: PersistMessagePayload) =>
-    http.post(`/conversations/${conversationId}/messages`, data),
+    http.post('/conversations/messages/create', { conversationId, ...data }),
 
   sendMessage(
     data: SendMessagePayload,
@@ -114,11 +113,20 @@ const realChatApi = {
     onError: (err: Error) => void,
   ) {
     const ctrl = new AbortController();
-    fetch('/chat/stream', {
+    const token = getAccessToken();
+    let doneNotified = false;
+
+    const notifyDoneOnce = (conversation: Conversation) => {
+      if (doneNotified) return;
+      doneNotified = true;
+      onDone(conversation);
+    };
+
+    fetch('/api/chat/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('tutor-auth') ? JSON.parse(localStorage.getItem('tutor-auth')!).token?.accessToken : ''}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(data),
       signal: ctrl.signal,
@@ -130,7 +138,6 @@ const realChatApi = {
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let doneNotified = false;
         const fallbackConversation: Conversation = normalizeConversation({
           id: data.conversationId,
           title: data.content.slice(0, 20),
@@ -147,10 +154,7 @@ const realChatApi = {
             if (line.startsWith('data: ')) {
               const payload = line.slice(6).trim();
               if (payload === '[DONE]') {
-                if (!doneNotified) {
-                  doneNotified = true;
-                  onDone(fallbackConversation);
-                }
+                notifyDoneOnce(fallbackConversation);
               } else {
                 let parsed: any;
                 try {
@@ -161,6 +165,16 @@ const realChatApi = {
                 if (parsed.type === 'text' && typeof parsed.content === 'string') {
                   onChunk(parsed.content);
                 }
+                if (parsed.type === 'delta' && typeof parsed.delta === 'string') {
+                  onChunk(parsed.delta);
+                  fallbackConversation.id = parsed.conversationId ?? fallbackConversation.id;
+                  fallbackConversation.subjectId = toNumber(parsed.subjectId, fallbackConversation.subjectId);
+                  fallbackConversation.subjectName =
+                    parsed.subjectName ??
+                    (fallbackConversation.subjectId
+                      ? `学科 ${fallbackConversation.subjectId}`
+                      : fallbackConversation.subjectName);
+                }
                 if (parsed.type === 'reply' && typeof parsed.content === 'string') {
                   onChunk(parsed.content);
                   fallbackConversation.id = parsed.conversationId ?? fallbackConversation.id;
@@ -170,14 +184,10 @@ const realChatApi = {
                     (fallbackConversation.subjectId
                       ? `学科 ${fallbackConversation.subjectId}`
                       : fallbackConversation.subjectName);
-                  if (!doneNotified) {
-                    doneNotified = true;
-                    onDone(fallbackConversation);
-                  }
+                  notifyDoneOnce(fallbackConversation);
                 }
-                if (parsed.type === 'done' && !doneNotified) {
-                  doneNotified = true;
-                  onDone(fallbackConversation);
+                if (parsed.type === 'done') {
+                  notifyDoneOnce(fallbackConversation);
                 }
                 if (parsed.type === 'error') {
                   throw new Error(parsed.message ?? 'stream error');
@@ -186,11 +196,13 @@ const realChatApi = {
             }
           }
         }
-        if (!doneNotified) {
-          onDone(fallbackConversation);
-        }
+        notifyDoneOnce(fallbackConversation);
       })
-      .catch(onError);
+      .catch((error) => {
+        if (doneNotified) return;
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        onError(error instanceof Error ? error : new Error('chat stream failed'));
+      });
     return () => ctrl.abort();
   },
 
@@ -209,3 +221,14 @@ const realChatApi = {
 };
 
 export const chatApi = USE_MOCK ? mockChatApi : realChatApi;
+
+function getAccessToken(): string {
+  const raw = localStorage.getItem('tutor-auth');
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw) as { token?: { accessToken?: string } };
+    return parsed.token?.accessToken ?? '';
+  } catch {
+    return '';
+  }
+}

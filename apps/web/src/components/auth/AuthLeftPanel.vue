@@ -1,8 +1,8 @@
 <template>
   <div class="auth-left">
     <div class="auth-brand">
-      <div class="brand-icon" @click="$router.push('/')">研</div>
-      <span class="brand-name" @click="$router.push('/')">研智辅导</span>
+      <div class="brand-icon" @click="$router.push('/')">学</div>
+      <span class="brand-name" @click="$router.push('/')">学智助手</span>
     </div>
 
     <div class="auth-quote">

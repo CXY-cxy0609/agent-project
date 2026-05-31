@@ -35,7 +35,7 @@
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'role'">
                 <a-tag :color="record.role === 'admin' ? 'gold' : 'blue'">
-                  {{ record.role === 'admin' ? '管理员' : '学生' }}
+                  {{ record.role === 'admin' ? '管理员' : '学习者' }}
                 </a-tag>
               </template>
               <template v-if="column.key === 'actions'">
@@ -230,17 +230,17 @@ const viewingOutline = ref<SubjectOutline>({ modules: [] });
 async function loadUsers() {
   usersLoading.value = true;
   try {
-    const result = await http.get<User[], User[]>('/admin/users', {
-      params: { search: userSearch.value || undefined },
+    const result = await http.post<{ list: User[] }, { list: User[] }>('/admin/users/list', {
+      search: userSearch.value || undefined,
     });
-    users.value = result;
+    users.value = result.list ?? [];
   } finally {
     usersLoading.value = false;
   }
 }
 
 async function setAdmin(userId: string) {
-  await http.put(`/admin/users/${userId}/role`, { role: 'admin' });
+  await http.post('/admin/users/role/update', { userId, role: 'admin' });
   message.success('已设置为管理员');
   loadUsers();
 }

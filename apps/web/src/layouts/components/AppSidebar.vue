@@ -9,9 +9,9 @@
   >
     <!-- Logo -->
     <div class="sidebar-logo" :class="{ collapsed }">
-      <div class="logo-icon">研</div>
+      <div class="logo-icon">学</div>
       <transition name="fade">
-        <span v-if="!collapsed" class="logo-text">研智辅导</span>
+        <span v-if="!collapsed" class="logo-text">学智助手</span>
       </transition>
     </div>
 
@@ -69,7 +69,7 @@
       <transition name="fade">
         <div v-if="!collapsed" class="user-info">
           <div class="user-name">{{ authStore.user?.username }}</div>
-          <div class="user-role">{{ authStore.user?.role === 'admin' ? '管理员' : '学生' }}</div>
+          <div class="user-role">{{ authStore.user?.role === 'admin' ? '管理员' : '学习者' }}</div>
         </div>
       </transition>
     </div>

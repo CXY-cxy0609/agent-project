@@ -8,7 +8,6 @@ import { BaseAgent } from '../../harness/core/agent.js';
 import { PromptBuilder } from '../../harness/prompt/builder.js';
 import { SchemaParser } from '../../harness/output/schema-parser.js';
 import type { ShortTermMemory, AgentContext } from '../../harness/core/types.js';
-import { MODELS } from '../../constants/models.js';
 import {
   ORCHESTRATOR_PERSONA,
   ORCHESTRATOR_TASK,
@@ -23,6 +22,7 @@ import type {
 import type { LLMClient } from '../../harness/core/llm-client.js';
 import type { Observer } from '../../harness/observer/tracer.js';
 import type { WorkflowScheduler } from '../../harness/runtime/scheduler.js';
+import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 import type { QAInput, QAOutput } from '../qa/qa.types.js';
 import type { VideoAgentInput, VideoAgentOutput } from '../video/video.types.js';
 import type { LearningReportInput } from '../../subgraphs/learning-report.subgraph.js';
@@ -43,6 +43,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     observer: Observer,
     private readonly memory: ShortTermMemory,
     private readonly scheduler: WorkflowScheduler,
+    private readonly modelConfig: ModelGovernanceConfig['orchestrator'],
   ) {
     super(llm, observer);
   }
@@ -77,6 +78,23 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     input: OrchestratorInput,
     _ctx: AgentContext,
   ): Promise<IntentClassification> {
+    if (input.generateVideo === true) {
+      return {
+        intent: 'video_request',
+        subjectId: input.subjectId,
+        confidence: 1,
+        reasoning: '前端显式开启生成视频开关',
+      };
+    }
+    if (hasVideoIntent(input.userMessage, Boolean(input.imageBase64))) {
+      return {
+        intent: 'video_request',
+        subjectId: input.subjectId,
+        confidence: 0.95,
+        reasoning: '命中视频生成/修复意图关键词规则',
+      };
+    }
+
     const availableSubjectsHint = (input.availableSubjects ?? [])
       .map((item) => `- ${item.id}: ${item.name}${item.code ? ` (code: ${item.code})` : ''}`)
       .join('\n');
@@ -93,7 +111,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
       .build();
 
     const response = await this.llm.call({
-      model: MODELS.HAIKU,
+      model: this.modelConfig.classifyIntent,
       messages,
       systemPrompt,
       temperature: 0,
@@ -122,15 +140,14 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     const workflowId = `${ctx.sessionId}:${ctx.traceId}`;
 
     switch (intent.intent) {
-      case 'qa':
-      case 'video_request': {
+      case 'qa': {
         const qaInput: QAInput = {
           question: input.userMessage,
           imageBase64: input.imageBase64,
           imageMediaType: input.imageMediaType,
           subjectId: intent.subjectId ?? input.subjectId ?? 'general',
           history: state.history,
-          generateVideo: intent.intent === 'video_request',
+          generateVideo: false,
         };
 
         const qaResult = await this.scheduler.executeSubgraph<QAInput, QAOutput>(
@@ -140,25 +157,30 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
           { workflowId },
         );
 
-        let videoUrl: string | undefined;
-        if (qaResult.needsVideo) {
-          const videoResult = await this.scheduler.executeSubgraph<VideoAgentInput, VideoAgentOutput>(
-            'video',
-            {
-              knowledgeDescription: input.userMessage,
-              subject: qaResult.subject,
-              useVideoCache: true,
-            },
-            ctx,
-            { workflowId },
-          );
-          videoUrl = videoResult.videoUrl;
-        }
-
         return {
           reply: qaResult.answer,
-          subjectId: intent.subjectId,
-          videoUrl,
+          subjectId: qaResult.subject || intent.subjectId,
+        };
+      }
+
+      case 'video_request': {
+        const videoResult = await this.scheduler.executeSubgraph<VideoAgentInput, VideoAgentOutput>(
+          'video',
+          {
+            knowledgeDescription: input.userMessage,
+            subject: intent.subjectId ?? input.subjectId ?? '通用',
+            useVideoCache: true,
+          },
+          ctx,
+          { workflowId },
+        );
+
+        return {
+          reply: videoResult.success
+            ? '已为你生成讲解视频。'
+            : `视频生成失败：${videoResult.failureReason ?? '未知错误'}`,
+          subjectId: intent.subjectId ?? input.subjectId,
+          videoUrl: videoResult.videoUrl,
         };
       }
 
@@ -191,4 +213,48 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         };
     }
   }
+}
+
+function hasVideoIntent(userMessage: string, hasImage: boolean): boolean {
+  const text = userMessage.toLowerCase().replace(/\s+/g, '');
+
+  const directVideoKeywords = [
+    '生成视频',
+    '讲解视频',
+    '做个视频',
+    '出视频',
+    '视频讲解',
+    '视频版',
+    '录个视频',
+    '制作视频',
+    '生成动画',
+    '做个动画',
+    '重生成视频',
+    '重新生成视频',
+    '重新渲染',
+    '重渲染',
+    '重新跑视频',
+    '修视频',
+    '修复视频',
+    '视频有问题',
+    '视频不对',
+    '视频错误',
+    '渲染失败',
+    '渲染报错',
+    'manim',
+  ];
+  if (directVideoKeywords.some((keyword) => text.includes(keyword))) return true;
+
+  const frameKeywords = ['帧', '第几帧', '某一帧', '哪一帧', '卡住', '花屏', '抖动'];
+  const fixKeywords = ['修', '修复', '改', '调整', '重做', '重生成', '重新生成', '重新渲染', '定位代码'];
+  if (frameKeywords.some((keyword) => text.includes(keyword)) && fixKeywords.some((keyword) => text.includes(keyword))) {
+    return true;
+  }
+
+  // 用户带截图反馈视频问题，通常是希望定位并重生成视频。
+  if (hasImage && (text.includes('视频') || text.includes('帧')) && fixKeywords.some((keyword) => text.includes(keyword))) {
+    return true;
+  }
+
+  return false;
 }

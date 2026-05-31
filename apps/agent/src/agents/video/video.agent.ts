@@ -8,6 +8,7 @@ import { MessageDrivenGraph } from '../../harness/runtime/message-graph.js';
 import type { MessageEnvelope } from '../../harness/runtime/message-graph.js';
 import { buildVideoMessageGraphNodes } from './video.message-graph.js';
 import type { VideoAgentInput, VideoAgentOutput } from './video.types.js';
+import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 
 const DEFAULT_CACHE_THRESHOLD = 0.92;
 const VIDEO_UPLOAD_EVENT = 'video.upload.completed';
@@ -19,13 +20,14 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
     observer: Observer,
     private readonly videoCache: ContentVectorCache,
     private readonly toolRegistry: ToolRegistry,
+    private readonly modelConfig: ModelGovernanceConfig['video'],
     private readonly nodePolicies?: Record<string, NodeGovernancePolicy>,
   ) {
     super(llm, observer);
   }
 
   async execute(input: VideoAgentInput, ctx: AgentContext): Promise<VideoAgentOutput> {
-    const nodes = buildVideoMessageGraphNodes(this.llm, this.videoCache, this.toolRegistry);
+    const nodes = buildVideoMessageGraphNodes(this.llm, this.videoCache, this.toolRegistry, this.modelConfig);
     const graph = new MessageDrivenGraph({
       knowledgeDescription: input.knowledgeDescription,
       subject: input.subject,

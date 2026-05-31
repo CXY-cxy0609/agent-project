@@ -17,7 +17,7 @@
       <div class="auth-card">
         <div class="auth-card-header">
           <h2 class="auth-title">创建账号</h2>
-          <p class="auth-subtitle">加入研智辅导，开启智能备考</p>
+          <p class="auth-subtitle">加入学智助手，开启个性化学习</p>
         </div>
 
         <a-form
@@ -141,9 +141,9 @@ const rules = {
 };
 
 const benefits = [
-  '免费使用 AI 知识点讲解与题目解析',
+  '免费使用 AI 知识讲解与题目解析',
   '上传个人知识库，获得个性化检索',
-  '学情分析追踪薄弱知识点，精准复习',
+  '学习分析追踪薄弱知识点，精准提升',
 ];
 
 async function handleRegister() {
@@ -151,7 +151,7 @@ async function handleRegister() {
   try {
     const res = await authApi.register(form.value);
     authStore.setAuth(res.user, res.token);
-    message.success('注册成功，欢迎加入研智辅导！');
+    message.success('注册成功，欢迎加入学智助手！');
     router.push('/app/chat');
   } finally {
     loading.value = false;

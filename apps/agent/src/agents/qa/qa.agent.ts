@@ -16,6 +16,7 @@ import { buildQAMessageGraphNodes } from './qa.message-graph.js';
 import { eventBus } from '../../events/event-bus.js';
 import type { QAInput, QAOutput } from './qa.types.js';
 import type { QARetrievalPolicyConfig } from './retrieval-policy.js';
+import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 
 const QA_OCR_EVENT = 'qa.ocr.completed';
 const QA_RAG_EVENT = 'qa.rag.completed';
@@ -28,17 +29,25 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
     private readonly ragClient: RagClient,
     private readonly toolRegistry: ToolRegistry,
     private readonly retrievalPolicyConfig: QARetrievalPolicyConfig,
+    private readonly modelConfig: ModelGovernanceConfig['qa'],
     private readonly nodePolicies?: Record<string, NodeGovernancePolicy>,
   ) {
     super(llm, observer, eventBus);
   }
 
   async execute(input: QAInput, ctx: AgentContext): Promise<QAOutput> {
+    const tokenEmitter = ctx.metadata?.tokenEmitter;
     const nodes = buildQAMessageGraphNodes(
       this.llm,
       this.ragClient,
       this.toolRegistry,
       this.retrievalPolicyConfig,
+      this.modelConfig,
+      typeof tokenEmitter === 'function'
+        ? (token: string) => {
+            (tokenEmitter as (value: string) => void)(token);
+          }
+        : undefined,
     );
     const graph = new MessageDrivenGraph({
       question: input.question,

@@ -1,7 +1,9 @@
 package http
 
 import (
+	"net/url"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -19,6 +21,7 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 	}
 
 	r := gin.New()
+	handlers.UseDBStore(container.DBStore())
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	_ = r.SetTrustedProxies(nil)
@@ -26,7 +29,8 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 	r.Use(middleware.AccessLog())
 	r.Use(middleware.NewIdempotencyStore(5 * time.Minute).Middleware())
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{cfg.FrontendURL},
+		AllowOrigins:     parseAllowedOrigins(cfg.FrontendURL),
+		AllowOriginFunc:  buildAllowOriginFunc(cfg.NodeEnv),
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Authorization", "Content-Type", "x-internal-token"},
 		AllowCredentials: true,
@@ -50,7 +54,7 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 			auth.POST("/login/password", handlers.LoginByPassword())
 			auth.POST("/login/code", handlers.LoginByCode())
 			auth.POST("/send-code", handlers.SendCode())
-			auth.POST("/register", handlers.Register())
+			auth.POST("/register", handlers.Register(container.AuthService))
 			auth.PUT("/password", handlers.UpdatePassword())
 			auth.GET("/profile", handlers.GetProfile())
 			auth.PUT("/profile", handlers.UpdateProfile())
@@ -58,26 +62,26 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 
 		subjects := api.Group("/subjects")
 		{
-			subjects.GET("", handlers.ListMySubjects())
-			subjects.GET("/search", handlers.SearchSubjects())
+			subjects.POST("/list", handlers.ListMySubjects())
+			subjects.POST("/search", handlers.SearchSubjects())
 			subjects.POST("", handlers.CreateSubject())
-			subjects.PUT("/:id", handlers.UpdateSubject())
-			subjects.DELETE("/:id", handlers.DeleteSubject())
-			subjects.GET("/my", handlers.ListMySubjects())
+			subjects.POST("/update", handlers.UpdateSubject())
+			subjects.POST("/delete", handlers.DeleteSubject())
+			subjects.POST("/my/list", handlers.ListMySubjects())
 			subjects.POST("/my", handlers.AddMySubject())
-			subjects.DELETE("/my/:id", handlers.RemoveMySubject())
-			subjects.GET("/:id/outline", handlers.GetSubjectOutline())
-			subjects.PUT("/:id/outline", handlers.UpdateSubjectOutline())
+			subjects.POST("/my/remove", handlers.RemoveMySubject())
+			subjects.POST("/outline/get", handlers.GetSubjectOutline())
+			subjects.POST("/outline/update", handlers.UpdateSubjectOutline())
 		}
 
 		conversations := api.Group("/conversations")
 		{
-			conversations.GET("", handlers.ListConversationsWeb())
+			conversations.POST("/list", handlers.ListConversationsWeb())
 			conversations.POST("", handlers.CreateConversationWeb())
-			conversations.GET("/:id", handlers.GetConversationWeb())
-			conversations.DELETE("/:id", handlers.DeleteConversationWeb())
-			conversations.GET("/:id/messages", handlers.ListConversationMessages())
-			conversations.POST("/:id/messages", handlers.CreateConversationMessage())
+			conversations.POST("/detail", handlers.GetConversationWeb())
+			conversations.POST("/delete", handlers.DeleteConversationWeb())
+			conversations.POST("/messages/list", handlers.ListConversationMessages())
+			conversations.POST("/messages/create", handlers.CreateConversationMessage())
 		}
 
 		analytics := api.Group("/analytics")
@@ -88,23 +92,29 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 
 		knowledge := api.Group("/knowledge-bases")
 		{
-			knowledge.GET("", handlers.ListKnowledgeBases())
+			knowledge.POST("/list", handlers.ListKnowledgeBases())
 			knowledge.POST("", handlers.CreateKnowledgeBase())
-			knowledge.GET("/:id", handlers.GetKnowledgeBase())
-			knowledge.PUT("/:id", handlers.UpdateKnowledgeBase())
-			knowledge.DELETE("/:id", handlers.DeleteKnowledgeBase())
-			knowledge.POST("/:id/files", handlers.UploadKnowledgeFile())
-			knowledge.PUT("/:id/files/:fileId", handlers.UpdateKnowledgeFile())
-			knowledge.DELETE("/:id/files/:fileId", handlers.DeleteKnowledgeFile())
-			knowledge.PUT("/:id/files/reorder", handlers.ReorderKnowledgeFiles())
-			knowledge.GET("/:id/files/:fileId/content", handlers.GetKnowledgeFileContent())
+			knowledge.POST("/detail", handlers.GetKnowledgeBase())
+			knowledge.POST("/update", handlers.UpdateKnowledgeBase())
+			knowledge.POST("/delete", handlers.DeleteKnowledgeBase())
+			knowledge.POST("/files/upload", handlers.UploadKnowledgeFile())
+			knowledge.POST("/files/update", handlers.UpdateKnowledgeFile())
+			knowledge.POST("/files/delete", handlers.DeleteKnowledgeFile())
+			knowledge.POST("/files/reorder", handlers.ReorderKnowledgeFiles())
+			knowledge.POST("/files/content", handlers.GetKnowledgeFileContent())
 		}
 
 		admin := api.Group("/admin")
 		{
-			admin.GET("/subjects", handlers.AdminListSubjects())
-			admin.DELETE("/subjects/:id", handlers.AdminDeleteSubject())
-			admin.PUT("/users/:id/role", handlers.AdminUpdateUserRole())
+			admin.POST("/subjects/list", handlers.AdminListSubjects())
+			admin.POST("/subjects/delete", handlers.AdminDeleteSubject())
+			admin.POST("/users/list", handlers.AdminListUsers())
+			admin.POST("/users/role/update", handlers.AdminUpdateUserRole())
+		}
+
+		chat := api.Group("/chat")
+		{
+			chat.POST("/stream", handlers.ChatStream(cfg.AI.AgentServiceURL))
 		}
 
 		tasks := api.Group("/tasks")
@@ -122,4 +132,33 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 	}
 
 	return r
+}
+
+func parseAllowedOrigins(frontendURL string) []string {
+	parts := strings.Split(frontendURL, ",")
+	origins := make([]string, 0, len(parts))
+	for _, part := range parts {
+		origin := strings.TrimSpace(part)
+		if origin != "" {
+			origins = append(origins, origin)
+		}
+	}
+	if len(origins) == 0 {
+		return []string{"http://localhost:5173"}
+	}
+	return origins
+}
+
+func buildAllowOriginFunc(nodeEnv string) func(string) bool {
+	if nodeEnv == "production" {
+		return nil
+	}
+	return func(origin string) bool {
+		u, err := url.Parse(origin)
+		if err != nil {
+			return false
+		}
+		host := strings.ToLower(u.Hostname())
+		return host == "localhost" || host == "127.0.0.1" || host == "::1"
+	}
 }

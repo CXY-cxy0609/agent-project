@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     tenant_default: str = "public"
 
     # Vector Store (Qdrant)
-    qdrant_url: str = "http://localhost:6333"
+    qdrant_url: str = "http://62.234.43.230:6333"
     qdrant_api_key: str = ""
     qdrant_collection: str = "tutor_knowledge"
     qdrant_user_memory_collection: str = "tutor_user_memory"
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     top_k_rerank: int = 5       # Rerank 后保留数
 
     # Redis Cache
-    redis_url: str = "redis://localhost:6379"
+    redis_url: str = "redis://:Wangzi1313%23@bj-crs-99gvtc6l.sql.tencentcdb.com:24735/0"
     embedding_cache_ttl: int = 0     # 0 = 永久缓存
     rag_cache_ttl: int = 300         # 5 分钟
 

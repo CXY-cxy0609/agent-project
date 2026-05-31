@@ -7,6 +7,8 @@ export interface OrchestratorInput {
   /** 多模态附件（图片 base64） */
   imageBase64?: string;
   imageMediaType?: string;
+  /** 前端显式请求生成视频 */
+  generateVideo?: boolean;
   subjectId?: string;
   availableSubjects?: Array<{ id: string | number; name: string; code?: string | number }>;
   conversationId?: string;

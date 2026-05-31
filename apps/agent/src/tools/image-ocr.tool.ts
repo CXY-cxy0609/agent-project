@@ -5,9 +5,8 @@
 
 import { defineTool } from '../harness/tool/tool.js';
 import { LLMClient } from '../harness/core/llm-client.js';
-import { MODELS } from '../constants/models.js';
 
-export function createImageOcrTool(llm: LLMClient) {
+export function createImageOcrTool(llm: LLMClient, model: string) {
   return defineTool<
     { image_base64: string; media_type: string },
     { extracted_text: string; success: boolean }
@@ -33,7 +32,7 @@ export function createImageOcrTool(llm: LLMClient) {
     execute: async (input) => {
       try {
         const response = await llm.call({
-          model: MODELS.HAIKU,
+          model,
           messages: [
             {
               role: 'user',

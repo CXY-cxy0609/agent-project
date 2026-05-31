@@ -20,8 +20,6 @@
       <template v-else-if="chatStore.activeConversationId || chatStore.messages.length > 0">
         <chat-header
           :title="activeConversation?.title"
-          v-model:selected-model="selectedModel"
-          :model-options="modelOptions"
           @delete="deleteConversation"
         />
 
@@ -30,7 +28,25 @@
 
         <!-- Messages (Ant Design X) -->
         <div ref="messagesContainer" class="messages-container">
-          <x-bubble-list :items="bubbleItems" class="bubble-list" />
+          <div class="bubble-list">
+            <div
+              v-for="item in bubbleItems"
+              :key="item.key"
+              class="bubble-row"
+              :class="item.role"
+            >
+              <div class="bubble" :class="{ user: item.role === 'user', assistant: item.role === 'assistant' }">
+                <markdown-message
+                  v-if="item.role === 'assistant'"
+                  :content="item.content || (item.loading ? '思考中...' : '')"
+                  :show-copy="!item.loading"
+                />
+                <div v-else class="plain-text">
+                  {{ item.content }}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ThoughtChain (collapsible) -->
@@ -68,7 +84,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { message, Modal } from 'ant-design-vue';
-import { BubbleList as XBubbleList, ThoughtChain as XThoughtChain } from 'ant-design-x-vue';
+import { ThoughtChain as XThoughtChain } from 'ant-design-x-vue';
 import { useChatStore } from '@/stores/chat';
 import { useSubjectStore } from '@/stores/subject';
 import { useAuthStore } from '@/stores/auth';
@@ -80,26 +96,20 @@ import ChatWelcome from '@/components/chat/ChatWelcome.vue';
 import VideoProgressBar from '@/components/chat/VideoProgressBar.vue';
 import LearningPanel from '@/components/chat/LearningPanel.vue';
 import MessageSender from '@/components/chat/MessageSender.vue';
+import MarkdownMessage from '@/components/chat/MarkdownMessage.vue';
 import type { Conversation, Message } from '@tutor/shared';
+import { normalizeAssistantStreamContent } from '@/utils/chat-stream';
 
 const chatStore = useChatStore();
 const subjectStore = useSubjectStore();
 const authStore = useAuthStore();
 
-const selectedModel = ref('claude-3-5-sonnet');
 const inputValue = ref('');
 const generateVideo = ref(false);
 const attachments = ref<Array<{ uid: string; name: string; url: string; type: string }>>([]);
 const messagesContainer = ref<HTMLElement | null>(null);
 const rightPanelCollapsed = ref(false);
 const videoProgress = ref<{ percent: number; status: string; description: string } | null>(null);
-
-const modelOptions = [
-  { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet' },
-  { label: 'Claude 3 Opus', value: 'claude-3-opus' },
-  { label: 'GPT-4o', value: 'gpt-4o' },
-  { label: 'DeepSeek V3', value: 'deepseek-v3' },
-];
 
 const mockWeakPoints = [
   { text: '极限与连续', color: 'error' },
@@ -132,10 +142,6 @@ const bubbleItems = computed(() =>
     content: m.content,
     loading: m.status === 'streaming' && !m.content,
     typing: m.status === 'streaming' && !!m.content,
-    avatar:
-      m.role === 'assistant'
-        ? { icon: '研', style: { background: 'var(--color-primary)' } }
-        : undefined,
   })),
 );
 
@@ -195,6 +201,7 @@ async function startNewChat() {
   chatStore.setActiveConversation(null);
   chatStore.setMessages([]);
   inputValue.value = '';
+  generateVideo.value = false;
   attachments.value = [];
   videoProgress.value = null;
 }
@@ -209,10 +216,34 @@ let cancelStream: (() => void) | null = null;
 async function handleSend(text: string) {
   if (!text.trim() || chatStore.isStreaming) return;
 
+  const existingConversationId = chatStore.activeConversationId;
+  let conversationId = existingConversationId ?? '';
+  const inferredSubjectId =
+    activeConversation.value?.subjectId ?? subjectStore.activeSubjectId ?? subjectStore.subjects[0]?.id ?? 0;
+  if (!existingConversationId) {
+    try {
+      const createdConversation = await chatApi.createConversation({
+        title: text.slice(0, 24) || '新对话',
+        subjectId: inferredSubjectId || undefined,
+        userId: authStore.user?.id ?? 'anonymous',
+      });
+      conversationId = createdConversation.id;
+      chatStore.addConversation(createdConversation);
+      chatStore.setActiveConversation(createdConversation.id);
+      if (createdConversation.subjectId) {
+        subjectStore.setActiveSubject(createdConversation.subjectId);
+      }
+    } catch {
+      // 创建会话失败时降级为流式后端建会话，避免阻塞用户问答。
+      conversationId = '';
+    }
+  }
+
   inputValue.value = '';
+  generateVideo.value = false;
   const userMsg: Message = {
     id: Date.now().toString(),
-    conversationId: chatStore.activeConversationId ?? '',
+    conversationId,
     role: 'user',
     content: text,
     status: 'done',
@@ -223,7 +254,7 @@ async function handleSend(text: string) {
 
   const assistantMsg: Message = {
     id: (Date.now() + 1).toString(),
-    conversationId: chatStore.activeConversationId ?? '',
+    conversationId,
     role: 'assistant',
     content: '',
     status: 'streaming',
@@ -233,14 +264,13 @@ async function handleSend(text: string) {
   chatStore.setStreaming(true);
   scrollToBottom();
 
-  let accumulated = '';
+  let accumulatedRaw = '';
 
   cancelStream = chatApi.sendMessage(
     {
-      conversationId: chatStore.activeConversationId ?? undefined,
-      subjectId: activeConversation.value?.subjectId,
+      conversationId: conversationId || undefined,
+      subjectId: inferredSubjectId || undefined,
       content: text,
-      model: selectedModel.value,
       generateVideo: generateVideo.value,
       userId: authStore.user?.id ?? 'anonymous',
       availableSubjects: subjectStore.subjects.map((subject) => ({
@@ -250,51 +280,58 @@ async function handleSend(text: string) {
       })),
     },
     (chunk) => {
-      accumulated += chunk;
-      chatStore.updateLastAssistantMessage(accumulated, false);
+      accumulatedRaw += chunk;
+      chatStore.updateLastAssistantMessage(normalizeAssistantStreamContent(accumulatedRaw), false);
       scrollToBottom();
     },
     (conv) => {
-      chatStore.updateLastAssistantMessage(accumulated, true);
+      const normalizedAssistant = normalizeAssistantStreamContent(accumulatedRaw);
+      chatStore.updateLastAssistantMessage(normalizedAssistant, true);
       chatStore.setStreaming(false);
-      if (conv.id) {
-        const inferredSubjectId = conv.subjectId || activeConversation.value?.subjectId || subjectStore.activeSubjectId || 0;
-        const existing = chatStore.conversations.find((item) => item.id === conv.id);
+      const finalConversationId = conv.id || conversationId;
+      if (finalConversationId) {
+        const finalSubjectId = conv.subjectId || inferredSubjectId || 0;
+        const existing = chatStore.conversations.find((item) => item.id === finalConversationId);
+        const mergedConversation: Conversation = {
+          ...conv,
+          id: finalConversationId,
+          subjectId: finalSubjectId,
+          subjectName:
+            conv.subjectName ??
+            (finalSubjectId ? `学科 ${finalSubjectId}` : '未分配学科'),
+        };
         if (!existing) {
-          chatStore.addConversation(conv);
-          chatApi.createConversation({
-            id: conv.id,
-            title: conv.title || text.slice(0, 24),
-            subjectId: inferredSubjectId || undefined,
-            userId: authStore.user?.id ?? 'mock-user-001',
-          }).catch(() => {});
+          chatStore.addConversation(mergedConversation);
         } else {
           chatStore.setConversations(
-            chatStore.conversations.map((item) => (item.id === conv.id ? { ...item, ...conv } : item)),
+            chatStore.conversations.map((item) => (
+              item.id === finalConversationId ? { ...item, ...mergedConversation } : item
+            )),
           );
         }
-        if (conv.subjectId) {
-          subjectStore.setActiveSubject(conv.subjectId);
+        if (finalSubjectId) {
+          subjectStore.setActiveSubject(finalSubjectId);
         }
-        if (!chatStore.activeConversationId) {
-          chatStore.setActiveConversation(conv.id);
+        if (!chatStore.activeConversationId || chatStore.activeConversationId === conversationId) {
+          chatStore.setActiveConversation(finalConversationId);
         }
-        chatApi.appendMessage(conv.id, {
+        chatApi.appendMessage(finalConversationId, {
           id: userMsg.id,
           role: 'user',
           content: text,
           status: 'done',
         }).catch(() => {});
-        chatApi.appendMessage(conv.id, {
+        chatApi.appendMessage(finalConversationId, {
           id: assistantMsg.id,
           role: 'assistant',
-          content: accumulated,
+          content: normalizedAssistant,
           status: 'done',
         }).catch(() => {});
       }
     },
     (_err) => {
-      chatStore.updateLastAssistantMessage(accumulated || '发生错误，请重试', true);
+      const normalizedAssistant = normalizeAssistantStreamContent(accumulatedRaw);
+      chatStore.updateLastAssistantMessage(normalizedAssistant || '发生错误，请重试', true);
       chatStore.setStreaming(false);
     },
   );
@@ -381,6 +418,45 @@ onMounted(async () => {
 .bubble-list {
   max-width: 800px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bubble-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.bubble-row.user {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: min(88%, 680px);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid @color-border;
+}
+
+.bubble.user {
+  background: #f0f5ff;
+}
+
+.bubble.assistant {
+  max-width: min(100%, 780px);
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.plain-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.65;
 }
 
 .thought-chain-wrap {

@@ -14,7 +14,7 @@ requiredVars: []
 
 支持的意图类型：
 - qa: 知识点问答或题目解答（最常见）
-- video_request: 用户明确要求生成讲解视频
+- video_request: 用户要求生成/重生成讲解视频，或反馈视频帧/渲染问题并要求修复
 - knowledge_query: 查询知识库文档目录或内容
 - learning_report: 查看个人学情分析报告
 - unknown: 无法识别或与学习无关

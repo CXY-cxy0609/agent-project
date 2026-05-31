@@ -27,14 +27,13 @@ type AuthConfig struct {
 }
 
 type DBConfig struct {
-	Driver         string
-	DSN            string
-	Host           string
-	Port           string
-	User           string
-	Password       string
-	Name           string
-	RepositoryMode string
+	Driver   string
+	DSN      string
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Name     string
 }
 
 type AIConfig struct {
@@ -67,14 +66,13 @@ func Load() Config {
 		},
 		DB: DBConfig{
 			// 兼容旧配置：未显式声明时，继续用 mysql。
-			Driver:         getEnv("DB_DRIVER", "mysql"),
-			DSN:            getEnv("DB_DSN", ""),
-			Host:           getEnv("DB_HOST", "localhost"),
-			Port:           getEnv("DB_PORT", "3306"),
-			User:           getEnv("DB_USERNAME", "root"),
-			Password:       getEnv("DB_PASSWORD", ""),
-			Name:           getEnv("DB_NAME", "tutor_db"),
-			RepositoryMode: getEnv("DB_REPOSITORY_MODE", "memory"),
+			Driver:   getEnv("DB_DRIVER", "mysql"),
+			DSN:      getEnv("DB_DSN", ""),
+			Host:     getEnv("DB_HOST", "localhost"),
+			Port:     getEnv("DB_PORT", "3306"),
+			User:     getEnv("DB_USERNAME", "root"),
+			Password: getEnv("DB_PASSWORD", ""),
+			Name:     getEnv("DB_NAME", "tutor_db"),
 		},
 		AI: AIConfig{
 			AgentServiceURL: getEnv("AGENT_SERVICE_URL", "http://localhost:8001"),

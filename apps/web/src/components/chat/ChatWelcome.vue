@@ -3,7 +3,7 @@
     <x-welcome
       variant="borderless"
       :icon="welcomeIcon"
-      title="你好，我是研智 AI"
+      title="你好，我是学智 AI"
       description="我可以帮你讲解知识点、解析题目，并根据你的学习记录提供个性化建议。"
       class="chat-welcome"
     >
@@ -35,7 +35,7 @@ const quickPrompts = [
   '帮我讲解泰勒公式',
   '如何理解马克思主义哲学的基本原理？',
   '英语长难句如何快速分析？',
-  '帮我制定一个月的高数复习计划',
+  '帮我制定一个月的高数学习计划',
 ];
 
 const welcomeIcon: VNode = h(
@@ -57,7 +57,7 @@ const welcomeIcon: VNode = h(
       boxShadow: '0 4px 16px rgba(26, 58, 110, 0.3)',
     },
   },
-  '研',
+  '学',
 );
 </script>
 

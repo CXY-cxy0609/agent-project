@@ -1,0 +1,8 @@
+---
+description: Enterprise-grade standards for design and code changes
+alwaysApply: true
+---
+
+# 规则说明
+
+- 该项目为企业级项目，进行方案设计与代码修改时，需要按照企业级项目的标准操作

@@ -104,7 +104,7 @@ docker logs qdrant --tail 50
 ### 4.1 服务器本机验证
 
 ```bash
-curl http://127.0.0.1:6333/healthz
+curl http://62.234.43.230:6333/healthz
 ```
 
 返回类似 `healthz check passed` 说明服务正常。

@@ -26,7 +26,7 @@ const DEFAULTS: GraphGovernanceConfig = {
   qa: {
     ocr: { timeoutMs: 8000, retry: { maxAttempts: 2, backoffMs: 200, backoffFactor: 2 } },
     rag: { timeoutMs: 10000, retry: { maxAttempts: 2, backoffMs: 300, backoffFactor: 2 } },
-    generate: { timeoutMs: 15000, retry: { maxAttempts: 2, backoffMs: 500, backoffFactor: 2 } },
+    generate: { timeoutMs: 120000, retry: { maxAttempts: 1, backoffMs: 0, backoffFactor: 2 } },
   },
   video: {
     checkCache: { timeoutMs: 4000, retry: { maxAttempts: 1, backoffMs: 0, backoffFactor: 2 } },

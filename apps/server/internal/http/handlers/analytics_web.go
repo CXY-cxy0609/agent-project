@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,18 +18,33 @@ func GetAnalytics() gin.HandlerFunc {
 			response.Error(c, http.StatusBadRequest, "INVALID_SUBJECT_ID", "invalid subject id")
 			return
 		}
-		state.mu.RLock()
-		data, ok := state.analytics[subjectID]
-		state.mu.RUnlock()
+		db, _, ok := dbOrError(c)
 		if !ok {
-			data = webAnalytics{
-				UserID:      "mock-user-001",
-				SubjectID:   subjectID,
-				SubjectName: "未知学科",
-				WeakPoints:  []map[string]any{},
-				WordCloud:   []map[string]any{},
-				UpdatedAt:   time.Now().UTC().Format(time.RFC3339),
-			}
+			return
+		}
+		userID, _ := latestUserID(c, db)
+		if userID == "" {
+			userID = "0"
+		}
+		subjectName := "未知学科"
+		_ = db.QueryRowContext(c, `SELECT name FROM subjects WHERE subject_id = ?`, subjectID).Scan(&subjectName)
+		data := webAnalytics{
+			UserID:      userID,
+			SubjectID:   subjectID,
+			SubjectName: subjectName,
+			WeakPoints:  []map[string]any{},
+			WordCloud:   []map[string]any{},
+			UpdatedAt:   time.Now().UTC().Format(time.RFC3339),
+		}
+		err = db.QueryRowContext(
+			c,
+			`SELECT summary, summary_generated_at, updated_at FROM analytics_summaries WHERE user_id = ? AND subject_id = ?`,
+			userID,
+			subjectID,
+		).Scan(&data.Summary, &data.SummaryGeneratedAt, &data.UpdatedAt)
+		if err != nil && err != sql.ErrNoRows {
+			response.Error(c, http.StatusInternalServerError, "ANALYTICS_QUERY_FAILED", "failed to query analytics")
+			return
 		}
 		response.OK(c, gin.H{
 			"userId":             data.UserID,
@@ -49,54 +66,97 @@ func GenerateAnalyticsSummary() gin.HandlerFunc {
 			response.Error(c, http.StatusBadRequest, "INVALID_SUBJECT_ID", "invalid subject id")
 			return
 		}
-		now := time.Now().UTC().Format(time.RFC3339)
 		summary := "根据最近学习表现，建议优先复习高频错题知识点并强化专项训练。"
-		state.mu.Lock()
-		item := state.analytics[subjectID]
-		if item.SubjectID == 0 {
-			item = webAnalytics{
-				UserID:      "mock-user-001",
-				SubjectID:   subjectID,
-				SubjectName: subjectNameByID(state.subjects, subjectID),
-				WeakPoints:  []map[string]any{},
-				WordCloud:   []map[string]any{},
-			}
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
 		}
-		item.Summary = summary
-		item.SummaryGeneratedAt = now
-		item.UpdatedAt = now
-		state.analytics[subjectID] = item
-		state.mu.Unlock()
+		userID, _ := latestUserID(c, db)
+		if userID == "" {
+			response.Error(c, http.StatusBadRequest, "USER_NOT_FOUND", "no user available")
+			return
+		}
+		_, err = db.ExecContext(
+			c,
+			`INSERT INTO analytics_summaries (user_id, subject_id, summary, summary_generated_at, updated_at)
+			 VALUES (?, ?, ?, NOW(), NOW())
+			 ON DUPLICATE KEY UPDATE summary = VALUES(summary), summary_generated_at = NOW(), updated_at = NOW()`,
+			userID,
+			subjectID,
+			summary,
+		)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "ANALYTICS_UPDATE_FAILED", "failed to update analytics summary")
+			return
+		}
 		response.OK(c, gin.H{"summary": summary})
 	}
 }
 
 func AdminUpdateUserRole() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID := c.Param("id")
 		var req struct {
-			Role string `json:"role"`
+			UserID string `json:"userId"`
+			Role   string `json:"role"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid role body")
 			return
 		}
-		state.mu.Lock()
-		user := state.users[userID]
-		if user.ID == "" {
-			user = webUser{
-				ID:        userID,
-				Username:  "新用户",
-				Phone:     "13800000000",
-				Role:      "student",
-				CreatedAt: time.Now().UTC().Format(time.RFC3339),
-				UpdatedAt: time.Now().UTC().Format(time.RFC3339),
-			}
+		if strings.TrimSpace(req.UserID) == "" {
+			response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "userId is required")
+			return
 		}
-		user.Role = req.Role
-		user.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-		state.users[user.ID] = user
-		state.mu.Unlock()
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		result, err := db.ExecContext(c, `UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?`, req.Role, req.UserID)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "USER_ROLE_UPDATE_FAILED", "failed to update user role")
+			return
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			response.Error(c, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+			return
+		}
 		response.OK(c, gin.H{"updated": true})
+	}
+}
+
+func AdminListUsers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Search string `json:"search"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		query := `SELECT id, username, phone, role, created_at, updated_at FROM users`
+		args := []any{}
+		if strings.TrimSpace(req.Search) != "" {
+			query += ` WHERE username LIKE ? OR phone LIKE ? OR CAST(id AS CHAR) LIKE ?`
+			like := "%" + req.Search + "%"
+			args = append(args, like, like, like)
+		}
+		query += ` ORDER BY id DESC LIMIT 200`
+		rows, err := db.QueryContext(c, query, args...)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "USERS_LIST_FAILED", "failed to list users")
+			return
+		}
+		defer rows.Close()
+		list := make([]webUser, 0, 64)
+		for rows.Next() {
+			var item webUser
+			if err := rows.Scan(&item.ID, &item.Username, &item.Phone, &item.Role, &item.CreatedAt, &item.UpdatedAt); err != nil {
+				response.Error(c, http.StatusInternalServerError, "USERS_LIST_FAILED", "failed to list users")
+				return
+			}
+			list = append(list, item)
+		}
+		response.OK(c, gin.H{"list": list, "total": len(list)})
 	}
 }

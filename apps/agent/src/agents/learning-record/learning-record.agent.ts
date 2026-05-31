@@ -10,7 +10,7 @@ import { SchemaParser } from '../../harness/output/schema-parser.js';
 import type { StructuredMemory, AgentContext } from '../../harness/core/types.js';
 import type { LLMClient } from '../../harness/core/llm-client.js';
 import type { Observer } from '../../harness/observer/tracer.js';
-import { MODELS } from '../../constants/models.js';
+import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 import {
   LEARNING_RECORD_PERSONA,
   EXTRACT_KNOWLEDGE_TASK,
@@ -31,6 +31,7 @@ export class LearningRecordAgent extends BaseAgent<LearningRecordInput, Learning
     llm: LLMClient,
     observer: Observer,
     private readonly structuredMemory: StructuredMemory,
+    private readonly modelConfig: ModelGovernanceConfig['learningRecord'],
   ) {
     super(llm, observer);
   }
@@ -59,7 +60,7 @@ export class LearningRecordAgent extends BaseAgent<LearningRecordInput, Learning
       .build();
 
     const response = await this.llm.call({
-      model: MODELS.HAIKU,
+      model: this.modelConfig.extractKnowledge,
       messages,
       systemPrompt,
       maxTokens: 1000,
@@ -127,7 +128,7 @@ export class LearningRecordAgent extends BaseAgent<LearningRecordInput, Learning
       .build();
 
     const response = await this.llm.call({
-      model: MODELS.HAIKU,
+      model: this.modelConfig.generateReport,
       messages,
       systemPrompt,
       maxTokens: 1000,

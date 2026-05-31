@@ -9,6 +9,13 @@ interface ServerSubject {
   name?: string;
   code?: string | number;
   education_stage?: string;
+  parentId?: number | null;
+  parent_id?: number | null;
+  level?: number;
+  description?: string;
+  outline?: SubjectOutline;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -18,17 +25,19 @@ function toNumber(value: unknown, fallback = 0): number {
 
 function normalizeSubject(item: ServerSubject, index: number): UserSubject {
   const id = toNumber(item.id ?? item.subject_id, index + 1);
-  const now = new Date().toISOString();
+  const now = item.createdAt ?? new Date().toISOString();
+  const parentId = item.parentId ?? item.parent_id ?? null;
+  const level = item.level === 2 || parentId ? 2 : 1;
   return {
     id,
     name: item.name ?? `未命名学科 ${id}`,
     code: toNumber(item.code, id),
-    parentId: null,
-    level: 1,
-    description: item.education_stage ?? '',
-    outline: { modules: [] },
+    parentId,
+    level,
+    description: item.description ?? item.education_stage ?? '',
+    outline: item.outline ?? { modules: [] },
     createdAt: now,
-    updatedAt: now,
+    updatedAt: item.updatedAt ?? now,
     isOwner: true,
   };
 }
@@ -36,42 +45,42 @@ function normalizeSubject(item: ServerSubject, index: number): UserSubject {
 const realSubjectsApi = {
   getMySubjects: () =>
     http
-      .get<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/subjects')
+      .post<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/subjects/list', {})
       .then((payload) => (payload.list ?? []).map(normalizeSubject)),
 
   searchSubjects: (keyword: string) =>
     http
-      .get<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/subjects/search', { params: { keyword } })
+      .post<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/subjects/search', { keyword })
       .then((payload) => (payload.list ?? []).map((item, idx) => normalizeSubject(item, idx))),
 
   createSubject: (data: CreateSubjectDto) =>
     http.post<Subject, Subject>('/subjects', data),
 
   updateSubject: (id: number, data: UpdateSubjectDto) =>
-    http.put<Subject, Subject>(`/subjects/${id}`, data),
+    http.post<Subject, Subject>('/subjects/update', { id, ...data }),
 
   deleteSubject: (id: number) =>
-    http.delete(`/subjects/${id}`),
+    http.post('/subjects/delete', { id }),
 
   addMySubject: (subjectId: number) =>
     http.post('/subjects/my', { subjectId }),
 
   removeMySubject: (subjectId: number) =>
-    http.delete(`/subjects/my/${subjectId}`),
+    http.post('/subjects/my/remove', { id: subjectId }),
 
   getOutline: (id: number) =>
-    http.get<SubjectOutline, SubjectOutline>(`/subjects/${id}/outline`),
+    http.post<SubjectOutline, SubjectOutline>('/subjects/outline/get', { id }),
 
   updateOutline: (id: number, outline: SubjectOutline) =>
-    http.put(`/subjects/${id}/outline`, { outline }),
+    http.post('/subjects/outline/update', { id, outline }),
 
   adminGetAll: () =>
     http
-      .get<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/admin/subjects')
+      .post<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/admin/subjects/list', {})
       .then((payload) => (payload.list ?? []).map((item, idx) => normalizeSubject(item, idx))),
 
   adminDeleteSubject: (id: number) =>
-    http.delete(`/admin/subjects/${id}`),
+    http.post('/admin/subjects/delete', { id }),
 };
 
 export const subjectsApi = USE_MOCK ? mockSubjectsApi : realSubjectsApi;

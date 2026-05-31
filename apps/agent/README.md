@@ -428,6 +428,20 @@ DOUBAO_API_KEY=your-ark-api-key
 # DOUBAO_BASE_URL 默认已填好（https://ark.cn-beijing.volces.com/api/v3）
 ```
 
+按节点覆盖模型（可选）：
+
+```bash
+# 不填则按 Provider 自动选默认模型
+MODEL_ORCHESTRATOR_CLASSIFY_INTENT=
+MODEL_QA_GENERATE=
+MODEL_VIDEO_GENERATE_STORYBOARD=
+MODEL_VIDEO_GENERATE_SCRIPT=
+MODEL_VIDEO_FIX_SCRIPT=
+MODEL_LEARNING_RECORD_EXTRACT_KNOWLEDGE=
+MODEL_LEARNING_RECORD_GENERATE_REPORT=
+MODEL_TOOL_IMAGE_OCR=
+```
+
 其余必填：
 
 ```bash
@@ -507,4 +521,4 @@ data: {"type":"done"}
 - **RAG 未启动**：Agent 会启动，但 QA 链路的 RAG 检索步骤会报错
 - **Redis 未配置**：自动降级为内存短期记忆，服务重启后对话历史丢失
 - **Manim / Storage 未配置**：视频生成功能自动跳过，QA 正常工作
-- **切换 Provider 后**：需要同步修改 `src/constants/models.ts` 中 Agent 使用的模型 ID，指向豆包对应端点
+- **模型微调建议**：优先通过 `.env` 的 `MODEL_*` 变量按节点覆盖，不再需要改代码

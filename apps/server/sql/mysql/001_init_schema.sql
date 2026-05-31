@@ -8,7 +8,6 @@ USE tutor_db;
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id BIGINT UNSIGNED NOT NULL,
   username VARCHAR(100) NOT NULL,
   phone VARCHAR(32) DEFAULT NULL,
   email VARCHAR(255) DEFAULT NULL,
@@ -18,7 +17,6 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uk_users_user_id (user_id),
   UNIQUE KEY uk_users_phone (phone),
   UNIQUE KEY uk_users_email (email),
   KEY idx_users_role_status (role, status)
@@ -27,14 +25,20 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS subjects (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   subject_id BIGINT UNSIGNED NOT NULL,
+  parent_subject_id BIGINT UNSIGNED DEFAULT NULL,
+  level TINYINT NOT NULL DEFAULT 1,
   name VARCHAR(255) NOT NULL,
   code VARCHAR(64) NOT NULL,
-  education_stage VARCHAR(32) NOT NULL,
+  education_stage VARCHAR(32) NOT NULL DEFAULT '',
+  description VARCHAR(255) DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_subjects_subject_id (subject_id),
-  UNIQUE KEY uk_subjects_code (code)
+  UNIQUE KEY uk_subjects_code (code),
+  KEY idx_subjects_parent_subject_id (parent_subject_id),
+  KEY idx_subjects_level (level),
+  CONSTRAINT fk_subjects_parent_subject_id FOREIGN KEY (parent_subject_id) REFERENCES subjects(subject_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS user_subjects (
@@ -46,7 +50,7 @@ CREATE TABLE IF NOT EXISTS user_subjects (
   PRIMARY KEY (id),
   UNIQUE KEY uk_user_subjects_user_subject_id (user_subject_id),
   UNIQUE KEY uk_user_subjects_user_subject (user_id, subject_id),
-  CONSTRAINT fk_user_subjects_user_id FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_user_subjects_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_user_subjects_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -61,7 +65,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   PRIMARY KEY (id),
   UNIQUE KEY uk_conversations_conversation_id (conversation_id),
   KEY idx_conversations_user_subject_created_at (user_id, subject_id, created_at),
-  CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_conversations_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -97,7 +101,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   KEY idx_tasks_subject_created_at (subject_id, created_at),
   KEY idx_tasks_trace_id (trace_id),
   KEY idx_tasks_status_created_at (status, created_at),
-  CONSTRAINT fk_tasks_user_id FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_tasks_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_tasks_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -118,6 +122,6 @@ CREATE TABLE IF NOT EXISTS learning_records (
   KEY idx_learning_records_user_subject_id (user_id, subject_id),
   KEY idx_learning_records_user_asked_at (user_id, asked_at),
   KEY idx_learning_records_user_subject_chapter (user_id, subject, chapter),
-  CONSTRAINT fk_learning_records_user_id FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_learning_records_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_learning_records_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -3,7 +3,6 @@
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  user_id BIGINT NOT NULL UNIQUE,
   username VARCHAR(100) NOT NULL,
   phone VARCHAR(32) UNIQUE,
   email VARCHAR(255) UNIQUE,
@@ -32,7 +31,7 @@ CREATE TABLE IF NOT EXISTS user_subjects (
   subject_id BIGINT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (user_id, subject_id),
-  CONSTRAINT fk_user_subjects_user_id FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_user_subjects_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_user_subjects_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
 
@@ -44,7 +43,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   user_id BIGINT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_conversations_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
 CREATE INDEX IF NOT EXISTS idx_conversations_user_subject_created_at
@@ -75,7 +74,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   result_json JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT fk_tasks_user_id FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_tasks_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_tasks_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_trace_id ON tasks (trace_id);
@@ -95,7 +94,7 @@ CREATE TABLE IF NOT EXISTS learning_records (
   difficulty VARCHAR(16) NOT NULL DEFAULT 'medium',
   asked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT fk_learning_records_user_id FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_learning_records_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_learning_records_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
 CREATE INDEX IF NOT EXISTS idx_learning_records_user_asked_at

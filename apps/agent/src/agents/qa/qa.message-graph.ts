@@ -5,13 +5,12 @@ import type { RagClient } from '../../harness/rag-client/rag-client.js';
 import type { ToolRegistry } from '../../harness/tool/tool.js';
 import type { Message } from '../../harness/core/types.js';
 import type { MessageGraphNodeContext } from '../../harness/runtime/message-graph.js';
-import { MODELS } from '../../constants/models.js';
-import { withRetry } from '../../harness/core/retry.js';
 import { metrics, METRIC } from '../../harness/observer/metrics.js';
 import { QA_PERSONA, QA_TASK, QA_OUTPUT_SCHEMA } from './qa.prompts.js';
 import type { QAAnswerRaw } from './qa.types.js';
 import { decideRetrievalPolicy, type QARetrievalPolicyConfig } from './retrieval-policy.js';
 import type { RetrievalMode } from '../../harness/rag-client/rag-client.js';
+import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 
 const schemaParser = new SchemaParser();
 
@@ -31,6 +30,8 @@ export function buildQAMessageGraphNodes(
   ragClient: RagClient,
   toolRegistry: ToolRegistry,
   retrievalPolicyConfig: QARetrievalPolicyConfig,
+  modelConfig: ModelGovernanceConfig['qa'],
+  onGenerateToken?: (token: string) => void,
 ) {
   async function ocrNode(ctx: MessageGraphNodeContext): Promise<void> {
     const state = ctx.getWorkflowState();
@@ -141,31 +142,65 @@ export function buildQAMessageGraphNodes(
       .setOutputFormat(QA_OUTPUT_SCHEMA)
       .build();
 
-    const raw = await withRetry(
-      async () => {
-        const response = await llm.call({
-          model: MODELS.SONNET,
-          messages,
-          systemPrompt,
-          cacheBreakpoint,
-          maxTokens: 3000,
-        });
-        metrics.record(METRIC.LLM_TOKENS, response.usage.promptTokens + response.usage.completionTokens, {
-          agentName: 'QAAgent',
-          model: response.model,
-          subject,
-        });
-        return schemaParser.parse<QAAnswerRaw>(response.content, QA_OUTPUT_SCHEMA);
-      },
-      { maxAttempts: 2, backoff: 'fixed', initialDelayMs: 0, retryOn: () => true },
-    );
+    let responseContent = '';
+    let emittedAnswerChars = 0;
+    let latestAnswerPreview = '';
+    let finalResponse: Awaited<ReturnType<LLMClient['call']>> | undefined;
+    for await (const chunk of llm.stream({
+      model: modelConfig.generate,
+      messages,
+      systemPrompt,
+      cacheBreakpoint,
+      maxTokens: 3000,
+    })) {
+      if (chunk.type === 'text_delta' && typeof chunk.delta === 'string') {
+        responseContent += chunk.delta;
+        const answerPreview = extractAnswerPreview(responseContent);
+        latestAnswerPreview = answerPreview;
+        if (answerPreview.length > emittedAnswerChars) {
+          const delta = answerPreview.slice(emittedAnswerChars);
+          emittedAnswerChars = answerPreview.length;
+          onGenerateToken?.(delta);
+        }
+      }
+      if (chunk.type === 'done' && chunk.finalResponse) {
+        finalResponse = chunk.finalResponse;
+      }
+    }
+    const response = finalResponse ?? {
+      content: responseContent,
+      toolCalls: undefined,
+      usage: { promptTokens: 0, completionTokens: 0 },
+      model: modelConfig.generate,
+      latencyMs: 0,
+      stopReason: 'end_turn' as const,
+    };
+    metrics.record(METRIC.LLM_TOKENS, response.usage.promptTokens + response.usage.completionTokens, {
+      agentName: 'QAAgent',
+      model: response.model,
+      subject,
+    });
+    let raw: QAAnswerRaw;
+    try {
+      raw = schemaParser.parse<QAAnswerRaw>(response.content || responseContent, QA_OUTPUT_SCHEMA);
+    } catch {
+      // 流式场景优先保证可用性：结构化解析失败时降级为可读答案。
+      raw = {
+        answer: latestAnswerPreview || '抱歉，生成结果解析失败，请重试。',
+        knowledge_points: [],
+        needs_video: generateVideo,
+        difficulty: 'medium',
+        subject,
+      };
+    }
 
     const payload = {
       answer: raw.answer,
       knowledgePoints: raw.knowledge_points,
       difficulty: raw.difficulty,
       subject: raw.subject,
-      needsVideo: generateVideo || raw.needs_video,
+      // QA 与视频流程互斥：只有显式请求才标记需要视频。
+      needsVideo: generateVideo,
     };
     ctx.setNodeState(payload);
     ctx.emitEvent('qa.generate.completed', payload);
@@ -227,4 +262,41 @@ function truncate(text: string, maxChars: number): string {
 function estimateTokens(text: string): number {
   if (!text) return 0;
   return Math.ceil(text.length / 4);
+}
+
+function extractAnswerPreview(raw: string): string {
+  const blockMarker = 'answer: |';
+  const blockStart = raw.indexOf(blockMarker);
+  if (blockStart >= 0) {
+    const block = raw.slice(blockStart + blockMarker.length);
+    const lines = block.split('\n');
+    const answerLines: string[] = [];
+    for (const line of lines) {
+      if (line.startsWith('  ')) {
+        answerLines.push(line.slice(2));
+        continue;
+      }
+      if (line.trim() === '') {
+        answerLines.push('');
+        continue;
+      }
+      if (answerLines.length > 0) break;
+    }
+    return answerLines.join('\n');
+  }
+
+  const quotedMarker = 'answer: "';
+  const quotedStart = raw.indexOf(quotedMarker);
+  if (quotedStart >= 0) {
+    const quoted = raw.slice(quotedStart + quotedMarker.length);
+    const endIdx = quoted.indexOf('"\n');
+    const content = endIdx >= 0 ? quoted.slice(0, endIdx) : quoted;
+    const normalized = content
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+    return normalized.endsWith('"') ? normalized.slice(0, -1) : normalized;
+  }
+
+  return '';
 }

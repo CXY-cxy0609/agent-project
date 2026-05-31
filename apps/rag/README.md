@@ -143,7 +143,7 @@ Agent
 ## 前置依赖
 
 - Python >= 3.9
-- Qdrant（默认 `http://localhost:6333`）
+- Qdrant（默认 `http://62.234.43.230:6333`）
 - 可选：Redis（Embedding 缓存、RAG 缓存）
 
 ## 环境变量

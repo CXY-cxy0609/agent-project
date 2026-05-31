@@ -5,11 +5,11 @@
   "description": "大学生学习辅导平台 Agent 服务 (TypeScript)",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --env-file=.env --import tsx --watch src/index.ts",
     "build": "tsc && cp -r src/prompt dist/prompt",
-    "start": "node --experimental-specifier-resolution=node dist/index.js",
+    "start": "node --env-file=.env --experimental-specifier-resolution=node dist/index.js",
     "lint": "eslint src/**/*.ts",
-    "eval": "tsx src/eval/runner.ts"
+    "eval": "node --env-file=.env --import tsx src/eval/runner.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",

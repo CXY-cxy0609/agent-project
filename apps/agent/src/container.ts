@@ -30,6 +30,10 @@ import { createLearningReportSubgraph } from './subgraphs/learning-report.subgra
 import { createLearningRecordSubgraph } from './subgraphs/learning-record.subgraph.js';
 import { loadGraphGovernanceConfigFromEnv, type GraphGovernanceConfig } from './harness/runtime/node-governance.js';
 import {
+  loadModelGovernanceConfigFromEnv,
+  type ModelGovernanceConfig,
+} from './harness/runtime/model-governance.js';
+import {
   DEFAULT_QA_RETRIEVAL_POLICY,
   type QARetrievalPolicyConfig,
 } from './agents/qa/retrieval-policy.js';
@@ -51,6 +55,7 @@ export interface AppConfig {
   redisUrl?: string;
   qaRetrievalPolicy?: Partial<QARetrievalPolicyConfig>;
   graphGovernance: GraphGovernanceConfig;
+  modelGovernance: ModelGovernanceConfig;
 }
 
 export interface AppContainer {
@@ -92,7 +97,7 @@ export function createContainer(config: AppConfig): AppContainer {
   // ─── 工具注册 ──────────────────────────────────────────────────────
   const toolRegistry = new ToolRegistry();
   toolRegistry.register(createRagRetrievalTool(ragClient));
-  toolRegistry.register(createImageOcrTool(llm));
+  toolRegistry.register(createImageOcrTool(llm, config.modelGovernance.tools.imageOcr));
   toolRegistry.register(createFileParserTool(config.ragServiceUrl));
 
   if (config.manimServiceUrl) {
@@ -109,6 +114,7 @@ export function createContainer(config: AppConfig): AppContainer {
     defaultObserver,
     contentVectorCache,
     toolRegistry,
+    config.modelGovernance.video,
     config.graphGovernance.video,
   );
 
@@ -116,6 +122,7 @@ export function createContainer(config: AppConfig): AppContainer {
     llm,
     defaultObserver,
     structuredMemory,
+    config.modelGovernance.learningRecord,
   );
 
   const qaRetrievalPolicy: QARetrievalPolicyConfig = {
@@ -128,6 +135,7 @@ export function createContainer(config: AppConfig): AppContainer {
     ragClient,
     toolRegistry,
     qaRetrievalPolicy,
+    config.modelGovernance.qa,
     config.graphGovernance.qa,
   );
 
@@ -143,6 +151,7 @@ export function createContainer(config: AppConfig): AppContainer {
     defaultObserver,
     memory,
     scheduler,
+    config.modelGovernance.orchestrator,
   );
 
   const knowledgeBaseAgent = new KnowledgeBaseAgent(
@@ -205,5 +214,6 @@ export function loadConfig(): AppConfig {
       hybridMaxUpgradePages: Number(process.env.QA_HYBRID_MAX_UPGRADE_PAGES ?? 3),
     },
     graphGovernance: loadGraphGovernanceConfigFromEnv(),
+    modelGovernance: loadModelGovernanceConfigFromEnv(),
   };
 }

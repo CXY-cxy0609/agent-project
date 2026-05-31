@@ -40,13 +40,15 @@ export const mockChatApi = {
     delete _messages[id];
   },
 
-  async createConversation(data: { id: string; title: string; subjectId?: number; userId?: string }): Promise<void> {
+  async createConversation(data: { id?: string; title: string; subjectId?: number; userId?: string }): Promise<Conversation> {
     await delay(150);
-    if (_conversations.some((item) => item.id === data.id)) {
-      return;
+    const conversationId = data.id ?? `conv-${Date.now()}`;
+    const existing = _conversations.find((item) => item.id === conversationId);
+    if (existing) {
+      return { ...existing };
     }
-    _conversations.unshift({
-      id: data.id,
+    const created: Conversation = {
+      id: conversationId,
       title: data.title,
       subjectId: data.subjectId ?? 0,
       subjectName: MOCK_CONVERSATIONS.find((item) => item.subjectId === data.subjectId)?.subjectName ?? '未知学科',
@@ -54,8 +56,10 @@ export const mockChatApi = {
       messageCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    });
-    _messages[data.id] = [];
+    };
+    _conversations.unshift(created);
+    _messages[conversationId] = [];
+    return { ...created };
   },
 
   async appendMessage(
@@ -81,7 +85,7 @@ export const mockChatApi = {
       conversationId?: string;
       subjectId?: number;
       content: string;
-      model: string;
+      model?: string;
       generateVideo?: boolean;
       userId?: string;
       availableSubjects?: Array<{ id: number; name: string; code?: number | string }>;
@@ -138,8 +142,9 @@ export const mockChatApi = {
 
         for (let i = 0; i < words.length; i += chunkSize) {
           if (cancelled) return;
-          accumulated += words.slice(i, i + chunkSize).join('');
-          onChunk(accumulated);
+          const chunk = words.slice(i, i + chunkSize).join('');
+          accumulated += chunk;
+          onChunk(chunk);
           await delay(30);
         }
 
@@ -153,7 +158,7 @@ export const mockChatApi = {
           content: MOCK_STREAM_RESPONSE,
           status: 'done',
           createdAt: new Date().toISOString(),
-          metadata: { model: data.model, tokens: 128 },
+          metadata: { model: data.model ?? 'default', tokens: 128 },
         };
         _messages[conv.id].push(assistantMsg);
         conv.messageCount += 2;

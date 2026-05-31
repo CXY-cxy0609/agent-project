@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -16,22 +18,38 @@ type createSubjectReq struct {
 	Description string `json:"description"`
 }
 
+type identifySubjectReq struct {
+	ID int `json:"id"`
+}
+
 type updateSubjectReq struct {
+	ID          int     `json:"id"`
 	Name        *string `json:"name"`
 	Code        *int    `json:"code"`
 	ParentID    *int    `json:"parentId"`
 	Description *string `json:"description"`
 }
 
+type searchSubjectReq struct {
+	Keyword string `json:"keyword"`
+}
+
 type updateOutlineReq struct {
+	ID      int            `json:"id"`
 	Outline subjectOutline `json:"outline"`
 }
 
 func ListMySubjects() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		state.mu.RLock()
-		subjects := listSubjectsSorted(state.subjects)
-		state.mu.RUnlock()
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		subjects, err := queryWebSubjects(c, db, "")
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "SUBJECTS_LIST_FAILED", "failed to list subjects")
+			return
+		}
 		result := make([]webUserSubject, 0, len(subjects))
 		for _, item := range subjects {
 			result = append(result, webUserSubject{webSubject: item, IsOwner: true})
@@ -42,17 +60,21 @@ func ListMySubjects() gin.HandlerFunc {
 
 func SearchSubjects() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		keyword := c.Query("keyword")
-		state.mu.RLock()
-		subjects := listSubjectsSorted(state.subjects)
-		state.mu.RUnlock()
-		result := make([]webSubject, 0, len(subjects))
-		for _, item := range subjects {
-			if filterIncludes(item.Name, keyword) || filterIncludes(strconv.Itoa(item.Code), keyword) {
-				result = append(result, item)
-			}
+		var req searchSubjectReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid search body")
+			return
 		}
-		response.OK(c, gin.H{"list": result, "total": len(result)})
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		subjects, err := queryWebSubjects(c, db, req.Keyword)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "SUBJECTS_SEARCH_FAILED", "failed to search subjects")
+			return
+		}
+		response.OK(c, gin.H{"list": subjects, "total": len(subjects)})
 	}
 }
 
@@ -63,10 +85,14 @@ func CreateSubject() gin.HandlerFunc {
 			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid subject body")
 			return
 		}
-		now := time.Now().UTC().Format(time.RFC3339)
-		state.mu.Lock()
-		id := state.nextSubjectID
-		state.nextSubjectID++
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		id := req.Code
+		if id <= 0 {
+			id = int(time.Now().Unix() % 1000000000)
+		}
 		level := 1
 		if req.ParentID != nil {
 			level = 2
@@ -74,10 +100,13 @@ func CreateSubject() gin.HandlerFunc {
 		subject := webSubject{
 			ID: id, Name: req.Name, Code: req.Code, ParentID: req.ParentID, Level: level,
 			Description: req.Description, Outline: subjectOutline{Modules: []outlineModule{}},
-			CreatedAt: now, UpdatedAt: now,
+			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+			UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		}
-		state.subjects[id] = subject
-		state.mu.Unlock()
+		if err := insertWebSubject(c, db, subject); err != nil {
+			response.Error(c, http.StatusInternalServerError, "SUBJECT_CREATE_FAILED", "failed to create subject")
+			return
+		}
 		response.OK(c, gin.H{
 			"id":          subject.ID,
 			"name":        subject.Name,
@@ -94,20 +123,30 @@ func CreateSubject() gin.HandlerFunc {
 
 func UpdateSubject() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_SUBJECT_ID", "invalid subject id")
-			return
-		}
 		var req updateSubjectReq
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid subject body")
 			return
 		}
-		state.mu.Lock()
-		subject, ok := state.subjects[id]
+		id := req.ID
+		if id <= 0 {
+			response.Error(c, http.StatusBadRequest, "INVALID_SUBJECT_ID", "invalid subject id")
+			return
+		}
+		db, _, ok := dbOrError(c)
 		if !ok {
-			state.mu.Unlock()
+			return
+		}
+		subject, err := getWebSubjectByID(c, db, id)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				response.Error(c, http.StatusNotFound, "SUBJECT_NOT_FOUND", "subject not found")
+				return
+			}
+			response.Error(c, http.StatusInternalServerError, "SUBJECT_QUERY_FAILED", "failed to query subject")
+			return
+		}
+		if subject.ID == 0 {
 			response.Error(c, http.StatusNotFound, "SUBJECT_NOT_FOUND", "subject not found")
 			return
 		}
@@ -125,8 +164,10 @@ func UpdateSubject() gin.HandlerFunc {
 			subject.Description = *req.Description
 		}
 		subject.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-		state.subjects[id] = subject
-		state.mu.Unlock()
+		if err := updateWebSubject(c, db, subject); err != nil {
+			response.Error(c, http.StatusInternalServerError, "SUBJECT_UPDATE_FAILED", "failed to update subject")
+			return
+		}
 		response.OK(c, gin.H{
 			"id":          subject.ID,
 			"name":        subject.Name,
@@ -143,80 +184,282 @@ func UpdateSubject() gin.HandlerFunc {
 
 func DeleteSubject() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
+		var req identifySubjectReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid subject delete body")
+			return
+		}
+		id := req.ID
+		if id <= 0 {
 			response.Error(c, http.StatusBadRequest, "INVALID_SUBJECT_ID", "invalid subject id")
 			return
 		}
-		state.mu.Lock()
-		delete(state.subjects, id)
-		state.mu.Unlock()
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		if err := deleteWebSubject(c, db, id); err != nil {
+			response.Error(c, http.StatusInternalServerError, "SUBJECT_DELETE_FAILED", "failed to delete subject")
+			return
+		}
 		response.OK(c, gin.H{"deleted": true})
 	}
 }
 
 func AddMySubject() gin.HandlerFunc {
-	return func(c *gin.Context) { response.OK(c, gin.H{"added": true}) }
+	return func(c *gin.Context) {
+		var req struct {
+			SubjectID int `json:"subjectId"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil || req.SubjectID <= 0 {
+			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid add body")
+			return
+		}
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		userID, err := latestUserID(c, db)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "USER_NOT_FOUND", "no user available")
+			return
+		}
+		_, _ = db.ExecContext(
+			c,
+			`INSERT IGNORE INTO user_subjects (user_subject_id, user_id, subject_id) VALUES (?, ?, ?)`,
+			"us-"+strconv.FormatInt(time.Now().UnixNano(), 10),
+			userID,
+			req.SubjectID,
+		)
+		response.OK(c, gin.H{"added": true})
+	}
 }
 
 func RemoveMySubject() gin.HandlerFunc {
-	return func(c *gin.Context) { response.OK(c, gin.H{"removed": true}) }
+	return func(c *gin.Context) {
+		var req identifySubjectReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid remove body")
+			return
+		}
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		userID, err := latestUserID(c, db)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "USER_NOT_FOUND", "no user available")
+			return
+		}
+		if req.ID > 0 {
+			_, _ = db.ExecContext(c, `DELETE FROM user_subjects WHERE user_id = ? AND subject_id = ?`, userID, req.ID)
+		}
+		response.OK(c, gin.H{"removed": req.ID > 0})
+	}
 }
 
 func GetSubjectOutline() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
+		var req identifySubjectReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid outline query body")
+			return
+		}
+		id := req.ID
+		if id <= 0 {
 			response.Error(c, http.StatusBadRequest, "INVALID_SUBJECT_ID", "invalid subject id")
 			return
 		}
-		state.mu.RLock()
-		subject, ok := state.subjects[id]
-		state.mu.RUnlock()
+		db, _, ok := dbOrError(c)
 		if !ok {
-			response.Error(c, http.StatusNotFound, "SUBJECT_NOT_FOUND", "subject not found")
 			return
 		}
-		response.OK(c, gin.H{"modules": subject.Outline.Modules})
+		outline := subjectOutline{Modules: []outlineModule{}}
+		var raw string
+		err := db.QueryRowContext(c, `SELECT outline_json FROM subject_outlines WHERE subject_id = ?`, id).Scan(&raw)
+		if err == nil && raw != "" {
+			_ = json.Unmarshal([]byte(raw), &outline)
+		}
+		response.OK(c, gin.H{"modules": outline.Modules})
 	}
 }
 
 func UpdateSubjectOutline() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_SUBJECT_ID", "invalid subject id")
-			return
-		}
 		var req updateOutlineReq
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid outline body")
 			return
 		}
-		state.mu.Lock()
-		subject, ok := state.subjects[id]
-		if !ok {
-			state.mu.Unlock()
-			response.Error(c, http.StatusNotFound, "SUBJECT_NOT_FOUND", "subject not found")
+		id := req.ID
+		if id <= 0 {
+			response.Error(c, http.StatusBadRequest, "INVALID_SUBJECT_ID", "invalid subject id")
 			return
 		}
-		subject.Outline = req.Outline
-		subject.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-		state.subjects[id] = subject
-		state.mu.Unlock()
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		b, _ := json.Marshal(req.Outline)
+		_, err := db.ExecContext(
+			c,
+			`INSERT INTO subject_outlines (subject_id, outline_json, updated_at) VALUES (?, ?, NOW())
+			 ON DUPLICATE KEY UPDATE outline_json = VALUES(outline_json), updated_at = NOW()`,
+			id,
+			string(b),
+		)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "OUTLINE_UPDATE_FAILED", "failed to update outline")
+			return
+		}
+		_, _ = db.ExecContext(c, `UPDATE subjects SET updated_at = NOW() WHERE subject_id = ?`, id)
 		response.OK(c, gin.H{"updated": true})
 	}
 }
 
 func AdminListSubjects() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		state.mu.RLock()
-		subjects := listSubjectsSorted(state.subjects)
-		state.mu.RUnlock()
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		subjects, err := queryWebSubjects(c, db, "")
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "SUBJECTS_LIST_FAILED", "failed to list subjects")
+			return
+		}
 		response.OK(c, gin.H{"list": subjects, "total": len(subjects)})
 	}
 }
 
 func AdminDeleteSubject() gin.HandlerFunc {
 	return DeleteSubject()
+}
+
+func queryWebSubjects(c *gin.Context, db *sql.DB, keyword string) ([]webSubject, error) {
+	args := []any{}
+	query := `SELECT s.subject_id, s.name, s.code, s.parent_subject_id, s.level, s.description, s.created_at, s.updated_at,
+		COALESCE(so.outline_json, '')
+		FROM subjects s
+		LEFT JOIN subject_outlines so ON so.subject_id = s.subject_id`
+	if keyword != "" {
+		query += ` WHERE s.name LIKE ? OR CAST(s.code AS CHAR) LIKE ?`
+		like := "%" + keyword + "%"
+		args = append(args, like, like)
+	}
+	query += ` ORDER BY s.code ASC, s.subject_id ASC`
+	rows, err := db.QueryContext(c, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := make([]webSubject, 0, 32)
+	for rows.Next() {
+		var item webSubject
+		var parent sql.NullInt64
+		var description sql.NullString
+		var outlineRaw string
+		if err := rows.Scan(&item.ID, &item.Name, &item.Code, &parent, &item.Level, &description, &item.CreatedAt, &item.UpdatedAt, &outlineRaw); err != nil {
+			return nil, err
+		}
+		if parent.Valid {
+			val := int(parent.Int64)
+			item.ParentID = &val
+		}
+		if description.Valid {
+			item.Description = description.String
+		}
+		item.Outline = subjectOutline{Modules: []outlineModule{}}
+		if outlineRaw != "" {
+			_ = json.Unmarshal([]byte(outlineRaw), &item.Outline)
+		}
+		list = append(list, item)
+	}
+	return list, rows.Err()
+}
+
+func getWebSubjectByID(c *gin.Context, db *sql.DB, id int) (webSubject, error) {
+	var item webSubject
+	var parent sql.NullInt64
+	var description sql.NullString
+	var outlineRaw string
+	err := db.QueryRowContext(
+		c,
+		`SELECT s.subject_id, s.name, s.code, s.parent_subject_id, s.level, s.description, s.created_at, s.updated_at,
+		COALESCE(so.outline_json, '')
+		FROM subjects s
+		LEFT JOIN subject_outlines so ON so.subject_id = s.subject_id
+		WHERE s.subject_id = ?`,
+		id,
+	).Scan(&item.ID, &item.Name, &item.Code, &parent, &item.Level, &description, &item.CreatedAt, &item.UpdatedAt, &outlineRaw)
+	if err != nil {
+		return webSubject{}, err
+	}
+	if parent.Valid {
+		val := int(parent.Int64)
+		item.ParentID = &val
+	}
+	if description.Valid {
+		item.Description = description.String
+	}
+	item.Outline = subjectOutline{Modules: []outlineModule{}}
+	if outlineRaw != "" {
+		_ = json.Unmarshal([]byte(outlineRaw), &item.Outline)
+	}
+	return item, nil
+}
+
+func insertWebSubject(c *gin.Context, db *sql.DB, subject webSubject) error {
+	_, err := db.ExecContext(
+		c,
+		`INSERT INTO subjects (subject_id, parent_subject_id, level, name, code, education_stage, description, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, '', ?, NOW(), NOW())`,
+		subject.ID,
+		subject.ParentID,
+		subject.Level,
+		subject.Name,
+		strconv.Itoa(subject.Code),
+		subject.Description,
+	)
+	if err != nil {
+		return err
+	}
+	outlineRaw, _ := json.Marshal(subject.Outline)
+	_, err = db.ExecContext(
+		c,
+		`INSERT INTO subject_outlines (subject_id, outline_json, updated_at) VALUES (?, ?, NOW())
+		 ON DUPLICATE KEY UPDATE outline_json = VALUES(outline_json), updated_at = NOW()`,
+		subject.ID,
+		string(outlineRaw),
+	)
+	return err
+}
+
+func updateWebSubject(c *gin.Context, db *sql.DB, subject webSubject) error {
+	_, err := db.ExecContext(
+		c,
+		`UPDATE subjects
+		 SET parent_subject_id = ?, level = ?, name = ?, code = ?, description = ?, updated_at = NOW()
+		 WHERE subject_id = ?`,
+		subject.ParentID,
+		subject.Level,
+		subject.Name,
+		strconv.Itoa(subject.Code),
+		subject.Description,
+		subject.ID,
+	)
+	return err
+}
+
+func deleteWebSubject(c *gin.Context, db *sql.DB, id int) error {
+	_, _ = db.ExecContext(c, `DELETE FROM subject_outlines WHERE subject_id = ?`, id)
+	_, _ = db.ExecContext(c, `DELETE FROM user_subjects WHERE subject_id = ?`, id)
+	_, err := db.ExecContext(c, `DELETE FROM subjects WHERE subject_id = ?`, id)
+	return err
+}
+
+func latestUserID(c *gin.Context, db *sql.DB) (string, error) {
+	var id string
+	err := db.QueryRowContext(c, `SELECT id FROM users ORDER BY id DESC LIMIT 1`).Scan(&id)
+	return id, err
 }

@@ -36,6 +36,7 @@ app.post('/chat/stream', async (req, res) => {
     subjectId,
     availableSubjects,
     conversationId,
+    generateVideo = false,
     userId = 'anonymous',
     imageBase64,
     imageMediaType,
@@ -44,19 +45,25 @@ app.post('/chat/stream', async (req, res) => {
     subjectId?: string;
     availableSubjects?: Array<{ id: string | number; name: string; code?: string | number }>;
     conversationId?: string;
+    generateVideo?: boolean;
     userId?: string;
     imageBase64?: string;
     imageMediaType?: string;
+  };
+
+  const sendEvent = (data: unknown) => {  // 发送事件
+    res.write(`data: ${JSON.stringify(data)}\n\n`);  // 发送 SSE 事件
   };
 
   const ctx = {
     userId,
     sessionId: conversationId ?? uuidv4(),  // 会话 ID
     traceId: uuidv4(),  // 链路 ID
-  };
-
-  const sendEvent = (data: unknown) => {  // 发送事件
-    res.write(`data: ${JSON.stringify(data)}\n\n`);  // 发送 SSE 事件
+    metadata: {
+      tokenEmitter: (token: string) => {
+        sendEvent({ type: 'delta', delta: token });
+      },
+    },
   };
 
   try {
@@ -72,6 +79,7 @@ app.post('/chat/stream', async (req, res) => {
           code: item.code !== undefined ? String(item.code) : undefined,
         })),
         conversationId,
+        generateVideo,
         imageBase64,
         imageMediaType,
       },

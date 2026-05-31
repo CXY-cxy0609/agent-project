@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	"tutor-server/internal/config"
 	"tutor-server/internal/health"
@@ -26,16 +25,12 @@ type Container struct {
 }
 
 func Build(cfg config.Config) (*Container, error) {
-	dbStore, dbErr := database.New(cfg.DB)
-	if dbErr != nil {
-		if strings.ToLower(strings.TrimSpace(cfg.DB.RepositoryMode)) == "sql" {
-			return nil, fmt.Errorf("init database failed in sql mode: %w", dbErr)
-		}
-		log.Printf("database init failed in memory mode, continue without db: %v", dbErr)
+	dbStore, err := database.New(cfg.DB)
+	if err != nil {
+		return nil, fmt.Errorf("init database failed: %w", err)
 	}
-
-	if dbStore == nil {
-		log.Printf("db store is nil, health check will report degraded")
+	if err := ensureRuntimeSchema(dbStore); err != nil {
+		return nil, fmt.Errorf("ensure runtime schema failed: %w", err)
 	}
 
 	redisStore := cache.New(cfg.Infra)
@@ -43,11 +38,11 @@ func Build(cfg config.Config) (*Container, error) {
 		log.Printf("redis store is nil, health check will report down")
 	}
 
-	subjectRepo, conversationRepo, taskRepo, learningRepo := buildRepositories(cfg, dbStore)
+	userRepo, subjectRepo, conversationRepo, taskRepo, learningRepo := buildRepositories(dbStore)
 
 	return &Container{
 		Health:                health.NewService(dbStore, redisStore),
-		AuthService:           service.NewAuthService(),
+		AuthService:           service.NewAuthService(userRepo),
 		SubjectService:        service.NewSubjectService(subjectRepo),
 		ConversationService:   service.NewConversationService(conversationRepo),
 		TaskService:           service.NewTaskService(taskRepo),
@@ -58,32 +53,20 @@ func Build(cfg config.Config) (*Container, error) {
 }
 
 func buildRepositories(
-	cfg config.Config,
 	dbStore *database.Store,
 ) (
+	repository.UserRepository,
 	repository.SubjectRepository,
 	repository.ConversationRepository,
 	repository.TaskRepository,
 	repository.LearningRecordRepository,
 ) {
-	mode := strings.ToLower(strings.TrimSpace(cfg.DB.RepositoryMode))
-	if mode == "sql" && dbStore != nil {
-		log.Printf("repository mode: sql")
-		return repository.NewSQLSubjectRepository(dbStore),
-			repository.NewSQLConversationRepository(dbStore),
-			repository.NewSQLTaskRepository(dbStore),
-			repository.NewSQLLearningRecordRepository(dbStore)
-	}
-
-	if mode == "sql" && dbStore == nil {
-		log.Printf("repository mode fallback: sql requested but db unavailable, using memory")
-	} else {
-		log.Printf("repository mode: memory (set DB_REPOSITORY_MODE=sql to use database-backed repositories)")
-	}
-	return repository.NewInMemorySubjectRepository(),
-		repository.NewInMemoryConversationRepository(),
-		repository.NewInMemoryTaskRepository(),
-		repository.NewInMemoryLearningRecordRepository()
+	log.Printf("repository mode: sql")
+	return repository.NewSQLUserRepository(dbStore),
+		repository.NewSQLSubjectRepository(dbStore),
+		repository.NewSQLConversationRepository(dbStore),
+		repository.NewSQLTaskRepository(dbStore),
+		repository.NewSQLLearningRecordRepository(dbStore)
 }
 
 func (c *Container) Close() {
@@ -96,4 +79,11 @@ func (c *Container) Close() {
 	if c.redisStore != nil {
 		_ = c.redisStore.Close()
 	}
+}
+
+func (c *Container) DBStore() *database.Store {
+	if c == nil {
+		return nil
+	}
+	return c.dbStore
 }

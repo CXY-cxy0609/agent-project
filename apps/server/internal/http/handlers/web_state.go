@@ -1,12 +1,5 @@
 package handlers
 
-import (
-	"sort"
-	"strings"
-	"sync"
-	"time"
-)
-
 type webUser struct {
 	ID        string `json:"id"`
 	Username  string `json:"username"`
@@ -115,85 +108,4 @@ type webAnalytics struct {
 	Summary            string           `json:"summary,omitempty"`
 	SummaryGeneratedAt string           `json:"summaryGeneratedAt,omitempty"`
 	UpdatedAt          string           `json:"updatedAt"`
-}
-
-type webState struct {
-	mu sync.RWMutex
-
-	nextSubjectID int
-	users         map[string]webUser
-	subjects      map[int]webSubject
-	conversations map[string]webConversation
-	messages      map[string][]webMessage
-	knowledge     map[string]webKnowledgeBase
-	analytics     map[int]webAnalytics
-}
-
-var state = newWebState()
-
-func newWebState() *webState {
-	now := time.Now().UTC().Format(time.RFC3339)
-	s := &webState{
-		nextSubjectID: 104,
-		users: map[string]webUser{
-			"mock-user-001": {
-				ID: "mock-user-001", Username: "测试同学", Phone: "13800138000", Role: "student", CreatedAt: now, UpdatedAt: now,
-			},
-		},
-		subjects: map[int]webSubject{
-			101: {ID: 101, Name: "高等数学", Code: 1001, Level: 1, Description: "理工科考研必备", Outline: subjectOutline{Modules: []outlineModule{}}, CreatedAt: now, UpdatedAt: now},
-			102: {ID: 102, Name: "线性代数", Code: 1002, Level: 1, Description: "矩阵和向量空间", Outline: subjectOutline{Modules: []outlineModule{}}, CreatedAt: now, UpdatedAt: now},
-			103: {ID: 103, Name: "英语", Code: 2001, Level: 1, Description: "考研英语能力提升", Outline: subjectOutline{Modules: []outlineModule{}}, CreatedAt: now, UpdatedAt: now},
-		},
-		conversations: map[string]webConversation{},
-		messages:      map[string][]webMessage{},
-		knowledge:     map[string]webKnowledgeBase{},
-		analytics:     map[int]webAnalytics{},
-	}
-
-	s.analytics[101] = webAnalytics{
-		UserID:      "mock-user-001",
-		SubjectID:   101,
-		SubjectName: "高等数学",
-		WeakPoints: []map[string]any{
-			{"id": "wp-001", "keyword": "洛必达法则", "level": "high", "count": 8, "relatedChapter": "函数与极限"},
-			{"id": "wp-002", "keyword": "广义积分收敛", "level": "high", "count": 6, "relatedChapter": "积分学"},
-		},
-		WordCloud: []map[string]any{
-			{"text": "极限", "weight": 90, "level": "high"},
-			{"text": "积分", "weight": 85, "level": "high"},
-		},
-		Summary:            "建议优先补齐极限与积分核心题型。",
-		SummaryGeneratedAt: now,
-		UpdatedAt:          now,
-	}
-	return s
-}
-
-func listSubjectsSorted(subjects map[int]webSubject) []webSubject {
-	list := make([]webSubject, 0, len(subjects))
-	for _, item := range subjects {
-		list = append(list, item)
-	}
-	sort.Slice(list, func(i, j int) bool {
-		if list[i].Code == list[j].Code {
-			return list[i].ID < list[j].ID
-		}
-		return list[i].Code < list[j].Code
-	})
-	return list
-}
-
-func subjectNameByID(subjects map[int]webSubject, id int) string {
-	if subject, ok := subjects[id]; ok {
-		return subject.Name
-	}
-	return "未知学科"
-}
-
-func filterIncludes(text, keyword string) bool {
-	if keyword == "" {
-		return true
-	}
-	return strings.Contains(strings.ToLower(text), strings.ToLower(keyword))
 }

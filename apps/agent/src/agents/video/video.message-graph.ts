@@ -4,7 +4,6 @@ import type { LLMClient } from '../../harness/core/llm-client.js';
 import type { ContentVectorCache } from '../../harness/core/types.js';
 import type { ToolRegistry } from '../../harness/tool/tool.js';
 import type { MessageGraphNodeContext, MessageEnvelope, MessageGraphRouteFn } from '../../harness/runtime/message-graph.js';
-import { MODELS } from '../../constants/models.js';
 import { runReasoningLoop } from '../../harness/reasoning/loop.js';
 import { validateManimScript } from '../../harness/video/script-validator.js';
 import { classifyManimError } from '../../harness/video/error-classifier.js';
@@ -19,6 +18,7 @@ import {
 } from './video.prompts.js';
 import type { StoryboardScene, StoryboardRaw, ManimScriptRaw } from './video.types.js';
 import type { ManimRunnerResult } from '../../tools/manim-runner.tool.js';
+import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 
 const schemaParser = new SchemaParser();
 const MAX_MANIM_RETRIES = 3;
@@ -43,6 +43,7 @@ export function buildVideoMessageGraphNodes(
   llm: LLMClient,
   videoCache: ContentVectorCache,
   toolRegistry: ToolRegistry,
+  modelConfig: ModelGovernanceConfig['video'],
 ) {
   async function checkCacheNode(ctx: MessageGraphNodeContext): Promise<void> {
     const state = ctx.getWorkflowState();
@@ -88,7 +89,7 @@ export function buildVideoMessageGraphNodes(
       .setOutputFormat(STORYBOARD_OUTPUT_SCHEMA)
       .build();
     const response = await llm.call({
-      model: MODELS.SONNET,
+      model: modelConfig.generateStoryboard,
       messages,
       systemPrompt,
       maxTokens: 2000,
@@ -128,7 +129,7 @@ export function buildVideoMessageGraphNodes(
           .setOutputFormat(MANIM_SCRIPT_OUTPUT_SCHEMA)
           .build();
         const response = await llm.call({
-          model: MODELS.SONNET,
+          model: modelConfig.generateScript,
           messages,
           systemPrompt,
           maxTokens: 4000,
@@ -232,7 +233,7 @@ export function buildVideoMessageGraphNodes(
           })
           .build();
         const response = await llm.call({
-          model: MODELS.SONNET,
+          model: modelConfig.fixScript,
           messages,
           systemPrompt,
           maxTokens: 4000,
