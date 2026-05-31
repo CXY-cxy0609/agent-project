@@ -4,6 +4,7 @@ requiredVars:
   - userMessage
 optionalVars:
   subjectHint: ""
+  availableSubjectsHint: ""
 ---
 
 ## 任务要求
@@ -17,3 +18,5 @@ optionalVars:
 {{userMessage}}
 
 {{subjectHint}}
+
+{{availableSubjectsHint}}

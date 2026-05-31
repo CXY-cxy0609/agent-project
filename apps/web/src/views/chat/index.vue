@@ -4,38 +4,20 @@
     <conversation-sidebar
       :conversations="conversationItems"
       :active-conversation-id="chatStore.activeConversationId"
-      :selected-subject-id="selectedSubjectId"
-      :subject-options="subjectOptions"
       @new-chat="startNewChat"
       @select-conversation="handleConvSelect"
-      @subject-change="handleSubjectChange"
     />
 
     <!-- Center: Chat Area -->
     <div class="chat-main">
-      <!-- No subject warning -->
-      <div v-if="!selectedSubjectId" class="no-subject-tip">
-        <a-result
-          status="info"
-          title="请先选择学科"
-          sub-title="在左侧选择一个学科后，即可开始对话。如果还没有学科，请前往学科管理添加。"
-        >
-          <template #extra>
-            <a-button type="primary" @click="$router.push('/app/subjects')">
-              前往学科管理
-            </a-button>
-          </template>
-        </a-result>
-      </div>
-
       <!-- Welcome state (no active conversation) -->
       <chat-welcome
-        v-else-if="!chatStore.activeConversationId"
+        v-if="!chatStore.activeConversationId && chatStore.messages.length === 0"
         @send-prompt="sendQuickPrompt"
       />
 
       <!-- Chat Messages -->
-      <template v-else>
+      <template v-else-if="chatStore.activeConversationId || chatStore.messages.length > 0">
         <chat-header
           :title="activeConversation?.title"
           v-model:selected-model="selectedModel"
@@ -63,7 +45,6 @@
 
       <!-- Sender -->
       <message-sender
-        v-if="selectedSubjectId"
         v-model="inputValue"
         v-model:generate-video="generateVideo"
         :attachments="attachments"
@@ -90,6 +71,7 @@ import { message, Modal } from 'ant-design-vue';
 import { BubbleList as XBubbleList, ThoughtChain as XThoughtChain } from 'ant-design-x-vue';
 import { useChatStore } from '@/stores/chat';
 import { useSubjectStore } from '@/stores/subject';
+import { useAuthStore } from '@/stores/auth';
 import { chatApi } from '@/api/chat';
 import { subjectsApi } from '@/api/subjects';
 import ConversationSidebar from '@/components/chat/ConversationSidebar.vue';
@@ -102,8 +84,8 @@ import type { Conversation, Message } from '@tutor/shared';
 
 const chatStore = useChatStore();
 const subjectStore = useSubjectStore();
+const authStore = useAuthStore();
 
-const selectedSubjectId = ref<number | null>(subjectStore.activeSubjectId);
 const selectedModel = ref('claude-3-5-sonnet');
 const inputValue = ref('');
 const generateVideo = ref(false);
@@ -125,12 +107,9 @@ const mockWeakPoints = [
   { text: '向量代数', color: 'warning' },
 ];
 
-const subjectOptions = computed(() =>
-  subjectStore.subjects.map((s) => ({ label: s.name, value: s.id })),
-);
-
 const activeSubject = computed(() =>
-  subjectStore.subjects.find((s) => s.id === selectedSubjectId.value),
+  subjectStore.subjects.find((s) => s.id === activeConversation.value?.subjectId) ??
+  subjectStore.subjects[0],
 );
 
 const activeConversation = computed<Conversation | undefined>(() =>
@@ -141,7 +120,7 @@ const conversationItems = computed(() =>
   chatStore.conversations.map((c) => ({
     key: c.id,
     label: c.title || '新对话',
-    description: c.subjectName,
+    description: c.subjectName || subjectStore.subjects.find((subject) => subject.id === c.subjectId)?.name,
     timestamp: new Date(c.updatedAt).getTime(),
   })),
 );
@@ -197,9 +176,8 @@ async function loadSubjects() {
 }
 
 async function loadConversations() {
-  if (!selectedSubjectId.value) return;
   try {
-    const result = await chatApi.getConversations({ subjectId: selectedSubjectId.value });
+    const result = await chatApi.getConversations();
     chatStore.setConversations(result.list);
   } catch {}
 }
@@ -221,14 +199,6 @@ async function startNewChat() {
   videoProgress.value = null;
 }
 
-function handleSubjectChange(id: number) {
-  selectedSubjectId.value = id;
-  subjectStore.setActiveSubject(id);
-  chatStore.setActiveConversation(null);
-  chatStore.setMessages([]);
-  loadConversations();
-}
-
 function sendQuickPrompt(prompt: string) {
   inputValue.value = prompt;
   handleSend(prompt);
@@ -237,7 +207,7 @@ function sendQuickPrompt(prompt: string) {
 let cancelStream: (() => void) | null = null;
 
 async function handleSend(text: string) {
-  if (!text.trim() || !selectedSubjectId.value || chatStore.isStreaming) return;
+  if (!text.trim() || chatStore.isStreaming) return;
 
   inputValue.value = '';
   const userMsg: Message = {
@@ -268,10 +238,16 @@ async function handleSend(text: string) {
   cancelStream = chatApi.sendMessage(
     {
       conversationId: chatStore.activeConversationId ?? undefined,
-      subjectId: selectedSubjectId.value!,
+      subjectId: activeConversation.value?.subjectId,
       content: text,
       model: selectedModel.value,
       generateVideo: generateVideo.value,
+      userId: authStore.user?.id ?? 'anonymous',
+      availableSubjects: subjectStore.subjects.map((subject) => ({
+        id: subject.id,
+        name: subject.name,
+        code: subject.code,
+      })),
     },
     (chunk) => {
       accumulated += chunk;
@@ -281,9 +257,40 @@ async function handleSend(text: string) {
     (conv) => {
       chatStore.updateLastAssistantMessage(accumulated, true);
       chatStore.setStreaming(false);
-      if (conv.id && !chatStore.activeConversationId) {
-        chatStore.setActiveConversation(conv.id);
-        chatStore.addConversation(conv);
+      if (conv.id) {
+        const inferredSubjectId = conv.subjectId || activeConversation.value?.subjectId || subjectStore.activeSubjectId || 0;
+        const existing = chatStore.conversations.find((item) => item.id === conv.id);
+        if (!existing) {
+          chatStore.addConversation(conv);
+          chatApi.createConversation({
+            id: conv.id,
+            title: conv.title || text.slice(0, 24),
+            subjectId: inferredSubjectId || undefined,
+            userId: authStore.user?.id ?? 'mock-user-001',
+          }).catch(() => {});
+        } else {
+          chatStore.setConversations(
+            chatStore.conversations.map((item) => (item.id === conv.id ? { ...item, ...conv } : item)),
+          );
+        }
+        if (conv.subjectId) {
+          subjectStore.setActiveSubject(conv.subjectId);
+        }
+        if (!chatStore.activeConversationId) {
+          chatStore.setActiveConversation(conv.id);
+        }
+        chatApi.appendMessage(conv.id, {
+          id: userMsg.id,
+          role: 'user',
+          content: text,
+          status: 'done',
+        }).catch(() => {});
+        chatApi.appendMessage(conv.id, {
+          id: assistantMsg.id,
+          role: 'assistant',
+          content: accumulated,
+          status: 'done',
+        }).catch(() => {});
       }
     },
     (_err) => {
@@ -363,13 +370,6 @@ onMounted(async () => {
   overflow: hidden;
   background: @color-bg;
   position: relative;
-}
-
-.no-subject-tip {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .messages-container {

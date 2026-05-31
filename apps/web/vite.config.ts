@@ -35,6 +35,14 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      '/chat': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
+      '/analytics': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
     },
   },
   build: {

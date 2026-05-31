@@ -8,24 +8,6 @@
       </a-button>
     </div>
 
-    <div class="subject-selector">
-      <a-select
-        :value="selectedSubjectId ?? undefined"
-        placeholder="选择学科"
-        style="width: 100%"
-        size="small"
-        :options="subjectOptions"
-        @change="(id: number) => $emit('subject-change', id)"
-      >
-        <template #notFoundContent>
-          <div class="empty-subject">
-            <span>暂无学科</span>
-            <a-button type="link" size="small" @click="$router.push('/app/subjects')">去添加</a-button>
-          </div>
-        </template>
-      </a-select>
-    </div>
-
     <div class="conv-list-wrap">
       <x-conversations
         :items="conversations"
@@ -52,22 +34,14 @@ interface ConversationItem {
   timestamp?: number;
 }
 
-interface SubjectOption {
-  label: string;
-  value: number;
-}
-
 defineProps<{
   conversations: ConversationItem[];
   activeConversationId: string | null;
-  selectedSubjectId: number | null;
-  subjectOptions: SubjectOption[];
 }>();
 
 defineEmits<{
   'new-chat': [];
   'select-conversation': [key: string];
-  'subject-change': [id: number];
 }>();
 </script>
 
@@ -104,11 +78,6 @@ defineEmits<{
   font-size: 12px !important;
 }
 
-.subject-selector {
-  padding: 10px 12px;
-  border-bottom: 1px solid @color-border;
-}
-
 .conv-list-wrap {
   flex: 1;
   overflow-y: auto;
@@ -134,11 +103,4 @@ defineEmits<{
   opacity: 0.4;
 }
 
-.empty-subject {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: @color-text-muted;
-}
 </style>

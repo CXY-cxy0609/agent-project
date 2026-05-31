@@ -1,4 +1,4 @@
-.PHONY: install install-venv dev build lint format clean
+.PHONY: install install-venv dev build lint format clean load-test baseline-report
 
 VENV_DIR := .venv
 PYTHON := $(VENV_DIR)/bin/python
@@ -38,6 +38,14 @@ lint:
 
 format:
 	$(VENV_DIR)/bin/ruff format src/
+
+# ─── 压测与容量基线 ─────────────────────────────────────────────────────────────
+
+load-test:
+	k6 run load/k6-retrieve.js
+
+baseline-report:
+	$(PYTHON) scripts/generate_baseline_report.py
 
 # ─── 清理 ─────────────────────────────────────────────────────────────────────
 

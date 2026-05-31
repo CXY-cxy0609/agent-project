@@ -1,130 +1,126 @@
-"""
-考研辅导平台 RAG 服务
-与后端（NestJS）和 Agent（TypeScript Harness）解耦，通过 HTTP REST 提供：
-  - 向量检索接口（含 Rerank / HyDE）
-  - 文档向量化入库接口
-  - 用户级向量记忆接口
-  - 内容级向量缓存接口（Video Agent 使用）
-  - 文档解析接口
-"""
-
 from __future__ import annotations
 
-import uvicorn  # 启动 FastAPI 应用
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel  # 数据模型
+import asyncio
+import logging
 from typing import Optional
 
-from .config import settings  # 配置
-from .pipeline.retrieval_pipeline import retrieval_pipeline  # 检索管道
-from .indexer.indexer import indexer_service  # 索引器
-from .indexer.document_parser import parse_document  # 文档解析器
-from .indexer.parser_models import ParseOptions, ParseMode
-from .services.memory_service import user_memory_service, content_cache_service  # 记忆服务
+import uvicorn
+from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+from .config import settings
+from .core.errors import (
+    BadRequestError,
+    AppError,
+    register_error_handlers,
+)
+from .core.http_middleware import RequestContextMiddleware
+from .core.logging import configure_logging
+from .core.metrics import QDRANT_HEALTH
+from .core.rate_limit import WindowRateLimiter, enforce_rate_limit
+from .core.security import require_internal_token
+from .indexer.document_parser import parse_document
+from .indexer.indexer import indexer_service
+from .indexer.parser_models import ParseMode, ParseOptions
+from .indexer.vector_store import qdrant_health_check
+from .pipeline.retrieval_pipeline import retrieval_pipeline
+from .services.index_task_service import index_task_service
+from .services.memory_service import content_cache_service, user_memory_service
+
+configure_logging(settings.log_level)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="考研辅导 RAG 服务",
-    description="知识库向量化存储与语义检索服务（无 LangChain）",
-    version="0.1.0",
+    title="教育平台 RAG 服务",
+    description="企业级知识检索服务（治理版）",
+    version="1.0.0",
 )
-
+register_error_handlers(app)
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
-    CORSMiddleware,  # 跨域中间件
-    allow_origins=["*"],  # 允许所有源
-    allow_credentials=True,  # 允许携带凭证
-    allow_methods=["*"],  # 允许所有方法
-    allow_headers=["*"],  # 允许所有头
+    CORSMiddleware,
+    allow_origins=[v.strip() for v in settings.cors_allow_origins.split(",") if v.strip()],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "x-request-id", "x-tenant-id", "x-internal-token"],
+)
+
+retrieve_limiter = WindowRateLimiter(
+    limit=settings.rate_limit_retrieve_per_window,
+    window_seconds=settings.rate_limit_window_seconds,
+)
+write_limiter = WindowRateLimiter(
+    limit=settings.rate_limit_write_per_window,
+    window_seconds=settings.rate_limit_window_seconds,
 )
 
 
-# ─── Health ──────────────────────────────────────────────────────────────────
+@app.on_event("startup")
+async def startup() -> None:
+    index_task_service.register_handler(
+        "index_upload",
+        _handle_index_upload_task,
+    )
+    index_task_service.register_handler(
+        "index_text",
+        _handle_index_text_task,
+    )
+    await index_task_service.start()
+    QDRANT_HEALTH.set(1 if qdrant_health_check() else 0)
+    logger.info("rag service startup completed")
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "service": "tutor-rag"}  # 健康检查
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    await index_task_service.stop()
+    logger.info("rag service shutdown completed")
 
 
-# ─── Retrieve ────────────────────────────────────────────────────────────────
+def tenant_from_request(request: Request) -> str:
+    tenant = getattr(request.state, "tenant_id", "") or settings.tenant_default
+    return tenant
+
+
+def _rate_limit_key(request: Request, tenant_id: str, route: str) -> str:
+    client = request.client.host if request.client else "unknown"
+    return f"{route}:{tenant_id}:{client}"
+
 
 class RetrieveRequest(BaseModel):
-    query: str  # 查询
-    subject_id: Optional[str] = None  # 学科 ID
-    knowledge_base_id: Optional[str] = None  # 知识库 ID
-    top_k: int = 5  # 返回数量
-    retrieval_mode: str = "text_only"  # text_only | hybrid_visual
+    query: str
+    subject_id: Optional[str] = None
+    knowledge_base_id: Optional[str] = None
+    top_k: int = 5
+    retrieval_mode: str = "text_only"
     budget_tokens: Optional[int] = None
     max_upgrade_pages: Optional[int] = None
 
 
 class ChunkInfo(BaseModel):
-    content: str  # 内容
-    score: float  # 分数
-    metadata: dict  # 元数据
+    content: str
+    score: float
+    metadata: dict
 
 
 class RetrieveResponse(BaseModel):
-    context: str  # 上下文
-    chunks: list[ChunkInfo]  # 块信息
+    context: str
+    chunks: list[ChunkInfo]
 
 
-@app.post("/retrieve", response_model=RetrieveResponse)
-async def retrieve(req: RetrieveRequest):  # 检索
-    """
-    RAG 检索接口：Query 预处理 → 向量检索 → Rerank → 上下文构建
-    """
-    try:
-        result = await retrieval_pipeline.retrieve(
-            query=req.query,
-            subject_id=req.subject_id,
-            knowledge_base_id=req.knowledge_base_id,
-            top_k=req.top_k,
-            retrieval_mode=req.retrieval_mode,
-            budget_tokens=req.budget_tokens,
-            max_upgrade_pages=req.max_upgrade_pages,
-        )
-        return RetrieveResponse(
-            context=result.context,
-            chunks=[
-                ChunkInfo(content=c.content, score=c.score, metadata=c.metadata)
-                for c in result.chunks
-            ],
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ─── Index ───────────────────────────────────────────────────────────────────
-
-class IndexResponse(BaseModel):
-    doc_id: str
-    chunks: int
+class IndexTaskAcceptedResponse(BaseModel):
+    task_id: str
     status: str
 
 
-@app.post("/index/upload", response_model=IndexResponse)
-async def index_upload(  # 上传文档
-    file: UploadFile = File(...),
-    knowledge_base_id: str = Form(...),
-    subject_id: str = Form(...),
-    doc_name: str = Form(...),
-):
-    """文档向量化接口：上传 PDF/MD 文档并向量化存储"""
-    if file.content_type not in ("application/pdf", "text/markdown", "text/plain"):
-        raise HTTPException(status_code=400, detail="仅支持 PDF 和 Markdown 文档")
-
-    content = await file.read()
-    try:
-        result = await indexer_service.index_document(
-            content=content,
-            filename=file.filename or doc_name,
-            knowledge_base_id=knowledge_base_id,
-            subject_id=subject_id,
-            doc_name=doc_name,
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class IndexTaskStatusResponse(BaseModel):
+    task_id: str
+    task_type: str
+    status: str
+    result: Optional[dict] = None
+    error: Optional[str] = None
 
 
 class IndexTextRequest(BaseModel):
@@ -133,37 +129,30 @@ class IndexTextRequest(BaseModel):
     subject_id: str
     doc_name: str
     doc_id: Optional[str] = None
+    doc_version: Optional[int] = None
+    wait: bool = Field(default=settings.index_task_wait_default)
 
 
-@app.post("/index/text", response_model=IndexResponse)
-async def index_text(req: IndexTextRequest):
-    """文本向量化接口：直接提交 Markdown 文本并向量化存储"""
-    try:
-        result = await indexer_service.index_text(
-            text=req.text,
-            knowledge_base_id=req.knowledge_base_id,
-            subject_id=req.subject_id,
-            doc_name=req.doc_name,
-            doc_id=req.doc_id,
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class UserMemorySearchRequest(BaseModel):
+    query: str
+    user_id: str
+    top_k: int = 5
 
 
-@app.delete("/index/{knowledge_base_id}/{doc_id}")
-async def delete_document(knowledge_base_id: str, doc_id: str):
-    """删除向量化文档"""
-    try:
-        await indexer_service.delete_document(
-            knowledge_base_id=knowledge_base_id, doc_id=doc_id
-        )
-        return {"status": "deleted"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class UserMemoryStoreRequest(BaseModel):
+    user_id: str
+    content: str
 
 
-# ─── Document Parse (only) ────────────────────────────────────────────────────
+class ContentCacheSearchRequest(BaseModel):
+    query: str
+    top_k: int = 1
+
+
+class ContentCacheStoreRequest(BaseModel):
+    content: str
+    payload: dict
+
 
 class ParseResponse(BaseModel):
     text: str
@@ -173,14 +162,132 @@ class ParseResponse(BaseModel):
     page_signals: list[dict]
 
 
-@app.post("/parse", response_model=ParseResponse)
+@app.get("/health")
+def health() -> dict:
+    healthy = qdrant_health_check()
+    QDRANT_HEALTH.set(1 if healthy else 0)
+    return {"status": "ok" if healthy else "degraded", "service": "tutor-rag", "qdrant": healthy}
+
+
+@app.get("/metrics")
+def metrics_endpoint() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.post("/retrieve", response_model=RetrieveResponse)
+async def retrieve(req: RetrieveRequest, request: Request):
+    tenant_id = tenant_from_request(request)
+    enforce_rate_limit(retrieve_limiter, _rate_limit_key(request, tenant_id, "retrieve"))
+    try:
+        result = await asyncio.wait_for(
+            retrieval_pipeline.retrieve(
+                query=req.query,
+                subject_id=req.subject_id,
+                knowledge_base_id=req.knowledge_base_id,
+                top_k=req.top_k,
+                retrieval_mode=req.retrieval_mode,
+                budget_tokens=req.budget_tokens,
+                max_upgrade_pages=req.max_upgrade_pages,
+            ),
+            timeout=settings.retrieve_timeout_total_ms / 1000,
+        )
+    except TimeoutError as exc:
+        raise AppError(code="RETRIEVE_TIMEOUT", message="retrieve timeout", http_status=504) from exc
+    return RetrieveResponse(
+        context=result.context,
+        chunks=[ChunkInfo(content=c.content, score=c.score, metadata=c.metadata) for c in result.chunks],
+    )
+
+
+@app.post("/index/upload", response_model=IndexTaskAcceptedResponse, dependencies=[Depends(require_internal_token)])
+async def index_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    knowledge_base_id: str = Form(...),
+    subject_id: str = Form(...),
+    doc_name: str = Form(...),
+    doc_id: Optional[str] = Form(default=None),
+    doc_version: Optional[int] = Form(default=None),
+    wait: bool = Form(default=settings.index_task_wait_default),
+):
+    if file.content_type not in ("application/pdf", "text/markdown", "text/plain"):
+        raise BadRequestError("unsupported file type")
+    tenant_id = tenant_from_request(request)
+    enforce_rate_limit(write_limiter, _rate_limit_key(request, tenant_id, "index_upload"))
+    content = await file.read()
+    task = await index_task_service.enqueue(
+        "index_upload",
+        {
+            "tenant_id": tenant_id,
+            "content": content,
+            "filename": file.filename or doc_name,
+            "knowledge_base_id": knowledge_base_id,
+            "subject_id": subject_id,
+            "doc_name": doc_name,
+            "doc_id": doc_id,
+            "doc_version": doc_version,
+        },
+    )
+    if wait:
+        record = await index_task_service.wait(task.task_id, settings.index_task_wait_timeout_seconds)
+        if record.status == "failed":
+            raise AppError(code="INDEX_FAILED", message=record.error or "index failed")
+    return IndexTaskAcceptedResponse(task_id=task.task_id, status=task.status)
+
+
+@app.post("/index/text", response_model=IndexTaskAcceptedResponse, dependencies=[Depends(require_internal_token)])
+async def index_text(request: Request, req: IndexTextRequest):
+    tenant_id = tenant_from_request(request)
+    enforce_rate_limit(write_limiter, _rate_limit_key(request, tenant_id, "index_text"))
+    task = await index_task_service.enqueue(
+        "index_text",
+        {
+            "tenant_id": tenant_id,
+            "text": req.text,
+            "knowledge_base_id": req.knowledge_base_id,
+            "subject_id": req.subject_id,
+            "doc_name": req.doc_name,
+            "doc_id": req.doc_id,
+            "doc_version": req.doc_version,
+        },
+    )
+    if req.wait:
+        record = await index_task_service.wait(task.task_id, settings.index_task_wait_timeout_seconds)
+        if record.status == "failed":
+            raise AppError(code="INDEX_FAILED", message=record.error or "index failed")
+    return IndexTaskAcceptedResponse(task_id=task.task_id, status=task.status)
+
+
+@app.get("/index/tasks/{task_id}", response_model=IndexTaskStatusResponse, dependencies=[Depends(require_internal_token)])
+def get_index_task(task_id: str):
+    task = index_task_service.get(task_id)
+    return IndexTaskStatusResponse(
+        task_id=task.task_id,
+        task_type=task.task_type,
+        status=task.status,
+        result=task.result,
+        error=task.error,
+    )
+
+
+@app.delete("/index/{knowledge_base_id}/{doc_id}", dependencies=[Depends(require_internal_token)])
+async def delete_document(request: Request, knowledge_base_id: str, doc_id: str):
+    tenant_id = tenant_from_request(request)
+    await indexer_service.delete_document(
+        tenant_id=tenant_id,
+        knowledge_base_id=knowledge_base_id,
+        doc_id=doc_id,
+    )
+    return {"status": "deleted"}
+
+
+@app.post("/parse", response_model=ParseResponse, dependencies=[Depends(require_internal_token)])
 async def parse_file(
     file: UploadFile = File(...),
     mode: ParseMode = Form(settings.parse_default_mode),
     max_upgrade_pages: int = Form(settings.parse_max_upgrade_pages),
     budget_tokens: int = Form(settings.parse_budget_tokens),
 ):
-    """仅解析文档，返回文本内容（不入库）"""
     content = await file.read()
     parsed = parse_document(
         content,
@@ -200,83 +307,58 @@ async def parse_file(
     )
 
 
-# ─── User Vector Memory ───────────────────────────────────────────────────────
-
-class UserMemorySearchRequest(BaseModel):
-    query: str
-    user_id: str
-    top_k: int = 5
-
-
-class UserMemoryStoreRequest(BaseModel):
-    user_id: str
-    content: str
+@app.post("/memory/user/search", dependencies=[Depends(require_internal_token)])
+async def user_memory_search(request: Request, req: UserMemorySearchRequest):
+    tenant_id = tenant_from_request(request)
+    results = user_memory_service.search(req.query, req.user_id, req.top_k, tenant_id=tenant_id)
+    return {"results": [{"content": r.content, "score": r.score, "payload": r.payload} for r in results]}
 
 
-@app.post("/memory/user/search")
-async def user_memory_search(req: UserMemorySearchRequest):
-    try:
-        results = user_memory_service.search(req.query, req.user_id, req.top_k)
-        return {
-            "results": [
-                {"content": r.content, "score": r.score, "payload": r.payload}
-                for r in results
-            ]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/memory/user/store", dependencies=[Depends(require_internal_token)])
+async def user_memory_store(request: Request, req: UserMemoryStoreRequest):
+    tenant_id = tenant_from_request(request)
+    user_memory_service.store(req.user_id, req.content, tenant_id=tenant_id)
+    return {"status": "stored"}
 
 
-@app.post("/memory/user/store")
-async def user_memory_store(req: UserMemoryStoreRequest):
-    try:
-        user_memory_service.store(req.user_id, req.content)
-        return {"status": "stored"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/memory/content/search", dependencies=[Depends(require_internal_token)])
+async def content_cache_search(request: Request, req: ContentCacheSearchRequest):
+    tenant_id = tenant_from_request(request)
+    results = content_cache_service.search(req.query, req.top_k, tenant_id=tenant_id)
+    return {"results": [{"content": r.content, "score": r.score, "payload": r.payload} for r in results]}
 
 
-# ─── Content Vector Cache (Video Agent) ──────────────────────────────────────
-
-class ContentCacheSearchRequest(BaseModel):
-    query: str
-    top_k: int = 1
-
-
-class ContentCacheStoreRequest(BaseModel):
-    content: str
-    payload: dict
+@app.post("/memory/content/store", dependencies=[Depends(require_internal_token)])
+async def content_cache_store(request: Request, req: ContentCacheStoreRequest):
+    tenant_id = tenant_from_request(request)
+    content_cache_service.store(req.content, req.payload, tenant_id=tenant_id)
+    return {"status": "stored"}
 
 
-@app.post("/memory/content/search")
-async def content_cache_search(req: ContentCacheSearchRequest):
-    try:
-        results = content_cache_service.search(req.query, req.top_k)
-        return {
-            "results": [
-                {"content": r.content, "score": r.score, "payload": r.payload}
-                for r in results
-            ]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def _handle_index_upload_task(payload: dict) -> dict:
+    return await indexer_service.index_document(
+        content=payload["content"],
+        filename=payload["filename"],
+        tenant_id=payload["tenant_id"],
+        knowledge_base_id=payload["knowledge_base_id"],
+        subject_id=payload["subject_id"],
+        doc_name=payload["doc_name"],
+        doc_id=payload.get("doc_id"),
+        doc_version=payload.get("doc_version"),
+    )
 
 
-@app.post("/memory/content/store")
-async def content_cache_store(req: ContentCacheStoreRequest):
-    try:
-        content_cache_service.store(req.content, req.payload)
-        return {"status": "stored"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def _handle_index_text_task(payload: dict) -> dict:
+    return await indexer_service.index_text(
+        text=payload["text"],
+        tenant_id=payload["tenant_id"],
+        knowledge_base_id=payload["knowledge_base_id"],
+        subject_id=payload["subject_id"],
+        doc_name=payload["doc_name"],
+        doc_id=payload.get("doc_id"),
+        doc_version=payload.get("doc_version"),
+    )
 
-
-# ─── Start ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "src.main:app",
-        host="0.0.0.0",
-        port=settings.port,
-        reload=settings.debug,
-    )
+    uvicorn.run("src.main:app", host="0.0.0.0", port=settings.port, reload=settings.debug)

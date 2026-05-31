@@ -16,6 +16,7 @@ dependencies = [
     "httpx>=0.28.0",
     "redis>=5.0.0",
     "tiktoken>=0.7.0",
+    "prometheus-client>=0.20.0",
 ]
 
 [project.optional-dependencies]

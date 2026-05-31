@@ -18,7 +18,18 @@ http.interceptors.request.use((config) => {
 });
 
 http.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    const payload = response.data;
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'success' in payload &&
+      'data' in payload
+    ) {
+      return payload.data;
+    }
+    return payload;
+  },
   (error) => {
     const status = error.response?.status;
     if (status === 401) {

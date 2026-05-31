@@ -77,11 +77,17 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     input: OrchestratorInput,
     _ctx: AgentContext,
   ): Promise<IntentClassification> {
+    const availableSubjectsHint = (input.availableSubjects ?? [])
+      .map((item) => `- ${item.id}: ${item.name}${item.code ? ` (code: ${item.code})` : ''}`)
+      .join('\n');
     const { messages, systemPrompt } = new PromptBuilder()
       .setPersona(ORCHESTRATOR_PERSONA, {})
       .setTask(ORCHESTRATOR_TASK, {
         userMessage: input.userMessage,
         subjectHint: input.subjectId ? `### 当前科目\n\n${input.subjectId}` : '',
+        availableSubjectsHint: availableSubjectsHint
+          ? `### 可选科目（仅可从以下列表选择）\n\n${availableSubjectsHint}`
+          : '',
       })
       .setOutputFormat(INTENT_OUTPUT_SCHEMA)
       .build();

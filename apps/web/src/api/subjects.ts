@@ -3,12 +3,46 @@ import type { Subject, UserSubject, CreateSubjectDto, UpdateSubjectDto, SubjectO
 import { USE_MOCK } from '@/mock/config';
 import { mockSubjectsApi } from '@/mock/handlers/subjects';
 
+interface ServerSubject {
+  id?: string | number;
+  subject_id?: string | number;
+  name?: string;
+  code?: string | number;
+  education_stage?: string;
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  const converted = Number(value);
+  return Number.isFinite(converted) ? converted : fallback;
+}
+
+function normalizeSubject(item: ServerSubject, index: number): UserSubject {
+  const id = toNumber(item.id ?? item.subject_id, index + 1);
+  const now = new Date().toISOString();
+  return {
+    id,
+    name: item.name ?? `未命名学科 ${id}`,
+    code: toNumber(item.code, id),
+    parentId: null,
+    level: 1,
+    description: item.education_stage ?? '',
+    outline: { modules: [] },
+    createdAt: now,
+    updatedAt: now,
+    isOwner: true,
+  };
+}
+
 const realSubjectsApi = {
   getMySubjects: () =>
-    http.get<UserSubject[], UserSubject[]>('/subjects/my'),
+    http
+      .get<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/subjects')
+      .then((payload) => (payload.list ?? []).map(normalizeSubject)),
 
   searchSubjects: (keyword: string) =>
-    http.get<Subject[], Subject[]>('/subjects/search', { params: { keyword } }),
+    http
+      .get<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/subjects/search', { params: { keyword } })
+      .then((payload) => (payload.list ?? []).map((item, idx) => normalizeSubject(item, idx))),
 
   createSubject: (data: CreateSubjectDto) =>
     http.post<Subject, Subject>('/subjects', data),
@@ -32,7 +66,9 @@ const realSubjectsApi = {
     http.put(`/subjects/${id}/outline`, { outline }),
 
   adminGetAll: () =>
-    http.get<Subject[], Subject[]>('/admin/subjects'),
+    http
+      .get<{ list?: ServerSubject[] }, { list?: ServerSubject[] }>('/admin/subjects')
+      .then((payload) => (payload.list ?? []).map((item, idx) => normalizeSubject(item, idx))),
 
   adminDeleteSubject: (id: number) =>
     http.delete(`/admin/subjects/${id}`),

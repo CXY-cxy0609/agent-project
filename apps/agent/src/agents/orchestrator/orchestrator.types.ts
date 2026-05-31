@@ -8,6 +8,7 @@ export interface OrchestratorInput {
   imageBase64?: string;
   imageMediaType?: string;
   subjectId?: string;
+  availableSubjects?: Array<{ id: string | number; name: string; code?: string | number }>;
   conversationId?: string;
 }
 

@@ -9,12 +9,15 @@ RAG 检索 Pipeline — 完整的 5 步流程
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass
 from typing import Optional
 
 from ..config import settings
+from ..core.circuit_breaker import CircuitBreakerConfig, SimpleCircuitBreaker
+from ..core.metrics import RETRIEVE_STAGE_LATENCY_SECONDS, DEGRADE_TOTAL
 from ..embedder.embedder import embedding_service
 from ..reranker.reranker import reranker_service
 from ..indexer.vector_store import search
@@ -39,6 +42,14 @@ class RetrievalResult:
 
 
 class RetrievalPipeline:
+    def __init__(self) -> None:
+        self._breaker = SimpleCircuitBreaker(
+            CircuitBreakerConfig(
+                failure_threshold=settings.circuit_breaker_failure_threshold,
+                cooldown_seconds=settings.circuit_breaker_cooldown_seconds,
+            )
+        )
+
     async def retrieve(
         self,
         query: str,
@@ -50,12 +61,18 @@ class RetrievalPipeline:
         max_upgrade_pages: Optional[int] = None,
     ) -> RetrievalResult:
         start = time.perf_counter()
+        if not self._breaker.allow():
+            DEGRADE_TOTAL.labels("circuit_open").inc()
+            logger.warning("retrieval circuit breaker open, return empty context")
+            return RetrievalResult(context="", chunks=[], subject=subject_id)
         top_k = max(1, top_k or settings.top_k_rerank)
         mode = retrieval_mode if retrieval_mode in {"text_only", "hybrid_visual"} else "text_only"
         effective_budget = budget_tokens if isinstance(budget_tokens, int) and budget_tokens > 0 else None
+        use_hyde = settings.enable_hyde and mode == "hybrid_visual"
 
         # ① 查询预处理
-        preprocessed = query_preprocessor.preprocess(query, subject_id)
+        with stage_timer("preprocess"):
+            preprocessed = query_preprocessor.preprocess(query, subject_id, use_hyde=use_hyde)
 
         # ② 向量检索（用原始 Query 和 HyDE Query 分别检索，合并去重）
         filter_conditions: dict = {}
@@ -65,16 +82,24 @@ class RetrievalPipeline:
             filter_conditions["knowledge_base_id"] = knowledge_base_id
 
         # 并行检索（原始 query + HyDE query）
-        candidates = await self._retrieve_candidates(
-            original_query=preprocessed.processed_query,
-            hyde_query=preprocessed.hyde_query,
-            filter_conditions=filter_conditions or None,
-            top_k_retrieve=self._resolve_top_k_retrieve(
-                top_k=top_k,
-                retrieval_mode=mode,
-                max_upgrade_pages=max_upgrade_pages,
-            ),
-        )
+        try:
+            candidates = await asyncio.wait_for(
+                self._retrieve_candidates(
+                    original_query=preprocessed.processed_query,
+                    hyde_query=preprocessed.hyde_query if use_hyde else None,
+                    filter_conditions=filter_conditions or None,
+                    top_k_retrieve=self._resolve_top_k_retrieve(
+                        top_k=top_k,
+                        retrieval_mode=mode,
+                        max_upgrade_pages=max_upgrade_pages,
+                    ),
+                ),
+                timeout=settings.retrieve_timeout_search_ms / 1000,
+            )
+        except TimeoutError:
+            DEGRADE_TOTAL.labels("search_timeout").inc()
+            logger.warning("retrieve search timeout")
+            candidates = []
 
         if not candidates:
             elapsed_ms = int((time.perf_counter() - start) * 1000)
@@ -85,22 +110,49 @@ class RetrievalPipeline:
                 effective_budget,
                 elapsed_ms,
             )
+            self._breaker.record_failure()
             return RetrievalResult(context="", chunks=[], subject=preprocessed.detected_subject)
 
         # ③ Rerank
-        reranked = reranker_service.rerank(
-            query=preprocessed.original_query,
-            candidates=candidates,
-            top_k=top_k,
-            content_key="text",
-        )
+        should_rerank = self._should_rerank(preprocessed.original_query)
+        if should_rerank:
+            try:
+                with stage_timer("rerank"):
+                    reranked = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            reranker_service.rerank,
+                            query=preprocessed.original_query,
+                            candidates=candidates,
+                            top_k=top_k,
+                            content_key="text",
+                        ),
+                        timeout=settings.retrieve_timeout_rerank_ms / 1000,
+                    )
+            except TimeoutError:
+                DEGRADE_TOTAL.labels("rerank_timeout").inc()
+                logger.warning("rerank timeout, fallback ANN order")
+                reranked = candidates[:top_k]
+        else:
+            DEGRADE_TOTAL.labels("rerank_skipped").inc()
+            reranked = candidates[:top_k]
 
         # ④⑤ 上下文压缩 + 构建
-        context = build_context(
-            reranked,
-            max_tokens=effective_budget,
-            query=preprocessed.original_query,
-        )
+        try:
+            with stage_timer("context_build"):
+                context = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        build_context,
+                        reranked,
+                        effective_budget,
+                        True,
+                        preprocessed.original_query,
+                    ),
+                    timeout=settings.retrieve_timeout_context_ms / 1000,
+                )
+        except TimeoutError:
+            DEGRADE_TOTAL.labels("context_timeout").inc()
+            logger.warning("context build timeout, fallback first chunks")
+            context = "\n\n---\n\n".join([c["text"] for c in reranked[:2]])
 
         chunks = [
             RetrievedChunk(
@@ -123,6 +175,7 @@ class RetrievalPipeline:
             elapsed_ms,
         )
 
+        self._breaker.record_success()
         return RetrievalResult(context=context, chunks=chunks, subject=preprocessed.detected_subject)
 
     async def _retrieve_candidates(
@@ -141,13 +194,23 @@ class RetrievalPipeline:
         all_candidates: list[dict] = []
 
         for query_text in queries:
-            query_vector = embedding_service.embed_one(query_text)
-            results = search(
-                collection_name=settings.qdrant_collection,
-                query_vector=query_vector,
-                top_k=top_k_retrieve,
-                filter_conditions=filter_conditions,
-            )
+            try:
+                query_vector = await asyncio.wait_for(
+                    asyncio.to_thread(embedding_service.embed_one, query_text),
+                    timeout=settings.retrieve_timeout_embedding_ms / 1000,
+                )
+            except TimeoutError:
+                DEGRADE_TOTAL.labels("embedding_timeout").inc()
+                logger.warning("embedding timeout, skip query branch")
+                continue
+            with stage_timer("vector_search"):
+                results = await asyncio.to_thread(
+                    search,
+                    settings.qdrant_collection,
+                    query_vector,
+                    top_k_retrieve,
+                    filter_conditions,
+                )
 
             for hit in results:
                 payload = hit.payload or {}
@@ -184,6 +247,27 @@ class RetrievalPipeline:
             candidate_top_k = max(candidate_top_k, top_k + max_upgrade_pages)
 
         return candidate_top_k
+
+    def _should_rerank(self, query: str) -> bool:
+        strategy = settings.rerank_strategy.lower().strip()
+        if strategy == "off":
+            return False
+        if strategy == "always":
+            return True
+        return len(query.strip()) >= settings.adaptive_rerank_min_query_len
+
+
+class stage_timer:
+    def __init__(self, stage: str) -> None:
+        self._stage = stage
+        self._start = 0.0
+
+    def __enter__(self) -> None:
+        self._start = time.perf_counter()
+
+    def __exit__(self, *_args: object) -> None:
+        elapsed = time.perf_counter() - self._start
+        RETRIEVE_STAGE_LATENCY_SECONDS.labels(self._stage).observe(elapsed)
 
 
 retrieval_pipeline = RetrievalPipeline()

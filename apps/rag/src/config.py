@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     port: int = 8000
     debug: bool = True
+    log_level: str = "INFO"
+    tenant_default: str = "public"
 
     # Vector Store (Qdrant)
     qdrant_url: str = "http://localhost:6333"
@@ -40,8 +42,37 @@ class Settings(BaseSettings):
     embedding_cache_ttl: int = 0     # 0 = 永久缓存
     rag_cache_ttl: int = 300         # 5 分钟
 
+    # Security & Rate Limit
+    internal_token: str = ""
+    cors_allow_origins: str = "http://localhost:5173"
+    rate_limit_window_seconds: int = 60
+    rate_limit_retrieve_per_window: int = 120
+    rate_limit_write_per_window: int = 30
+
+    # Retrieve governance
+    retrieve_timeout_total_ms: int = 2000
+    retrieve_timeout_embedding_ms: int = 450
+    retrieve_timeout_search_ms: int = 500
+    retrieve_timeout_rerank_ms: int = 450
+    retrieve_timeout_context_ms: int = 250
+    circuit_breaker_failure_threshold: int = 5
+    circuit_breaker_cooldown_seconds: int = 30
+    enable_hyde: bool = True
+
+    # Async index task
+    index_task_wait_default: bool = False
+    index_task_wait_timeout_seconds: int = 30
+
+    # Indexing idempotency & versioning
+    default_doc_version: int = 1
+    enable_chunk_idempotency: bool = True
+
     # LLM (用于 HyDE 查询扩展)
     anthropic_api_key: str = ""
+
+    # Routing / tuning
+    rerank_strategy: str = "adaptive"  # off|always|adaptive
+    adaptive_rerank_min_query_len: int = 12
 
     class Config:
         env_file = ".env"

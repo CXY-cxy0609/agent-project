@@ -34,6 +34,7 @@ app.post('/chat/stream', async (req, res) => {
   const {
     content,
     subjectId,
+    availableSubjects,
     conversationId,
     userId = 'anonymous',
     imageBase64,
@@ -41,6 +42,7 @@ app.post('/chat/stream', async (req, res) => {
   } = req.body as {
     content: string;
     subjectId?: string;
+    availableSubjects?: Array<{ id: string | number; name: string; code?: string | number }>;
     conversationId?: string;
     userId?: string;
     imageBase64?: string;
@@ -64,6 +66,11 @@ app.post('/chat/stream', async (req, res) => {
       {
         userMessage: content,
         subjectId,  // 学科 ID
+        availableSubjects: availableSubjects?.map((item) => ({
+          id: String(item.id),
+          name: item.name,
+          code: item.code !== undefined ? String(item.code) : undefined,
+        })),
         conversationId,
         imageBase64,
         imageMediaType,
@@ -75,6 +82,7 @@ app.post('/chat/stream', async (req, res) => {
       type: 'reply',
       content: result.reply,
       intent: result.intent,  // 意图
+      subjectId: result.subjectId,
       videoUrl: result.videoUrl,  // 视频 URL
       conversationId: result.conversationId,  // 会话 ID
     });

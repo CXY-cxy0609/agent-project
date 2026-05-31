@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
-import uuid
+import hashlib
 import logging
+import threading
+import uuid
 from typing import Optional
 
 from qdrant_client import QdrantClient
@@ -25,12 +27,29 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
+_client_lock = threading.Lock()
+_client: QdrantClient | None = None
+
 
 def _get_client() -> QdrantClient:
-    return QdrantClient(
-        url=settings.qdrant_url,
-        api_key=settings.qdrant_api_key or None,
-    )
+    global _client
+    if _client is not None:
+        return _client
+    with _client_lock:
+        if _client is None:
+            _client = QdrantClient(
+                url=settings.qdrant_url,
+                api_key=settings.qdrant_api_key or None,
+            )
+    return _client
+
+
+def qdrant_health_check() -> bool:
+    try:
+        _get_client().get_collections()
+        return True
+    except Exception:
+        return False
 
 
 def ensure_collection(collection_name: str, vector_size: int | None = None) -> None:
@@ -59,7 +78,7 @@ def upsert_chunks(
 
     points = [
         PointStruct(
-            id=str(uuid.uuid4()),
+            id=_resolve_point_id(payload),
             vector=vector,
             payload={**payload, "text": chunk},
         )
@@ -113,3 +132,11 @@ def delete_by_filter(collection_name: str, filter_conditions: dict) -> None:
         collection_name=collection_name,
         points_selector=FilterSelector(filter=Filter(must=must_conditions)),
     )
+
+
+def _resolve_point_id(payload: dict) -> str:
+    chunk_key = payload.get("chunk_key")
+    if chunk_key:
+        digest = hashlib.sha1(str(chunk_key).encode("utf-8")).hexdigest()
+        return str(uuid.UUID(digest[:32]))
+    return str(uuid.uuid4())

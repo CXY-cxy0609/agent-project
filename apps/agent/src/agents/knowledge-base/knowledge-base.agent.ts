@@ -42,9 +42,13 @@ export class KnowledgeBaseAgent extends BaseAgent<KnowledgeBaseInput, KnowledgeB
     formData.append('knowledge_base_id', input.knowledgeBaseId);
     formData.append('subject_id', input.subjectId);
     formData.append('doc_name', input.docName ?? input.filename);
+    formData.append('wait', 'true');
 
     const res = await fetch(`${this.ragServiceUrl}/index/upload`, {
       method: 'POST',
+      headers: {
+        'x-internal-token': process.env.INTERNAL_TOKEN ?? '',
+      },
       body: formData,
       signal: AbortSignal.timeout(60_000),
     });
@@ -53,8 +57,16 @@ export class KnowledgeBaseAgent extends BaseAgent<KnowledgeBaseInput, KnowledgeB
       return { success: false, message: `RAG 服务返回错误: ${res.status}` };
     }
 
-    const data = (await res.json()) as { doc_id: string; chunks: number };
-    return { success: true, docId: data.doc_id, chunkCount: data.chunks };
+    const accepted = (await res.json()) as { task_id: string };
+    const taskResult = await this.pollIndexTask(accepted.task_id);
+    if (!taskResult?.result) {
+      return { success: false, message: '索引任务未返回结果' };
+    }
+    return {
+      success: true,
+      docId: String(taskResult.result.doc_id ?? ''),
+      chunkCount: Number(taskResult.result.chunks ?? 0),
+    };
   }
 
   private async indexText(input: KnowledgeBaseInput): Promise<KnowledgeBaseOutput> {
@@ -62,13 +74,17 @@ export class KnowledgeBaseAgent extends BaseAgent<KnowledgeBaseInput, KnowledgeB
 
     const res = await fetch(`${this.ragServiceUrl}/index/text`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-token': process.env.INTERNAL_TOKEN ?? '',
+      },
       body: JSON.stringify({
         text: input.text,
         knowledge_base_id: input.knowledgeBaseId,
         subject_id: input.subjectId,
         doc_name: input.docName ?? 'text_input',
         doc_id: input.docId,
+        wait: true,
       }),
       signal: AbortSignal.timeout(60_000),
     });
@@ -77,8 +93,16 @@ export class KnowledgeBaseAgent extends BaseAgent<KnowledgeBaseInput, KnowledgeB
       return { success: false, message: `RAG 服务返回错误: ${res.status}` };
     }
 
-    const data = (await res.json()) as { doc_id: string; chunks: number };
-    return { success: true, docId: data.doc_id, chunkCount: data.chunks };
+    const accepted = (await res.json()) as { task_id: string };
+    const taskResult = await this.pollIndexTask(accepted.task_id);
+    if (!taskResult?.result) {
+      return { success: false, message: '索引任务未返回结果' };
+    }
+    return {
+      success: true,
+      docId: String(taskResult.result.doc_id ?? ''),
+      chunkCount: Number(taskResult.result.chunks ?? 0),
+    };
   }
 
   private async deleteDocument(input: KnowledgeBaseInput): Promise<KnowledgeBaseOutput> {
@@ -88,10 +112,35 @@ export class KnowledgeBaseAgent extends BaseAgent<KnowledgeBaseInput, KnowledgeB
       `${this.ragServiceUrl}/index/${input.knowledgeBaseId}/${input.docId}`,
       {
         method: 'DELETE',
+        headers: {
+          'x-internal-token': process.env.INTERNAL_TOKEN ?? '',
+        },
         signal: AbortSignal.timeout(10_000),
       },
     );
 
     return { success: res.ok, message: res.ok ? '删除成功' : `删除失败: ${res.status}` };
+  }
+
+  private async pollIndexTask(taskId: string): Promise<{ status: string; result?: Record<string, unknown> } | null> {
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      const res = await fetch(`${this.ragServiceUrl}/index/tasks/${taskId}`, {
+        headers: { 'x-internal-token': process.env.INTERNAL_TOKEN ?? '' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) {
+        return null;
+      }
+      const task = (await res.json()) as { status: string; result?: Record<string, unknown>; error?: string };
+      if (task.status === 'succeeded') {
+        return task;
+      }
+      if (task.status === 'failed') {
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    return null;
   }
 }

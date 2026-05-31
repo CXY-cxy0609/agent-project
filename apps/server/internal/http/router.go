@@ -47,17 +47,64 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", handlers.Login(container.AuthService))
+			auth.POST("/login/password", handlers.LoginByPassword())
+			auth.POST("/login/code", handlers.LoginByCode())
+			auth.POST("/send-code", handlers.SendCode())
+			auth.POST("/register", handlers.Register())
+			auth.PUT("/password", handlers.UpdatePassword())
+			auth.GET("/profile", handlers.GetProfile())
+			auth.PUT("/profile", handlers.UpdateProfile())
 		}
 
 		subjects := api.Group("/subjects")
 		{
-			subjects.GET("", handlers.ListSubjects(container.SubjectService))
+			subjects.GET("", handlers.ListMySubjects())
+			subjects.GET("/search", handlers.SearchSubjects())
+			subjects.POST("", handlers.CreateSubject())
+			subjects.PUT("/:id", handlers.UpdateSubject())
+			subjects.DELETE("/:id", handlers.DeleteSubject())
+			subjects.GET("/my", handlers.ListMySubjects())
+			subjects.POST("/my", handlers.AddMySubject())
+			subjects.DELETE("/my/:id", handlers.RemoveMySubject())
+			subjects.GET("/:id/outline", handlers.GetSubjectOutline())
+			subjects.PUT("/:id/outline", handlers.UpdateSubjectOutline())
 		}
 
 		conversations := api.Group("/conversations")
 		{
-			conversations.GET("", handlers.ListConversations(container.ConversationService))
-			conversations.POST("", handlers.CreateConversation(container.ConversationService))
+			conversations.GET("", handlers.ListConversationsWeb())
+			conversations.POST("", handlers.CreateConversationWeb())
+			conversations.GET("/:id", handlers.GetConversationWeb())
+			conversations.DELETE("/:id", handlers.DeleteConversationWeb())
+			conversations.GET("/:id/messages", handlers.ListConversationMessages())
+			conversations.POST("/:id/messages", handlers.CreateConversationMessage())
+		}
+
+		analytics := api.Group("/analytics")
+		{
+			analytics.GET("/:subjectId", handlers.GetAnalytics())
+			analytics.POST("/:subjectId/summary", handlers.GenerateAnalyticsSummary())
+		}
+
+		knowledge := api.Group("/knowledge-bases")
+		{
+			knowledge.GET("", handlers.ListKnowledgeBases())
+			knowledge.POST("", handlers.CreateKnowledgeBase())
+			knowledge.GET("/:id", handlers.GetKnowledgeBase())
+			knowledge.PUT("/:id", handlers.UpdateKnowledgeBase())
+			knowledge.DELETE("/:id", handlers.DeleteKnowledgeBase())
+			knowledge.POST("/:id/files", handlers.UploadKnowledgeFile())
+			knowledge.PUT("/:id/files/:fileId", handlers.UpdateKnowledgeFile())
+			knowledge.DELETE("/:id/files/:fileId", handlers.DeleteKnowledgeFile())
+			knowledge.PUT("/:id/files/reorder", handlers.ReorderKnowledgeFiles())
+			knowledge.GET("/:id/files/:fileId/content", handlers.GetKnowledgeFileContent())
+		}
+
+		admin := api.Group("/admin")
+		{
+			admin.GET("/subjects", handlers.AdminListSubjects())
+			admin.DELETE("/subjects/:id", handlers.AdminDeleteSubject())
+			admin.PUT("/users/:id/role", handlers.AdminUpdateUserRole())
 		}
 
 		tasks := api.Group("/tasks")

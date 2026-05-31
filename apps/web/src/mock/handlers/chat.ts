@@ -40,8 +40,52 @@ export const mockChatApi = {
     delete _messages[id];
   },
 
+  async createConversation(data: { id: string; title: string; subjectId?: number; userId?: string }): Promise<void> {
+    await delay(150);
+    if (_conversations.some((item) => item.id === data.id)) {
+      return;
+    }
+    _conversations.unshift({
+      id: data.id,
+      title: data.title,
+      subjectId: data.subjectId ?? 0,
+      subjectName: MOCK_CONVERSATIONS.find((item) => item.subjectId === data.subjectId)?.subjectName ?? '未知学科',
+      userId: data.userId ?? 'mock-user-001',
+      messageCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    _messages[data.id] = [];
+  },
+
+  async appendMessage(
+    conversationId: string,
+    data: { id?: string; role: 'user' | 'assistant' | 'system'; content: string; status?: 'pending' | 'streaming' | 'done' | 'error' },
+  ): Promise<void> {
+    await delay(100);
+    if (!_messages[conversationId]) {
+      _messages[conversationId] = [];
+    }
+    _messages[conversationId].push({
+      id: data.id ?? `msg-${Date.now()}`,
+      conversationId,
+      role: data.role,
+      content: data.content,
+      status: data.status ?? 'done',
+      createdAt: new Date().toISOString(),
+    });
+  },
+
   sendMessage(
-    data: { conversationId?: string; subjectId: number; content: string; model: string; generateVideo?: boolean },
+    data: {
+      conversationId?: string;
+      subjectId?: number;
+      content: string;
+      model: string;
+      generateVideo?: boolean;
+      userId?: string;
+      availableSubjects?: Array<{ id: number; name: string; code?: number | string }>;
+    },
     onChunk: (text: string) => void,
     onDone: (conversation: Conversation) => void,
     onError: (err: Error) => void,
@@ -62,9 +106,12 @@ export const mockChatApi = {
           conv = {
             id: `conv-${Date.now()}`,
             title: data.content.slice(0, 30),
-            subjectId: data.subjectId,
-            subjectName: MOCK_CONVERSATIONS.find((c) => c.subjectId === data.subjectId)?.subjectName ?? '未知学科',
-            userId: 'mock-user-001',
+            subjectId: data.subjectId ?? data.availableSubjects?.[0]?.id ?? 0,
+            subjectName:
+              MOCK_CONVERSATIONS.find((c) => c.subjectId === data.subjectId)?.subjectName ??
+              data.availableSubjects?.find((subject) => subject.id === data.subjectId)?.name ??
+              '未知学科',
+            userId: data.userId ?? 'mock-user-001',
             messageCount: 0,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

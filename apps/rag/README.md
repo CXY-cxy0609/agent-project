@@ -197,13 +197,17 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 ## 4. 核心接口
 
 - `GET /health`：健康检查
+- `GET /metrics`：Prometheus 指标
 - `POST /retrieve`：语义检索（返回 context + chunks）
-- `POST /index/upload`：上传文档并入库
-- `POST /index/text`：直接提交文本并入库
+- `POST /index/upload`：创建文档入库任务（支持 `wait=true`）
+- `POST /index/text`：创建文本入库任务（支持 `wait=true`）
+- `GET /index/tasks/{task_id}`：查询索引任务状态
 - `DELETE /index/{knowledge_base_id}/{doc_id}`：删除文档向量
 - `POST /parse`：仅解析文档，不入库
 - `POST /memory/user/search|store`：用户向量记忆
 - `POST /memory/content/search|store`：内容向量缓存（Video Agent）
+
+写接口（`/index/*`, `/memory/*`, `/parse`）需要传 `x-internal-token`。
 
 ## 5. 与 Agent 联动
 
