@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package tutor.server.internal.v1;
+
+option go_package = "tutor-server/api/gen/task/v1;taskv1";
+
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+}
+
+message CreateTaskRequest {
+  string type = 1;
+  string trace_id = 2;
+  string idempotency_key = 3;
+  map<string, string> metadata = 4;
+  string payload_json = 5;
+}
+
+message CreateTaskResponse {
+  string task_id = 1;
+  string status = 2;
+  string created_at = 3;
+}
+
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+message GetTaskResponse {
+  string task_id = 1;
+  string type = 2;
+  string status = 3;
+  string trace_id = 4;
+  string created_at = 5;
+}
+

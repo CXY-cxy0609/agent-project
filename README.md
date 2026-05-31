@@ -1,6 +1,6 @@
-# 研智辅导 · 考研智能辅导平台
+# 研智辅导 · 智能辅导平台
 
-基于大模型 AI 的考研智能辅导平台，聚焦知识点讲解、智能答题、学情分析三大核心场景。
+基于大模型 AI 的智能辅导平台，聚焦知识点讲解、智能答题、学情分析三大核心场景。
 
 ## 项目结构
 
@@ -8,8 +8,8 @@
 agent-project/
 ├── apps/
 │   ├── web/          # Vue3 + Ant Design Vue + Ant Design X Vue（前端）
-│   ├── server/       # NestJS（后端 API 服务）
-│   ├── agent/        # LangGraph TypeScript（AI Agent 服务）
+│   ├── server/       # Go + Gin（业务后端 API 服务）
+│   ├── agent/        # TypeScript 自研 Harness（AI Agent 服务）
 │   └── rag/          # Python FastAPI（RAG 知识库服务，与后端解耦）
 ├── packages/
 │   └── shared/       # 跨服务共享 TypeScript 类型定义
@@ -23,8 +23,8 @@ agent-project/
 | 子项目 | 技术栈 |
 |--------|--------|
 | `apps/web` | Vue3 + Vite + Ant Design Vue + Ant Design X Vue + Pinia |
-| `apps/server` | NestJS + TypeORM + MySQL + Redis |
-| `apps/agent` | LangGraph TypeScript + Claude API |
+| `apps/server` | Go + Gin + Redis + PostgreSQL/MySQL（兼容） |
+| `apps/agent` | TypeScript 自研 Harness + Claude API |
 | `apps/rag` | FastAPI + LangChain + Qdrant + HuggingFace Embeddings |
 
 ## 微服务架构
@@ -33,7 +33,7 @@ agent-project/
 Frontend (web:5173)
     ↓ REST / SSE
 Backend (server:3000)
-    ├── → Agent (agent:8001)  ← LangGraph 对话/分析
+    ├── → Agent (agent:8001)  ← Harness 对话/分析
     └── → RAG   (rag:8000)   ← 向量检索（与 server 解耦）
          ↑
     Agent 也可直接调用 RAG
@@ -47,6 +47,7 @@ RAG 服务与后端**完全解耦**：通过 HTTP REST 通信，无代码依赖�
 
 - Node.js >= 20
 - pnpm >= 9
+- Go >= 1.22（仅 Server）
 - Python >= 3.11（仅 RAG 服务）
 
 ### 安装依赖

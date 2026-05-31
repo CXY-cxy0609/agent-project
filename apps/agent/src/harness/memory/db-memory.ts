@@ -44,9 +44,31 @@ export class HttpStructuredMemory implements StructuredMemory {
       );
 
       if (!res.ok) return [];
-      return (await res.json()) as LearningRecord[];
+      const payload = (await res.json()) as unknown;
+      const list = this.unwrapLearningRecords(payload);
+      return list.map((record) => ({
+        ...record,
+        askedAt: record.askedAt ? new Date(record.askedAt) : undefined,
+      }));
     } catch {
       return [];
     }
+  }
+
+  private unwrapLearningRecords(payload: unknown): LearningRecord[] {
+    if (Array.isArray(payload)) {
+      return payload as LearningRecord[];
+    }
+    if (
+      typeof payload === 'object' &&
+      payload !== null &&
+      'data' in payload &&
+      typeof (payload as { data?: unknown }).data === 'object' &&
+      (payload as { data: { list?: unknown } }).data !== null &&
+      Array.isArray((payload as { data: { list?: unknown } }).data.list)
+    ) {
+      return (payload as { data: { list: LearningRecord[] } }).data.list;
+    }
+    return [];
   }
 }

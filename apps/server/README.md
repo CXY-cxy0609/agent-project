@@ -1,98 +1,95 @@
-# @tutor/server
+# apps/server
 
-`@tutor/server` 是考研智能辅导平台的后端服务，基于 NestJS。
+`apps/server` 为业务后端（Go 版本）入口，承担统一 API、鉴权、会话与任务编排入口能力。
 
-## 功能概览
+## 当前骨架能力
 
-- 提供统一后端 API（全局前缀为 `/api`）
-- 提供基础健康检查接口：`GET /api/health`
-- 支持 MySQL、Redis、JWT 等基础能力
+- 基于 `Go + Gin` 的 API 服务
+- 全局前缀 `/api`
+- 健康检查接口：`GET /api/health`（含数据库/Redis依赖探针）
+- CORS、基础日志、统一配置加载（支持 `.env`）
+- 环境变量兼容映射（保留旧字段，便于真实配置平滑迁移）
+- `request-id` 与 `idempotency-key` 中间件
+- `auth/subject/conversation/task` 四个业务模块骨架（service/repository 分层）
+- internal gRPC proto 合约（`api/proto/task/v1/task.proto`）
+- gRPC 服务启动骨架（`cmd/grpc`）
+- internal 学习记录接口（`/api/learning-records`，`x-internal-token` 保护）
 
-## 运行环境
+## 目录结构
 
-- Node.js >= 20
-- pnpm >= 9
-- 可用的 MySQL 与 Redis（本地或云服务）
-
-## 快速开始
-
-1. 在仓库根目录安装依赖：
-
-```bash
-pnpm install
+```text
+apps/server
+├── api/proto/task/v1/task.proto
+├── cmd/{server,grpc}/main.go
+├── internal
+│   ├── app/container.go
+│   ├── config/config.go
+│   ├── health/service.go
+│   ├── infra/{database,cache}
+│   ├── repository/*
+│   ├── service/*
+│   └── http/*
+├── go.mod
+└── .env.example
 ```
-
-2. 配置环境变量（在 `apps/server` 下）：
-
-```bash
-cp .env.example .env
-```
-
-3. 按实际环境修改 `.env` 中的数据库、Redis、JWT 等配置。
 
 ## 启动方式
 
-### 方式一：在仓库根目录启动（推荐）
-
-```bash
-pnpm dev:server
-```
-
-### 方式二：在 `apps/server` 目录启动
+在 `apps/server` 目录执行：
 
 ```bash
 pnpm dev
 ```
 
-服务默认启动在 `http://localhost:3000/api`（端口可通过 `PORT` 调整）。
+默认访问地址：
 
-## 常用命令
+- `http://localhost:3000/`
+- `http://localhost:3000/api/health`
 
-在 `apps/server` 目录下执行：
+gRPC 默认端口：
 
-```bash
-pnpm dev      # 开发模式（watch）
-pnpm build    # 构建
-pnpm start    # 运行构建产物（dist/main.js）
-pnpm lint     # ESLint 修复
-pnpm test     # 单元测试
-```
+- `:50051`（由 `GRPC_PORT` 控制）
 
-## 健康检查
-
-启动后可访问：
+gRPC 健康检查（可选）：
 
 ```bash
-curl http://localhost:3000/api/health
+grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 ```
 
-预期返回类似：
+如果 `pnpm dev` 提示找不到 `air`，可直接执行：
 
-```json
-{
-  "status": "ok",
-  "service": "tutor-server",
-  "timestamp": "2026-01-01T00:00:00.000Z"
-}
+```bash
+"$(go env GOPATH)/bin/air" -c .air.toml
 ```
 
-## 环境变量说明
+## 环境变量与迁移注意事项
 
-关键变量见 `apps/server/.env.example`，常用项如下：
+关键原则：**不要清空已有 `.env` 中真实云配置**（数据库、Redis、内网地址等），只做增量迁移。
 
-- `PORT`：服务端口
-- `FRONTEND_URL`：允许跨域的前端地址
-- `DB_HOST` / `DB_PORT` / `DB_USERNAME` / `DB_PASSWORD` / `DB_NAME`：MySQL 连接
-- `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD`：Redis 连接
-- `JWT_SECRET` / `JWT_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN`：JWT 配置
-- `RAG_SERVICE_URL` / `AGENT_SERVICE_URL`：内部服务地址
+当前配置兼容策略：
 
-## 常见问题
+- 数据库支持旧字段：`DB_HOST/DB_PORT/DB_USERNAME/DB_PASSWORD/DB_NAME`
+- 新增 `DB_DRIVER`（默认 `mysql`，可切 `postgres`）
+- 新增 `DB_DSN`（优先级高于拆分字段）
+- 新增 `DB_REPOSITORY_MODE`（`memory` | `sql`）
+- 新增 `DB_AUTO_MIGRATE`（`true` 时启动自动建表）
+- Redis 支持旧字段：`REDIS_HOST/REDIS_PORT`，也支持新字段 `REDIS_ADDR`
+- Redis 可选新增 `REDIS_USERNAME`
 
-- 数据库连不上：
-  - 检查 `DB_HOST`、`DB_PORT` 是否与云数据库实际连接信息一致
-  - 云数据库通常需要在控制台配置 IP 白名单
-- Redis 连不上：
-  - 检查 `REDIS_HOST`、`REDIS_PORT`、`REDIS_PASSWORD`
-- 前端跨域失败：
-  - 检查 `FRONTEND_URL` 是否与前端实际地址一致
+推荐新增字段（不影响旧字段）：
+
+- `DB_DRIVER`
+- `DB_DSN`
+- `DB_REPOSITORY_MODE`
+- `DB_AUTO_MIGRATE`
+- `REDIS_ADDR`
+- `REDIS_USERNAME`
+- `KAFKA_BROKERS`
+- `GRPC_PORT`
+- `INTERNAL_TOKEN`
+
+## 下一步规划（代码层）
+
+- 将 `memory` 仓储切换到 `sql`（设置 `DB_REPOSITORY_MODE=sql`）
+- 完成 gRPC service 注册与 proto stub 生成接线
+- 加入 OpenTelemetry 指标与 tracing
