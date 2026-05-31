@@ -19,7 +19,7 @@ func NewSQLSubjectRepository(store *database.Store) *SQLSubjectRepository {
 func (r *SQLSubjectRepository) List(ctx context.Context) ([]domain.Subject, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT id, name, code, education_stage FROM subjects ORDER BY id`,
+		`SELECT subject_id, name, code, education_stage FROM subjects ORDER BY id DESC`,
 	)
 	if err != nil {
 		return nil, err

@@ -24,9 +24,10 @@ func NewSQLLearningRecordRepository(store *database.Store) *SQLLearningRecordRep
 
 func (r *SQLLearningRecordRepository) Create(ctx context.Context, record domain.LearningRecord) error {
 	query := `INSERT INTO learning_records
-		(user_id, session_id, subject, chapter, knowledge_point, difficulty, asked_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`
+		(record_id, user_id, session_id, subject, chapter, knowledge_point, difficulty, asked_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	args := []any{
+		record.RecordID,
 		record.UserID,
 		record.SessionID,
 		record.Subject,
@@ -37,8 +38,8 @@ func (r *SQLLearningRecordRepository) Create(ctx context.Context, record domain.
 	}
 	if r.driver == "pgx" {
 		query = `INSERT INTO learning_records
-			(user_id, session_id, subject, chapter, knowledge_point, difficulty, asked_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`
+			(record_id, user_id, session_id, subject, chapter, knowledge_point, difficulty, asked_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	}
 	_, err := r.db.ExecContext(ctx, query, args...)
 	return err
@@ -66,7 +67,7 @@ func (r *SQLLearningRecordRepository) Query(
 		limit = 30
 	}
 
-	query := fmt.Sprintf(`SELECT user_id, session_id, subject, chapter, knowledge_point, difficulty, asked_at
+	query := fmt.Sprintf(`SELECT record_id, user_id, session_id, subject, chapter, knowledge_point, difficulty, asked_at
 		FROM learning_records
 		WHERE %s
 		ORDER BY asked_at DESC
@@ -83,7 +84,7 @@ func (r *SQLLearningRecordRepository) Query(
 			parts = append(parts, strings.Replace(cond, "?", fmt.Sprintf("$%d", idx), 1))
 			idx++
 		}
-		query = fmt.Sprintf(`SELECT user_id, session_id, subject, chapter, knowledge_point, difficulty, asked_at
+		query = fmt.Sprintf(`SELECT record_id, user_id, session_id, subject, chapter, knowledge_point, difficulty, asked_at
 			FROM learning_records
 			WHERE %s
 			ORDER BY asked_at DESC
@@ -104,6 +105,7 @@ func (r *SQLLearningRecordRepository) Query(
 	for rows.Next() {
 		var item domain.LearningRecord
 		if err := rows.Scan(
+			&item.RecordID,
 			&item.UserID,
 			&item.SessionID,
 			&item.Subject,

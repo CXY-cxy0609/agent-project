@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -35,11 +34,6 @@ func Build(cfg config.Config) (*Container, error) {
 		log.Printf("database init failed in memory mode, continue without db: %v", dbErr)
 	}
 
-	if dbStore != nil && cfg.DB.AutoMigrate {
-		if err := dbStore.AutoMigrate(context.Background()); err != nil {
-			return nil, fmt.Errorf("auto migrate failed: %w", err)
-		}
-	}
 	if dbStore == nil {
 		log.Printf("db store is nil, health check will report degraded")
 	}

@@ -35,7 +35,6 @@ type DBConfig struct {
 	Password       string
 	Name           string
 	RepositoryMode string
-	AutoMigrate    bool
 }
 
 type AIConfig struct {
@@ -76,7 +75,6 @@ func Load() Config {
 			Password:       getEnv("DB_PASSWORD", ""),
 			Name:           getEnv("DB_NAME", "tutor_db"),
 			RepositoryMode: getEnv("DB_REPOSITORY_MODE", "memory"),
-			AutoMigrate:    getEnvBool("DB_AUTO_MIGRATE", false),
 		},
 		AI: AIConfig{
 			AgentServiceURL: getEnv("AGENT_SERVICE_URL", "http://localhost:8001"),

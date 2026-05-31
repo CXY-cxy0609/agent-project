@@ -23,7 +23,7 @@ func NewSQLConversationRepository(store *database.Store) *SQLConversationReposit
 func (r *SQLConversationRepository) List(ctx context.Context) ([]domain.Conversation, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT id, title, subject_id, user_id FROM conversations ORDER BY created_at DESC`,
+		`SELECT conversation_id, title, subject_id, user_id FROM conversations ORDER BY created_at DESC, id DESC`,
 	)
 	if err != nil {
 		return nil, err
@@ -45,10 +45,10 @@ func (r *SQLConversationRepository) List(ctx context.Context) ([]domain.Conversa
 }
 
 func (r *SQLConversationRepository) Create(ctx context.Context, conversation domain.Conversation) error {
-	query := `INSERT INTO conversations (id, title, subject_id, user_id) VALUES (?, ?, ?, ?)`
+	query := `INSERT INTO conversations (conversation_id, title, subject_id, user_id) VALUES (?, ?, ?, ?)`
 	args := []any{conversation.ID, conversation.Title, conversation.SubjectID, conversation.UserID}
 	if r.driver == "pgx" {
-		query = `INSERT INTO conversations (id, title, subject_id, user_id) VALUES ($1, $2, $3, $4)`
+		query = `INSERT INTO conversations (conversation_id, title, subject_id, user_id) VALUES ($1, $2, $3, $4)`
 	}
 	_, err := r.db.ExecContext(ctx, query, args...)
 	return err

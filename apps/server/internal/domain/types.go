@@ -31,6 +31,7 @@ type Task struct {
 }
 
 type LearningRecord struct {
+	RecordID       string `json:"record_id,omitempty"`
 	UserID         string `json:"user_id"`
 	SessionID      string `json:"session_id"`
 	Subject        string `json:"subject"`

@@ -4,7 +4,7 @@
       v-if="attachments.length"
       :items="attachments"
       class="attachment-preview"
-      @remove="(uid: string) => $emit('remove-attachment', uid)"
+      @remove="handleRemoveAttachment"
     />
 
     <x-sender
@@ -55,6 +55,7 @@
 import { h, computed } from 'vue';
 import { PaperClipOutlined, VideoCameraOutlined } from '@ant-design/icons-vue';
 import { Sender as XSender, Attachments as XAttachments } from 'ant-design-x-vue';
+import type { UploadProps } from 'ant-design-vue';
 
 interface AttachmentItem {
   uid: string;
@@ -88,10 +89,14 @@ const senderPlaceholder = computed(() =>
   props.generateVideo ? '输入知识点，将生成配套视频讲解...' : '输入知识点或题目，按 Enter 发送...',
 );
 
-function handleFileUpload(file: File) {
+function handleRemoveAttachment(file: { uid: string }) {
+  emit('remove-attachment', file.uid);
+}
+
+const handleFileUpload: UploadProps['beforeUpload'] = (file) => {
   emit('file-upload', file);
   return false;
-}
+};
 </script>
 
 <style scoped lang="less">

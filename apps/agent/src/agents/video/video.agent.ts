@@ -1,21 +1,17 @@
-/**
- * Video Agent — 负责完整的 Manim 视频生成流水线
- * 推理模式：Plan-and-Execute（Graph 串行多步骤，含 Manim 重试机制）
- * 作为 QA Agent 的子 Agent 调用
- */
-
 import { BaseAgent } from '../../harness/core/agent.js';
-import { StateGraph } from '../../harness/core/graph.js';
-import type { GraphCheckpointStore } from '../../harness/core/checkpoint.js';
-import { resolveGraphExecutionControl } from '../../harness/core/workflow-control.js';
-import type { ContentVectorCache, AgentContext } from '../../harness/core/types.js';
-import type { ToolRegistry } from '../../harness/tool/tool.js';
+import type { NodeGovernancePolicy } from '../../harness/core/graph.js';
+import type { AgentContext, ContentVectorCache } from '../../harness/core/types.js';
 import type { LLMClient } from '../../harness/core/llm-client.js';
 import type { Observer } from '../../harness/observer/tracer.js';
-import type { VideoAgentInput, VideoAgentOutput, VideoState } from './video.types.js';
-import { buildVideoNodes } from './video.graph.js';
+import type { ToolRegistry } from '../../harness/tool/tool.js';
+import { MessageDrivenGraph } from '../../harness/runtime/message-graph.js';
+import type { MessageEnvelope } from '../../harness/runtime/message-graph.js';
+import { buildVideoMessageGraphNodes } from './video.message-graph.js';
+import type { VideoAgentInput, VideoAgentOutput } from './video.types.js';
 
 const DEFAULT_CACHE_THRESHOLD = 0.92;
+const VIDEO_UPLOAD_EVENT = 'video.upload.completed';
+const VIDEO_RETURN_CACHED_EVENT = 'video.return_cached.completed';
 
 export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
   constructor(
@@ -23,67 +19,76 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
     observer: Observer,
     private readonly videoCache: ContentVectorCache,
     private readonly toolRegistry: ToolRegistry,
-    private readonly checkpointStore?: GraphCheckpointStore<VideoState>,
+    private readonly nodePolicies?: Record<string, NodeGovernancePolicy>,
   ) {
     super(llm, observer);
   }
 
   async execute(input: VideoAgentInput, ctx: AgentContext): Promise<VideoAgentOutput> {
-    const nodes = buildVideoNodes(this.llm, this.videoCache, this.toolRegistry);
-
-    const graph = new StateGraph<VideoState>({
+    const nodes = buildVideoMessageGraphNodes(this.llm, this.videoCache, this.toolRegistry);
+    const graph = new MessageDrivenGraph({
       knowledgeDescription: input.knowledgeDescription,
       subject: input.subject,
       useVideoCache: input.useVideoCache ?? true,
       cacheScoreThreshold: input.cacheScoreThreshold ?? DEFAULT_CACHE_THRESHOLD,
-      cacheHit: false,
       retryCount: 0,
       scriptVersion: 0,
-      fixHistory: [],
       success: false,
     })
       .addNode('checkCache', nodes.checkCacheNode)
+      .addNode('returnCached', nodes.returnCachedNode)
       .addNode('generateStoryboard', nodes.generateStoryboardNode)
-      .addNode('generateScript', nodes.generateManimScriptNode)
-      .addNode('renderManim', nodes.renderManimNode)
-      .addNode('fixScript', nodes.fixManimScriptNode)
-      .addNode('uploadVideo', nodes.uploadVideoNode)
-      .addNode('returnCached', async (s) => ({ videoUrl: s.videoUrl }))
-
+      .addNode('generateScript', nodes.generateScriptNode)
+      .addNode('renderManim', nodes.renderNode)
+      .addNode('fixScript', nodes.fixScriptNode)
+      .addNode('uploadVideo', nodes.uploadNode)
       .addConditionalEdge('checkCache', nodes.shouldUseCached, {
         cached: 'returnCached',
         generate: 'generateStoryboard',
       })
-      .addEdge('returnCached', nodes.END)
+      .addEdge('returnCached', '__end__')
       .addEdge('generateStoryboard', 'generateScript')
       .addEdge('generateScript', 'renderManim')
       .addConditionalEdge('renderManim', nodes.shouldRetryRender, {
         upload: 'uploadVideo',
         retry: 'fixScript',
-        fail: nodes.END,
+        fail: '__end__',
       })
       .addEdge('fixScript', 'renderManim')
-      .addEdge('uploadVideo', nodes.END)
-      .compile();
+      .addEdge('uploadVideo', '__end__');
 
-    const graphControl = resolveGraphExecutionControl(ctx, 'video');
-    const finalState = await graph.run({}, this.checkpointStore
-      ? {
-          workflowId: graphControl.workflowId,
-          checkpointStore: this.checkpointStore,
-          resumeFromCheckpoint: graphControl.resumeFromCheckpoint,
-          clearCheckpointOnDone: graphControl.clearCheckpointOnDone,
+    const delegatedEmitter = ctx.metadata?.nodeEventEmitter;
+    const { partitions, events } = await graph.run({
+      nodePolicies: this.nodePolicies,
+      onNodeEvent: async (event) => {
+        if (typeof delegatedEmitter === 'function') {
+          delegatedEmitter(event);
         }
-      : undefined);
+      },
+    });
 
-    // 成功时异步写入视频缓存
-    if (finalState.success && finalState.videoUrl) {
+    const cached = this.findLatestEvent<{ success: boolean; videoUrl?: string }>(events, VIDEO_RETURN_CACHED_EVENT);
+    const uploaded = this.findLatestEvent<{ success: boolean; videoUrl?: string; failureReason?: string }>(
+      events,
+      VIDEO_UPLOAD_EVENT,
+    );
+
+    const output: VideoAgentOutput = cached
+      ? { success: true, videoUrl: cached.videoUrl }
+      : {
+          success: uploaded?.success ?? Boolean(partitions.workflow_state.success),
+          videoUrl: uploaded?.videoUrl ?? (typeof partitions.workflow_state.videoUrl === 'string' ? partitions.workflow_state.videoUrl : undefined),
+          failureReason: uploaded?.failureReason
+            ?? (typeof partitions.workflow_state.failureReason === 'string' ? partitions.workflow_state.failureReason : undefined),
+        };
+
+    if (output.success && output.videoUrl) {
       setImmediate(() => {
         this.videoCache
           .store(input.knowledgeDescription, {
             contentKey: input.knowledgeDescription,
             payload: {
-              videoUrl: finalState.videoUrl,
+              videoUrl: output.videoUrl,
               subject: input.subject,
               createdAt: new Date().toISOString(),
             },
@@ -92,10 +97,15 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
       });
     }
 
-    return {
-      videoUrl: finalState.videoUrl,
-      success: finalState.success,
-      failureReason: finalState.failureReason,
-    };
+    return output;
+  }
+
+  private findLatestEvent<TPayload>(events: MessageEnvelope[], eventType: string): TPayload | undefined {
+    for (let i = events.length - 1; i >= 0; i--) {
+      if (events[i]?.event_type === eventType) {
+        return events[i].payload as TPayload;
+      }
+    }
+    return undefined;
   }
 }

@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth';
 import router from '@/router';
 
 const http = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE || '/api',
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });

@@ -13,6 +13,25 @@ export type END = typeof END;
 export type NodeFn<S> = (state: Readonly<S>) => Promise<Partial<S>>;
 export type ConditionFn<S, Routes extends string> = (state: Readonly<S>) => Routes;
 
+export interface NodeRetryPolicy {
+  maxAttempts: number;
+  backoffMs: number;
+  backoffFactor?: number;
+}
+
+export interface NodeGovernancePolicy {
+  timeoutMs: number;
+  retry: NodeRetryPolicy;
+}
+
+export interface GraphNodeExecutionEvent {
+  node: string;
+  event: 'started' | 'retry' | 'timed_out' | 'succeeded' | 'failed';
+  attempt: number;
+  elapsedMs?: number;
+  error?: string;
+}
+
 interface EdgeDef {
   from: string;
   to: string | END;
@@ -172,8 +191,14 @@ export class GraphRunner<S extends object> {
 
         const fn = this.nodes.get(current);
         if (!fn) throw new Error(`Node "${current}" not found in graph`);
-
-        const delta = await fn(state as Readonly<S>);
+        const policy = options?.nodePolicies?.[current];
+        const delta = await this.executeNode(
+          current,
+          fn,
+          state,
+          policy,
+          options?.onNodeEvent,
+        );
         state = { ...state, ...delta };
 
         current = this.resolveNext(current, state);
@@ -228,6 +253,124 @@ export class GraphRunner<S extends object> {
     await checkpointStore.save(checkpoint);
     await onCheckpoint?.(checkpoint);
   }
+
+  private async executeNode(
+    node: string,
+    fn: NodeFn<S>,
+    state: S,
+    policy: NodeGovernancePolicy | undefined,
+    onNodeEvent?: (event: GraphNodeExecutionEvent) => Promise<void> | void,
+  ): Promise<Partial<S>> {
+    if (!policy) {
+      const startedAt = Date.now();
+      await onNodeEvent?.({ node, event: 'started', attempt: 1 });
+      try {
+        const delta = await fn(state as Readonly<S>);
+        await onNodeEvent?.({
+          node,
+          event: 'succeeded',
+          attempt: 1,
+          elapsedMs: Date.now() - startedAt,
+        });
+        return delta;
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        await onNodeEvent?.({
+          node,
+          event: 'failed',
+          attempt: 1,
+          elapsedMs: Date.now() - startedAt,
+          error: err.message,
+        });
+        throw err;
+      }
+    }
+
+    const retry = this.normalizeRetryPolicy(policy.retry);
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= retry.maxAttempts; attempt++) {
+      const startedAt = Date.now();
+      await onNodeEvent?.({ node, event: 'started', attempt });
+      try {
+        const delta = await this.runWithTimeout(
+          fn(state as Readonly<S>),
+          policy.timeoutMs,
+          node,
+        );
+        await onNodeEvent?.({
+          node,
+          event: 'succeeded',
+          attempt,
+          elapsedMs: Date.now() - startedAt,
+        });
+        return delta;
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        lastError = err;
+        const timedOut = err.message.startsWith('NodeTimeout:');
+        await onNodeEvent?.({
+          node,
+          event: timedOut ? 'timed_out' : 'failed',
+          attempt,
+          elapsedMs: Date.now() - startedAt,
+          error: err.message,
+        });
+        if (attempt >= retry.maxAttempts) {
+          throw err;
+        }
+        const delayMs = this.computeBackoffDelay(
+          retry.backoffMs,
+          retry.backoffFactor,
+          attempt,
+        );
+        await onNodeEvent?.({
+          node,
+          event: 'retry',
+          attempt,
+          elapsedMs: delayMs,
+          error: err.message,
+        });
+        await sleep(delayMs);
+      }
+    }
+
+    throw lastError ?? new Error(`Node "${node}" failed without details`);
+  }
+
+  private async runWithTimeout<T>(promise: Promise<T>, timeoutMs: number, node: string): Promise<T> {
+    if (timeoutMs <= 0) {
+      return promise;
+    }
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new Error(`NodeTimeout:${node}:${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    }
+  }
+
+  private normalizeRetryPolicy(policy: NodeRetryPolicy): Required<NodeRetryPolicy> {
+    return {
+      maxAttempts: Math.max(1, policy.maxAttempts),
+      backoffMs: Math.max(0, policy.backoffMs),
+      backoffFactor: policy.backoffFactor && policy.backoffFactor > 0 ? policy.backoffFactor : 2,
+    };
+  }
+
+  private computeBackoffDelay(baseDelayMs: number, factor: number, attempt: number): number {
+    if (attempt <= 1) {
+      return baseDelayMs;
+    }
+    return Math.round(baseDelayMs * factor ** (attempt - 1));
+  }
 }
 
 export interface GraphRunOptions<S extends object> {
@@ -238,4 +381,10 @@ export interface GraphRunOptions<S extends object> {
   /** 完成后自动清理 checkpoint */
   clearCheckpointOnDone?: boolean;
   onCheckpoint?: (checkpoint: GraphCheckpoint<S>) => Promise<void> | void;
+  nodePolicies?: Record<string, NodeGovernancePolicy>;
+  onNodeEvent?: (event: GraphNodeExecutionEvent) => Promise<void> | void;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

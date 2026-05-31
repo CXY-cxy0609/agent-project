@@ -5,7 +5,8 @@
 
 import Redis from 'ioredis';
 import { createLLMClient } from './harness/core/llm-client.js';
-import { RedisGraphCheckpointStore } from './harness/core/redis-checkpoint-store.js';
+import { InMemoryWorkflowStateStore } from './harness/runtime/state-store.js';
+import { WorkflowScheduler } from './harness/runtime/scheduler.js';
 import { ToolRegistry } from './harness/tool/tool.js';
 import { RagClient } from './harness/rag-client/rag-client.js';
 import { InMemoryShortTermMemory, RedisShortTermMemory } from './harness/memory/short-term.js';
@@ -15,16 +16,19 @@ import { defaultObserver } from './harness/observer/tracer.js';
 import { OrchestratorAgent } from './agents/orchestrator/orchestrator.agent.js';
 import { QAAgent } from './agents/qa/qa.agent.js';
 import { VideoAgent } from './agents/video/video.agent.js';
-import type { VideoState } from './agents/video/video.types.js';
 import { KnowledgeBaseAgent } from './agents/knowledge-base/knowledge-base.agent.js';
 import { LearningRecordAgent } from './agents/learning-record/learning-record.agent.js';
-import type { QAState } from './agents/qa/qa.types.js';
 import { createRagRetrievalTool } from './tools/rag-retrieval.tool.js';
 import { createImageOcrTool } from './tools/image-ocr.tool.js';
 import { createFileParserTool } from './tools/file-parser.tool.js';
 import { createManimRunnerTool } from './tools/manim-runner.tool.js';
 import { createStorageUploadTool } from './tools/storage-upload.tool.js';
-import { eventBus, EVENTS, type QaCompletedEvent } from './events/event-bus.js';
+import { eventBus, type QaCompletedEvent } from './events/event-bus.js';
+import { createQASubgraph } from './subgraphs/qa.subgraph.js';
+import { createVideoSubgraph } from './subgraphs/video.subgraph.js';
+import { createLearningReportSubgraph } from './subgraphs/learning-report.subgraph.js';
+import { createLearningRecordSubgraph } from './subgraphs/learning-record.subgraph.js';
+import { loadGraphGovernanceConfigFromEnv, type GraphGovernanceConfig } from './harness/runtime/node-governance.js';
 import {
   DEFAULT_QA_RETRIEVAL_POLICY,
   type QARetrievalPolicyConfig,
@@ -46,6 +50,7 @@ export interface AppConfig {
   storageServiceUrl?: string;
   redisUrl?: string;
   qaRetrievalPolicy?: Partial<QARetrievalPolicyConfig>;
+  graphGovernance: GraphGovernanceConfig;
 }
 
 export interface AppContainer {
@@ -80,13 +85,6 @@ export function createContainer(config: AppConfig): AppContainer {
     redis,
   );
 
-  const qaCheckpointStore = redis
-    ? new RedisGraphCheckpointStore<QAState>(redis, 'agent:graph:qa')
-    : undefined;
-  const videoCheckpointStore = redis
-    ? new RedisGraphCheckpointStore<VideoState>(redis, 'agent:graph:video')
-    : undefined;
-
   const userVectorMemory = new HttpUserVectorMemory(config.ragServiceUrl);
   const contentVectorCache = new HttpContentVectorCache(config.ragServiceUrl);
   const structuredMemory = new HttpStructuredMemory(config.serverUrl, config.internalToken);
@@ -111,7 +109,7 @@ export function createContainer(config: AppConfig): AppContainer {
     defaultObserver,
     contentVectorCache,
     toolRegistry,
-    videoCheckpointStore,
+    config.graphGovernance.video,
   );
 
   const learningRecordAgent = new LearningRecordAgent(
@@ -129,17 +127,22 @@ export function createContainer(config: AppConfig): AppContainer {
     defaultObserver,
     ragClient,
     toolRegistry,
-    videoAgent,
     qaRetrievalPolicy,
-    qaCheckpointStore,
+    config.graphGovernance.qa,
   );
+
+  const workflowStateStore = new InMemoryWorkflowStateStore();
+  const scheduler = new WorkflowScheduler(workflowStateStore, eventBus);
+  scheduler.register(createQASubgraph(qaAgent));
+  scheduler.register(createVideoSubgraph(videoAgent));
+  scheduler.register(createLearningReportSubgraph(learningRecordAgent));
+  scheduler.register(createLearningRecordSubgraph(learningRecordAgent));
 
   const orchestratorAgent = new OrchestratorAgent(
     llm,
     defaultObserver,
     memory,
-    qaAgent,
-    learningRecordAgent,
+    scheduler,
   );
 
   const knowledgeBaseAgent = new KnowledgeBaseAgent(
@@ -152,27 +155,28 @@ export function createContainer(config: AppConfig): AppContainer {
   // QA Agent 完成后，Learning Record Agent 异步提取知识点
   eventBus.onQaCompleted(async (event: QaCompletedEvent) => {
     const ctx = {
-      userId: event.userId,
-      sessionId: event.sessionId,
-      traceId: event.traceId,
+      userId: event.payload.user_id,
+      sessionId: event.payload.session_id,
+      traceId: event.trace_id,
+      metadata: {
+        workflowId: event.workflow_id,
+      },
     };
 
-    learningRecordAgent
-      .run(
+    scheduler
+      .executeSubgraph(
+        'learning_record',
         {
-          action: 'record',
-          userId: event.userId,
-          conversationSummary: {
-            sessionId: event.sessionId,
-            traceId: event.traceId,
-            question: event.question,
-            answer: event.answer,
-            subject: event.subject,
-            knowledgePoints: event.knowledgePoints,
-            difficulty: event.difficulty,
-          },
+          userId: event.payload.user_id,
+          sessionId: event.payload.session_id,
+          question: event.payload.question,
+          answer: event.payload.answer,
+          subject: event.payload.subject,
+          knowledgePoints: event.payload.knowledge_points,
+          difficulty: event.payload.difficulty,
         },
         ctx,
+        { workflowId: event.workflow_id },
       )
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -200,5 +204,6 @@ export function loadConfig(): AppConfig {
       hybridBudgetTokens: Number(process.env.QA_HYBRID_BUDGET_TOKENS ?? 3000),
       hybridMaxUpgradePages: Number(process.env.QA_HYBRID_MAX_UPGRADE_PAGES ?? 3),
     },
+    graphGovernance: loadGraphGovernanceConfigFromEnv(),
   };
 }

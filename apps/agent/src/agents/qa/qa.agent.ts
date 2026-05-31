@@ -1,23 +1,25 @@
 /**
- * QA Agent — 核心业务 Agent，负责知识问答与解题
- * 推理模式：ReAct（Graph 驱动多步骤）
- * 流程：OCR（可选）→ RAG 检索 → LLM 生成 → 视频（可选）→ 异步学情记录
+ * QA Agent — 核心业务 Agent（节点消息驱动 + 状态分区）
+ * 流程：OCR（可选）→ RAG 检索 → LLM 生成
  */
 
 import { BaseAgent } from '../../harness/core/agent.js';
-import { StateGraph } from '../../harness/core/graph.js';
-import type { GraphCheckpointStore } from '../../harness/core/checkpoint.js';
-import { resolveGraphExecutionControl } from '../../harness/core/workflow-control.js';
-import type { RagClient } from '../../harness/rag-client/rag-client.js';
-import type { ToolRegistry } from '../../harness/tool/tool.js';
+import type { NodeGovernancePolicy } from '../../harness/core/graph.js';
 import type { AgentContext } from '../../harness/core/types.js';
 import type { LLMClient } from '../../harness/core/llm-client.js';
 import type { Observer } from '../../harness/observer/tracer.js';
-import type { QAInput, QAOutput, QAState } from './qa.types.js';
-import type { VideoAgent } from '../video/video.agent.js';
-import { buildQANodes } from './qa.graph.js';
-import { eventBus, EVENTS, type QaCompletedEvent } from '../../events/event-bus.js';
+import type { RagClient } from '../../harness/rag-client/rag-client.js';
+import type { ToolRegistry } from '../../harness/tool/tool.js';
+import { MessageDrivenGraph } from '../../harness/runtime/message-graph.js';
+import type { MessageEnvelope } from '../../harness/runtime/message-graph.js';
+import { buildQAMessageGraphNodes } from './qa.message-graph.js';
+import { eventBus } from '../../events/event-bus.js';
+import type { QAInput, QAOutput } from './qa.types.js';
 import type { QARetrievalPolicyConfig } from './retrieval-policy.js';
+
+const QA_OCR_EVENT = 'qa.ocr.completed';
+const QA_RAG_EVENT = 'qa.rag.completed';
+const QA_GENERATE_EVENT = 'qa.generate.completed';
 
 export class QAAgent extends BaseAgent<QAInput, QAOutput> {
   constructor(
@@ -25,24 +27,20 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
     observer: Observer,
     private readonly ragClient: RagClient,
     private readonly toolRegistry: ToolRegistry,
-    private readonly videoAgent: VideoAgent,
     private readonly retrievalPolicyConfig: QARetrievalPolicyConfig,
-    private readonly checkpointStore?: GraphCheckpointStore<QAState>,
+    private readonly nodePolicies?: Record<string, NodeGovernancePolicy>,
   ) {
     super(llm, observer, eventBus);
   }
 
   async execute(input: QAInput, ctx: AgentContext): Promise<QAOutput> {
-    const nodes = buildQANodes(
+    const nodes = buildQAMessageGraphNodes(
       this.llm,
       this.ragClient,
       this.toolRegistry,
-      this.videoAgent,
-      ctx,
       this.retrievalPolicyConfig,
     );
-
-    const graph = new StateGraph<QAState>({
+    const graph = new MessageDrivenGraph({
       question: input.question,
       imageBase64: input.imageBase64,
       imageMediaType: input.imageMediaType,
@@ -53,47 +51,69 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
       .addNode('ocr', nodes.ocrNode)
       .addNode('rag', nodes.ragNode)
       .addNode('generate', nodes.generateNode)
-      .addNode('video', nodes.videoNode)
       .addEdge('ocr', 'rag')
       .addEdge('rag', 'generate')
-      .addConditionalEdge('generate', nodes.shouldGenerateVideo, {
-        yes: 'video',
-        no: nodes.END,
-      })
-      .addEdge('video', nodes.END)
-      .compile();
+      .addEdge('generate', '__end__');
 
-    const graphControl = resolveGraphExecutionControl(ctx, 'qa');
-    const finalState = await graph.run({}, this.checkpointStore
-      ? {
-          workflowId: graphControl.workflowId,
-          checkpointStore: this.checkpointStore,
-          resumeFromCheckpoint: graphControl.resumeFromCheckpoint,
-          clearCheckpointOnDone: graphControl.clearCheckpointOnDone,
+    const delegatedEmitter = ctx.metadata?.nodeEventEmitter;
+    const { events } = await graph.run({
+      nodePolicies: this.nodePolicies,
+      onNodeEvent: async (event) => {
+        if (typeof delegatedEmitter === 'function') {
+          delegatedEmitter(event);
         }
-      : undefined);
+      },
+    });
+
+    const generated = this.findLatestEvent<{
+      answer: string;
+      knowledgePoints: string[];
+      difficulty: 'easy' | 'medium' | 'hard';
+      subject: string;
+      needsVideo: boolean;
+    }>(events, QA_GENERATE_EVENT);
 
     const output: QAOutput = {
-      answer: finalState.answer ?? '抱歉，无法生成回答，请重试。',
-      knowledgePoints: finalState.knowledgePoints ?? [],
-      difficulty: finalState.difficulty ?? 'medium',
-      subject: finalState.subject ?? input.subjectId,
-      videoUrl: finalState.videoUrl,
-      needsVideo: finalState.needsVideo ?? false,
+      answer: generated?.answer ?? '抱歉，无法生成回答，请重试。',
+      knowledgePoints: generated?.knowledgePoints ?? [],
+      difficulty: generated?.difficulty ?? 'medium',
+      subject: generated?.subject ?? input.subjectId,
+      videoUrl: undefined,
+      needsVideo: generated?.needsVideo ?? false,
     };
 
-    // 异步通知 Learning Record Agent，不阻塞主链路
-    this.emit(EVENTS.QA_COMPLETED, {
+    const workflowId = typeof ctx.metadata?.workflowId === 'string'
+      ? ctx.metadata.workflowId
+      : `${ctx.sessionId}:${ctx.traceId}`;
+    const subgraphId = typeof ctx.metadata?.subgraphId === 'string'
+      ? ctx.metadata.subgraphId
+      : 'qa';
+
+    eventBus.emitQaCompleted({
+      workflowId,
+      subgraphId,
+      nodeId: 'finalize',
       traceId: ctx.traceId,
-      userId: ctx.userId,
-      sessionId: ctx.sessionId,
-      question: input.question,
-      answer: output.answer,
-      subject: output.subject,
-      knowledgePoints: output.knowledgePoints,
-      difficulty: output.difficulty,
-    } satisfies QaCompletedEvent);
+      payload: {
+        user_id: ctx.userId,
+        session_id: ctx.sessionId,
+        question: input.question,
+        answer: output.answer,
+        subject: output.subject,
+        knowledge_points: output.knowledgePoints,
+        difficulty: output.difficulty,
+      },
+    });
 
     return output;
+  }
+
+  private findLatestEvent<TPayload>(events: MessageEnvelope[], eventType: string): TPayload | undefined {
+    for (let i = events.length - 1; i >= 0; i--) {
+      if (events[i]?.event_type === eventType) {
+        return events[i].payload as TPayload;
+      }
+    }
+    return undefined;
   }
 }

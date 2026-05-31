@@ -72,7 +72,6 @@ grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 - 新增 `DB_DRIVER`（默认 `mysql`，可切 `postgres`）
 - 新增 `DB_DSN`（优先级高于拆分字段）
 - 新增 `DB_REPOSITORY_MODE`（`memory` | `sql`）
-- 新增 `DB_AUTO_MIGRATE`（`true` 时启动自动建表）
 - Redis 支持旧字段：`REDIS_HOST/REDIS_PORT`，也支持新字段 `REDIS_ADDR`
 - Redis 可选新增 `REDIS_USERNAME`
 
@@ -81,12 +80,23 @@ grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 - `DB_DRIVER`
 - `DB_DSN`
 - `DB_REPOSITORY_MODE`
-- `DB_AUTO_MIGRATE`
 - `REDIS_ADDR`
 - `REDIS_USERNAME`
 - `KAFKA_BROKERS`
 - `GRPC_PORT`
 - `INTERNAL_TOKEN`
+
+## 数据库建表脚本
+
+服务不再在代码中执行自动建表，请在部署前手动执行 SQL 文件：
+
+- MySQL: `sql/mysql/001_init_schema.sql`
+- PostgreSQL: `sql/postgres/001_init_schema.sql`
+
+建表规范：
+
+- 每张表都包含自增主键 `id`
+- 每张表都包含业务唯一标识字段（如 `subject_id`、`conversation_id`、`task_id`、`record_id`）
 
 ## 下一步规划（代码层）
 

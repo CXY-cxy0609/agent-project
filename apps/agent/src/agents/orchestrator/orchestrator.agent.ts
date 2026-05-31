@@ -20,10 +20,13 @@ import type {
   IntentClassification,
   OrchestratorState,
 } from './orchestrator.types.js';
-import type { QAAgent } from '../qa/qa.agent.js';
-import type { LearningRecordAgent } from '../learning-record/learning-record.agent.js';
 import type { LLMClient } from '../../harness/core/llm-client.js';
 import type { Observer } from '../../harness/observer/tracer.js';
+import type { WorkflowScheduler } from '../../harness/runtime/scheduler.js';
+import type { QAInput, QAOutput } from '../qa/qa.types.js';
+import type { VideoAgentInput, VideoAgentOutput } from '../video/video.types.js';
+import type { LearningReportInput } from '../../subgraphs/learning-report.subgraph.js';
+import type { LearningRecordOutput } from '../learning-record/learning-record.types.js';
 
 interface IntentRaw {
   intent: string;
@@ -39,8 +42,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     llm: LLMClient,
     observer: Observer,
     private readonly memory: ShortTermMemory,
-    private readonly qaAgent: QAAgent,
-    private readonly learningRecordAgent: LearningRecordAgent,
+    private readonly scheduler: WorkflowScheduler,
   ) {
     super(llm, observer);
   }
@@ -111,32 +113,59 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     ctx: AgentContext,
   ): Promise<Omit<OrchestratorOutput, 'conversationId' | 'intent'>> {
     const { intent, input } = state;
+    const workflowId = `${ctx.sessionId}:${ctx.traceId}`;
 
     switch (intent.intent) {
       case 'qa':
       case 'video_request': {
-        const qaResult = await this.callAgent(this.qaAgent, {
+        const qaInput: QAInput = {
           question: input.userMessage,
           imageBase64: input.imageBase64,
           imageMediaType: input.imageMediaType,
           subjectId: intent.subjectId ?? input.subjectId ?? 'general',
           history: state.history,
           generateVideo: intent.intent === 'video_request',
-        }, ctx);
+        };
+
+        const qaResult = await this.scheduler.executeSubgraph<QAInput, QAOutput>(
+          'qa',
+          qaInput,
+          ctx,
+          { workflowId },
+        );
+
+        let videoUrl: string | undefined;
+        if (qaResult.needsVideo) {
+          const videoResult = await this.scheduler.executeSubgraph<VideoAgentInput, VideoAgentOutput>(
+            'video',
+            {
+              knowledgeDescription: input.userMessage,
+              subject: qaResult.subject,
+              useVideoCache: true,
+            },
+            ctx,
+            { workflowId },
+          );
+          videoUrl = videoResult.videoUrl;
+        }
 
         return {
           reply: qaResult.answer,
           subjectId: intent.subjectId,
-          videoUrl: qaResult.videoUrl,
+          videoUrl,
         };
       }
 
       case 'learning_report': {
-        const reportResult = await this.callAgent(this.learningRecordAgent, {
-          action: 'generate_report',
-          userId: ctx.userId,
-          subjectId: intent.subjectId,
-        }, ctx);
+        const reportResult = await this.scheduler.executeSubgraph<LearningReportInput, LearningRecordOutput>(
+          'learning_report',
+          {
+            userId: ctx.userId,
+            subjectId: intent.subjectId,
+          },
+          ctx,
+          { workflowId },
+        );
 
         return {
           reply: reportResult.report ?? '暂无学情数据。',

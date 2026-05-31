@@ -160,11 +160,33 @@ const bubbleItems = computed(() =>
   })),
 );
 
+type ThoughtChainStatus = 'pending' | 'error' | 'success';
+
+function mapThoughtStatus(status: 'pending' | 'running' | 'done' | 'error'): ThoughtChainStatus {
+  switch (status) {
+    case 'done':
+      return 'success';
+    case 'error':
+      return 'error';
+    default:
+      return 'pending';
+  }
+}
+
 const lastThoughtChain = computed(() => {
-  const last = chatStore.messages.findLast(
-    (m) => m.role === 'assistant' && m.metadata?.thoughtChain,
-  );
-  return last?.metadata?.thoughtChain ?? [];
+  let last: Message | undefined;
+  for (let i = chatStore.messages.length - 1; i >= 0; i--) {
+    const candidate = chatStore.messages[i];
+    if (candidate?.role === 'assistant' && candidate.metadata?.thoughtChain) {
+      last = candidate;
+      break;
+    }
+  }
+  return (last?.metadata?.thoughtChain ?? []).map((step) => ({
+    title: step.title,
+    description: step.content,
+    status: mapThoughtStatus(step.status),
+  }));
 });
 
 async function loadSubjects() {

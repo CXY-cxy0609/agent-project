@@ -87,6 +87,7 @@ cd apps/rag && make dev
 cp apps/server/.env.example apps/server/.env
 cp apps/agent/.env.example apps/agent/.env
 cp apps/rag/.env.example    apps/rag/.env
+cp apps/web/.env.example    apps/web/.env
 ```
 
 ## 前端页面

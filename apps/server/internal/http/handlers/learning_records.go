@@ -12,6 +12,7 @@ import (
 )
 
 type createLearningRecordReq struct {
+	RecordID       string `json:"recordId"`
 	UserID         string `json:"userId"`
 	SessionID      string `json:"sessionId"`
 	Subject        string `json:"subject"`
@@ -34,6 +35,7 @@ func CreateLearningRecord(recordService *service.LearningRecordService) gin.Hand
 		}
 
 		err := recordService.Write(c.Request.Context(), domain.LearningRecord{
+			RecordID:       req.RecordID,
 			UserID:         req.UserID,
 			SessionID:      req.SessionID,
 			Subject:        req.Subject,

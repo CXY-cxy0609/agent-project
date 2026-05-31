@@ -57,8 +57,9 @@ defineEmits<{
 
 function formatDate(dateStr: string) {
   const d = dayjs(dateStr);
-  if (d.isToday()) return d.format('今天 HH:mm');
-  if (d.isYesterday()) return d.format('昨天 HH:mm');
+  const today = dayjs();
+  if (d.isSame(today, 'day')) return d.format('今天 HH:mm');
+  if (d.isSame(today.subtract(1, 'day'), 'day')) return d.format('昨天 HH:mm');
   return d.format('YYYY-MM-DD HH:mm');
 }
 </script>
