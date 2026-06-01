@@ -24,10 +24,6 @@
 4. `subtitle_rect_down_shift = 0.08`：字幕区域下移量。
 5. `content_subtitle_gap = 0.12`：内容区与字幕区最小间隔。
 6. `two_column_ratio = "1:1"`：双栏默认比例。
-7. `BYTEDANCE_TTS_API_KEY`：TTS API Key。
-8. `BYTEDANCE_TTS_ENDPOINT`：TTS 接口地址。
-9. `BYTEDANCE_TTS_RESOURCE_ID`：TTS 资源标识。
-10. `BYTEDANCE_TTS_SPEAKER`：TTS 默认音色。
 
 ## 3) BaseScene 对外 API（非内部私有，完整声明）
 
