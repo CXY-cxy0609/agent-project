@@ -67,6 +67,13 @@ type webMessage struct {
 	ConversationID string      `json:"conversationId"`
 	Role           string      `json:"role"`
 	Content        string      `json:"content"`
+	ContentInline  string      `json:"contentInline,omitempty"`
+	ContentRef     string      `json:"contentRef,omitempty"`
+	ContentHash    string      `json:"contentHash,omitempty"`
+	ContentSize    int64       `json:"contentSize,omitempty"`
+	TurnID         string      `json:"turnId,omitempty"`
+	ReplyToID      string      `json:"replyToMessageId,omitempty"`
+	TokenUsage     int         `json:"tokenUsage,omitempty"`
 	Status         string      `json:"status"`
 	CreatedAt      string      `json:"createdAt"`
 	Metadata       interface{} `json:"metadata,omitempty"`

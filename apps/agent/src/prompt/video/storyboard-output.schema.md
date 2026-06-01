@@ -29,7 +29,7 @@ total_duration_seconds: 120
 
 | 顶层字段 | 类型 | 必填 | 说明 |
 |---------|------|:----:|------|
-| `scenes` | array | ✓ | 场景列表，3–6 个 |
+| `scenes` | array | ✓ | 场景列表 |
 | `total_duration_seconds` | number | ✓ | 全片总时长（秒），不超过 180 |
 
 | 场景子字段 | 类型 | 说明 |

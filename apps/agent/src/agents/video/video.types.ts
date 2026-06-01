@@ -63,8 +63,3 @@ export interface StoryboardRaw {
   scenes: StoryboardScene[];
   total_duration_seconds: number;
 }
-
-export interface ManimScriptRaw {
-  script: string;
-  scene_class_name: string;
-}

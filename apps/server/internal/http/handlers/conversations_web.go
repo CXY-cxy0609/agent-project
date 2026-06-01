@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -35,6 +36,13 @@ type createMessageReq struct {
 	ID             string `json:"id"`
 	Role           string `json:"role"`
 	Content        string `json:"content"`
+	ContentInline  string `json:"contentInline"`
+	ContentRef     string `json:"contentRef"`
+	ContentHash    string `json:"contentHash"`
+	ContentSize    int64  `json:"contentSize"`
+	TurnID         string `json:"turnId"`
+	ReplyToID      string `json:"replyToMessageId"`
+	TokenUsage     int    `json:"tokenUsage"`
 	Status         string `json:"status"`
 }
 
@@ -200,6 +208,7 @@ func ListConversationMessages() gin.HandlerFunc {
 		}
 		items, err := queryWebMessages(c, db, id)
 		if err != nil {
+			log.Printf("queryWebMessages failed conversation_id=%s err=%v", id, err)
 			response.Error(c, http.StatusInternalServerError, "MESSAGES_LIST_FAILED", "failed to list messages")
 			return
 		}
@@ -259,18 +268,52 @@ func CreateConversationMessage() gin.HandlerFunc {
 			ID:             req.ID,
 			ConversationID: conversationID,
 			Role:           req.Role,
-			Content:        req.Content,
+			ContentInline:  resolveContentInline(req.ContentInline, req.Content),
+			ContentRef:     strings.TrimSpace(req.ContentRef),
+			ContentHash:    strings.TrimSpace(req.ContentHash),
+			ContentSize:    resolveContentSize(req.ContentSize, req.ContentInline, req.Content),
+			TurnID:         strings.TrimSpace(req.TurnID),
+			ReplyToID:      strings.TrimSpace(req.ReplyToID),
+			TokenUsage:     req.TokenUsage,
 			Status:         req.Status,
 			CreatedAt:      now,
 		}
+		if (msg.Role == "user" || msg.Role == "assistant") &&
+			strings.TrimSpace(msg.ContentInline) == "" &&
+			strings.TrimSpace(msg.ContentRef) == "" {
+			response.Error(c, http.StatusBadRequest, "INVALID_MESSAGE_CONTENT", "message content is required")
+			return
+		}
+		if msg.TurnID == "" && msg.Role == "user" {
+			msg.TurnID = "turn-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		}
+		if err := enrichMessageStorage(c, db, &msg); err != nil {
+			log.Printf(
+				"enrichMessageStorage failed conversation_id=%s message_id=%s role=%s err=%v",
+				conversationID,
+				msg.ID,
+				msg.Role,
+				err,
+			)
+			response.Error(c, http.StatusInternalServerError, "MESSAGE_EXTERNALIZE_FAILED", "failed to persist externalized content")
+			return
+		}
 		if err := insertWebMessage(c, db, msg); err != nil {
+			log.Printf(
+				"insertWebMessage failed conversation_id=%s message_id=%s role=%s err=%v",
+				conversationID,
+				msg.ID,
+				msg.Role,
+				err,
+			)
 			response.Error(c, http.StatusInternalServerError, "MESSAGE_CREATE_FAILED", "failed to create message")
 			return
 		}
 		conversation.MessageCount = countWebMessages(c, db, conversationID)
 		conversation.UpdatedAt = now
-		if req.Role == "user" && conversation.Title == "新对话" && strings.TrimSpace(req.Content) != "" {
-			runes := []rune(strings.TrimSpace(req.Content))
+		titleSource := strings.TrimSpace(resolveContentInline(req.ContentInline, req.Content))
+		if req.Role == "user" && conversation.Title == "新对话" && titleSource != "" {
+			runes := []rune(titleSource)
 			if len(runes) > 24 {
 				conversation.Title = string(runes[:24])
 			} else {
@@ -278,6 +321,7 @@ func CreateConversationMessage() gin.HandlerFunc {
 			}
 		}
 		if err := updateWebConversation(c, db, conversation); err != nil {
+			log.Printf("updateWebConversation failed conversation_id=%s err=%v", conversationID, err)
 			response.Error(c, http.StatusInternalServerError, "CONVERSATION_UPDATE_FAILED", "failed to update conversation")
 			return
 		}
@@ -363,10 +407,11 @@ func updateWebConversation(c *gin.Context, db *sql.DB, item webConversation) err
 func queryWebMessages(c *gin.Context, db *sql.DB, conversationID string) ([]webMessage, error) {
 	rows, err := db.QueryContext(
 		c,
-		`SELECT message_id, conversation_id, role, content, created_at
+		`SELECT message_id, conversation_id, role, content_inline, content_ref, content_hash, content_size,
+		turn_id, reply_to_message_id, token_usage, status, created_at
 		FROM conversation_messages
 		WHERE conversation_id = ?
-		ORDER BY created_at ASC, id ASC`,
+		ORDER BY seq ASC, id ASC`,
 		conversationID,
 	)
 	if err != nil {
@@ -376,25 +421,118 @@ func queryWebMessages(c *gin.Context, db *sql.DB, conversationID string) ([]webM
 	list := make([]webMessage, 0, 64)
 	for rows.Next() {
 		var item webMessage
-		if err := rows.Scan(&item.ID, &item.ConversationID, &item.Role, &item.Content, &item.CreatedAt); err != nil {
+		var contentInline sql.NullString
+		var contentRef sql.NullString
+		var contentHash sql.NullString
+		var turnID sql.NullString
+		var replyToID sql.NullString
+		var status sql.NullString
+		if err := rows.Scan(
+			&item.ID,
+			&item.ConversationID,
+			&item.Role,
+			&contentInline,
+			&contentRef,
+			&contentHash,
+			&item.ContentSize,
+			&turnID,
+			&replyToID,
+			&item.TokenUsage,
+			&status,
+			&item.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
-		item.Status = "done"
+		if contentInline.Valid {
+			item.ContentInline = contentInline.String
+		}
+		if contentRef.Valid {
+			item.ContentRef = contentRef.String
+		}
+		if contentHash.Valid {
+			item.ContentHash = contentHash.String
+		}
+		if turnID.Valid {
+			item.TurnID = turnID.String
+		}
+		if replyToID.Valid {
+			item.ReplyToID = replyToID.String
+		}
+		if status.Valid {
+			item.Status = status.String
+		}
+		item.Content = resolveWebMessageContent(item)
+		if strings.TrimSpace(item.Status) == "" {
+			item.Status = "done"
+		}
 		list = append(list, item)
 	}
 	return list, rows.Err()
 }
 
 func insertWebMessage(c *gin.Context, db *sql.DB, item webMessage) error {
-	_, err := db.ExecContext(
+	seq, err := nextConversationMessageSeq(c, db, item.ConversationID)
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(
 		c,
-		`INSERT INTO conversation_messages (message_id, conversation_id, role, content, token_usage, created_at) VALUES (?, ?, ?, ?, 0, NOW())`,
+		`INSERT INTO conversation_messages
+		(message_id, conversation_id, seq, turn_id, reply_to_message_id, role, status, content_inline, content_ref, content_hash, content_size, token_usage, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
 		item.ID,
 		item.ConversationID,
+		seq,
+		item.TurnID,
+		item.ReplyToID,
 		item.Role,
-		item.Content,
+		item.Status,
+		item.ContentInline,
+		item.ContentRef,
+		item.ContentHash,
+		item.ContentSize,
+		item.TokenUsage,
 	)
 	return err
+}
+
+func nextConversationMessageSeq(c *gin.Context, db *sql.DB, conversationID string) (int64, error) {
+	var seq int64
+	err := db.QueryRowContext(
+		c,
+		`SELECT COALESCE(MAX(seq), 0) + 1 FROM conversation_messages WHERE conversation_id = ?`,
+		conversationID,
+	).Scan(&seq)
+	if err != nil {
+		return 0, err
+	}
+	return seq, nil
+}
+
+func resolveContentInline(contentInline string, content string) string {
+	if strings.TrimSpace(contentInline) != "" {
+		return contentInline
+	}
+	return content
+}
+
+func resolveContentSize(contentSize int64, contentInline string, content string) int64 {
+	if contentSize > 0 {
+		return contentSize
+	}
+	merged := resolveContentInline(contentInline, content)
+	return int64(len([]byte(merged)))
+}
+
+func resolveWebMessageContent(item webMessage) string {
+	inline := strings.TrimSpace(item.ContentInline)
+	if inline != "" {
+		return item.ContentInline
+	}
+	if strings.TrimSpace(item.ContentRef) != "" {
+		return "[内容已外置存储，待回源加载]"
+	}
+	return ""
 }
 
 func countWebMessages(c *gin.Context, db *sql.DB, conversationID string) int {

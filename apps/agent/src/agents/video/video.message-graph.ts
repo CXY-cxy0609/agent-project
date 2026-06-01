@@ -14,9 +14,8 @@ import {
   MANIM_SCRIPT_TASK,
   MANIM_FIX_TASK,
   STORYBOARD_OUTPUT_SCHEMA,
-  MANIM_SCRIPT_OUTPUT_SCHEMA,
 } from './video.prompts.js';
-import type { StoryboardScene, StoryboardRaw, ManimScriptRaw } from './video.types.js';
+import type { StoryboardScene, StoryboardRaw } from './video.types.js';
 import type { ManimRunnerResult } from '../../tools/manim-runner.tool.js';
 import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 
@@ -126,7 +125,6 @@ export function buildVideoMessageGraphNodes(
           .setTask(MANIM_SCRIPT_TASK, {
             storyboard: feedback ? `${storyboardText}\n\n反馈：${feedback}` : storyboardText,
           })
-          .setOutputFormat(MANIM_SCRIPT_OUTPUT_SCHEMA)
           .build();
         const response = await llm.call({
           model: modelConfig.generateScript,
@@ -134,14 +132,10 @@ export function buildVideoMessageGraphNodes(
           systemPrompt,
           maxTokens: 4000,
         });
-        try {
-          const raw = schemaParser.parse<ManimScriptRaw>(response.content, MANIM_SCRIPT_OUTPUT_SCHEMA);
-          return raw.script;
-        } catch {
-          const codeMatch = response.content.match(/```python\s*([\s\S]*?)```/);
-          if (codeMatch) return codeMatch[1].trim();
-          throw new Error('ScriptParseFailed');
-        }
+        const codeMatch = response.content.match(/```python\s*([\s\S]*?)```/);
+        const script = (codeMatch ? codeMatch[1].trim() : response.content).trim();
+        if (!script) throw new Error('ScriptParseFailed');
+        return script;
       },
       verify: async (script) => validateManimScript(script),
     });
@@ -221,15 +215,12 @@ export function buildVideoMessageGraphNodes(
 
     const loop = await runReasoningLoop<string>({
       maxAttempts: strategy === 'full_rewrite' ? 2 : 1,
-      run: async ({ feedback }) => {
+      run: async () => {
         const { messages, systemPrompt } = new PromptBuilder()
           .setPersona(VIDEO_PERSONA, {})
           .setTask(MANIM_FIX_TASK, {
             script,
             error: render.lastError ?? '',
-            errorType,
-            strategy,
-            validationFeedback: feedback ?? '',
           })
           .build();
         const response = await llm.call({

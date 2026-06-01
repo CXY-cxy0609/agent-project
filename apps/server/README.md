@@ -112,12 +112,29 @@ lsof -nP -iTCP:3000 -sTCP:LISTEN
 - `GRPC_PORT`
 - `INTERNAL_TOKEN`
 
+对象存储（腾讯云 COS）预留字段：
+
+- `OBJECT_STORAGE_ENABLED`
+- `OBJECT_STORAGE_PROVIDER`（建议 `tencent-cos`）
+- `OBJECT_STORAGE_REGION`
+- `OBJECT_STORAGE_BUCKET`
+- `OBJECT_STORAGE_ENDPOINT`
+- `OBJECT_STORAGE_PUBLIC_BASE_URL`（可选，CDN/自定义域名）
+- `OBJECT_STORAGE_PATH_PREFIX`
+- `TENCENT_COS_SECRET_ID`
+- `TENCENT_COS_SECRET_KEY`
+- `TENCENT_COS_SESSION_TOKEN`（可选，STS）
+- `CHAT_INLINE_MAX_BYTES`
+- `CHAT_EXTERNALIZE_MIN_BYTES`
+
 ## 数据库建表脚本
 
 服务不再在代码中执行自动建表，请在部署前手动执行 SQL 文件：
 
 - MySQL: `sql/mysql/001_init_schema.sql`
 - PostgreSQL: `sql/postgres/001_init_schema.sql`
+- MySQL（消息外置模型升级）: `sql/mysql/005_alter_conversation_messages_for_external_content.sql`
+- PostgreSQL（消息外置模型升级）: `sql/postgres/002_alter_conversation_messages_for_external_content.sql`
 
 建表规范：
 

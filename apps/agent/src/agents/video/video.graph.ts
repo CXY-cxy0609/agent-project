@@ -20,9 +20,8 @@ import {
   MANIM_SCRIPT_TASK,
   MANIM_FIX_TASK,
   STORYBOARD_OUTPUT_SCHEMA,
-  MANIM_SCRIPT_OUTPUT_SCHEMA,
 } from './video.prompts.js';
-import type { VideoState, StoryboardRaw, ManimScriptRaw, StoryboardScene } from './video.types.js';
+import type { VideoState, StoryboardRaw, StoryboardScene } from './video.types.js';
 import type { ManimRunnerResult } from '../../tools/manim-runner.tool.js';
 
 const MAX_MANIM_RETRIES = 3;
@@ -102,7 +101,6 @@ export function buildVideoNodes(
         const { messages, systemPrompt } = new PromptBuilder()
           .setPersona(VIDEO_PERSONA, {})
           .setTask(MANIM_SCRIPT_TASK, taskVars)
-          .setOutputFormat(MANIM_SCRIPT_OUTPUT_SCHEMA)
           .build();
 
         const response = await llm.call({
@@ -112,14 +110,10 @@ export function buildVideoNodes(
           maxTokens: 4000,
         });
 
-        try {
-          const raw = schemaParser.parse<ManimScriptRaw>(response.content, MANIM_SCRIPT_OUTPUT_SCHEMA);
-          return raw.script;
-        } catch {
-          const codeMatch = response.content.match(/```python\s*([\s\S]*?)```/);
-          if (codeMatch) return codeMatch[1].trim();
-          throw new Error('模型未返回可解析脚本');
-        }
+        const codeMatch = response.content.match(/```python\s*([\s\S]*?)```/);
+        const script = (codeMatch ? codeMatch[1].trim() : response.content).trim();
+        if (!script) throw new Error('模型未返回可解析脚本');
+        return script;
       },
       verify: async (script) => validateManimScript(script),
     });
@@ -195,15 +189,12 @@ export function buildVideoNodes(
 
     const loop = await runReasoningLoop<string>({
       maxAttempts: strategy === 'full_rewrite' ? 2 : 1,
-      run: async ({ feedback }) => {
+      run: async () => {
         const { messages, systemPrompt } = new PromptBuilder()
           .setPersona(VIDEO_PERSONA, {})
           .setTask(MANIM_FIX_TASK, {
             script: currentScript,
             error: currentError,
-            errorType,
-            strategy,
-            validationFeedback: feedback ?? '',
           })
           .build();
 

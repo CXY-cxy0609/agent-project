@@ -53,14 +53,28 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   message_id VARCHAR(80) NOT NULL UNIQUE,
   conversation_id VARCHAR(64) NOT NULL,
+  seq BIGINT NOT NULL,
+  turn_id VARCHAR(80),
+  reply_to_message_id VARCHAR(80),
   role VARCHAR(16) NOT NULL,
-  content TEXT NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'done',
+  content_inline TEXT,
+  content_ref VARCHAR(512),
+  content_hash VARCHAR(128),
+  content_size BIGINT NOT NULL DEFAULT 0,
   token_usage INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (conversation_id, seq),
   CONSTRAINT fk_conversation_messages_conversation_id FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
 );
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_created_at
   ON conversation_messages (conversation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_turn
+  ON conversation_messages (conversation_id, turn_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_reply_to_message_id
+  ON conversation_messages (reply_to_message_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_status_created_at
+  ON conversation_messages (status, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS tasks (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

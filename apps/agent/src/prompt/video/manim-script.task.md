@@ -11,6 +11,11 @@ requiredVars:
 1. 使用 Manim Community Edition（manim v0.18+）语法
 2. 所有场景封装在一个 Scene 类中
 3. 代码完整，可直接运行，包含必要的 import 语句
+4. 仅返回python代码，不包含其他内容
+
+## BaseScene 使用规范（必须遵守）
+
+{{baseSceneUsageRules}}
 
 ## 上下文信息
 

@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -13,10 +14,11 @@ type Config struct {
 	NodeEnv     string
 	FrontendURL string
 
-	Auth  AuthConfig
-	DB    DBConfig
-	AI    AIConfig
-	Infra InfraConfig
+	Auth          AuthConfig
+	DB            DBConfig
+	AI            AIConfig
+	Infra         InfraConfig
+	ObjectStorage ObjectStorageConfig
 }
 
 type AuthConfig struct {
@@ -46,6 +48,21 @@ type InfraConfig struct {
 	RedisUsername string
 	RedisPwd      string
 	KafkaBrokers  string
+}
+
+type ObjectStorageConfig struct {
+	Enabled             bool
+	Provider            string
+	Region              string
+	Bucket              string
+	Endpoint            string
+	PublicBaseURL       string
+	PathPrefix          string
+	SecretID            string
+	SecretKey           string
+	SessionToken        string
+	InlineMaxBytes      int
+	ExternalizeMinBytes int
 }
 
 func Load() Config {
@@ -84,6 +101,20 @@ func Load() Config {
 			RedisPwd:      getEnv("REDIS_PASSWORD", ""),
 			KafkaBrokers:  getEnv("KAFKA_BROKERS", "localhost:9092"),
 		},
+		ObjectStorage: ObjectStorageConfig{
+			Enabled:             getEnvBool("OBJECT_STORAGE_ENABLED", false),
+			Provider:            getEnv("OBJECT_STORAGE_PROVIDER", "tencent-cos"),
+			Region:              getEnv("OBJECT_STORAGE_REGION", ""),
+			Bucket:              getEnv("OBJECT_STORAGE_BUCKET", ""),
+			Endpoint:            getEnv("OBJECT_STORAGE_ENDPOINT", ""),
+			PublicBaseURL:       getEnv("OBJECT_STORAGE_PUBLIC_BASE_URL", ""),
+			PathPrefix:          getEnv("OBJECT_STORAGE_PATH_PREFIX", "chat"),
+			SecretID:            getEnv("TENCENT_COS_SECRET_ID", ""),
+			SecretKey:           getEnv("TENCENT_COS_SECRET_KEY", ""),
+			SessionToken:        getEnv("TENCENT_COS_SESSION_TOKEN", ""),
+			InlineMaxBytes:      getEnvInt("CHAT_INLINE_MAX_BYTES", 8192),
+			ExternalizeMinBytes: getEnvInt("CHAT_EXTERNALIZE_MIN_BYTES", 12288),
+		},
 	}
 }
 
@@ -113,4 +144,16 @@ func getEnvBool(key string, fallback bool) bool {
 	default:
 		return fallback
 	}
+}
+
+func getEnvInt(key string, fallback int) int {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil {
+		return fallback
+	}
+	return n
 }

@@ -1,8 +1,8 @@
 package http
 
 import (
-	"net/url"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -22,6 +22,7 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 
 	r := gin.New()
 	handlers.UseDBStore(container.DBStore())
+	handlers.UseObjectStorage(cfg.ObjectStorage)
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	_ = r.SetTrustedProxies(nil)
