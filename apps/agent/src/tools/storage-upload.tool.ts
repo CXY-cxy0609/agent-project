@@ -2,9 +2,21 @@
  * Storage Upload Tool — 上传视频文件至对象存储，返回访问链接
  */
 
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { defineTool } from '../harness/tool/tool.js';
 
-export function createStorageUploadTool(storageServiceUrl: string) {
+interface StorageUploadResponse {
+  data?: {
+    url?: string;
+  };
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
+
+export function createStorageUploadTool(serverUrl: string, internalToken: string) {
   return defineTool<
     { file_path: string; object_key: string; content_type?: string },
     { success: boolean; url?: string; error_message?: string }
@@ -32,23 +44,40 @@ export function createStorageUploadTool(storageServiceUrl: string) {
     },
     execute: async (input) => {
       try {
-        const res = await fetch(`${storageServiceUrl}/upload`, {
+        const fileData = await readFile(input.file_path);
+        const form = new FormData();
+        form.append('object_key', input.object_key);
+        form.append('content_type', input.content_type ?? 'video/mp4');
+        form.append('file', new Blob([fileData]), path.basename(input.file_path));
+
+        const res = await fetch(`${serverUrl}/api/storage/upload`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            file_path: input.file_path,
-            object_key: input.object_key,
-            content_type: input.content_type ?? 'video/mp4',
-          }),
-          signal: AbortSignal.timeout(60_000),
+          headers: {
+            ...(internalToken ? { 'x-internal-token': internalToken } : {}),
+          },
+          body: form,
+          signal: AbortSignal.timeout(600_000),
         });
 
         if (!res.ok) {
-          return { success: false, error_message: `Upload failed: ${res.status}` };
+          let errorMessage = `Upload failed: ${res.status}`;
+          try {
+            const errorData = (await res.json()) as StorageUploadResponse;
+            errorMessage = errorData.error?.message
+              ? `Upload failed: ${res.status} ${errorData.error.message}`
+              : errorMessage;
+          } catch {
+            // Ignore malformed error bodies; status code is enough for callers.
+          }
+          return { success: false, error_message: errorMessage };
         }
 
-        const data = (await res.json()) as { url: string };
-        return { success: true, url: data.url };
+        const data = (await res.json()) as StorageUploadResponse;
+        const url = data.data?.url;
+        if (!url) {
+          return { success: false, error_message: 'Upload response missing data.url' };
+        }
+        return { success: true, url };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return { success: false, error_message: msg };

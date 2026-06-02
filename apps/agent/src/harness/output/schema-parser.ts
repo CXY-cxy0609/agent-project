@@ -57,10 +57,15 @@ ${fieldDescriptions}`;
     try {
       parsed = yaml.load(extracted);
     } catch (err) {
-      throw new ParseError(
-        `YAML 解析失败: ${err instanceof Error ? err.message : String(err)}`,
-        extracted,
-      );
+      const repaired = repairCommonYamlTextFields(extracted);
+      try {
+        parsed = yaml.load(repaired);
+      } catch {
+        throw new ParseError(
+          `YAML 解析失败: ${err instanceof Error ? err.message : String(err)}`,
+          extracted,
+        );
+      }
     }
 
     if (typeof parsed !== 'object' || parsed === null) {
@@ -105,6 +110,40 @@ ${fieldDescriptions}`;
       case 'object': return typeof value === 'object' && !Array.isArray(value);
     }
   }
+}
+
+const TEXT_BLOCK_FIELDS = new Set(['description', 'animation_notes', 'narration']);
+
+function repairCommonYamlTextFields(input: string): string {
+  const lines = input.split(/\r?\n/);
+  const result: string[] = [];
+
+  for (const line of lines) {
+    const match = line.match(/^(\s*)(description|animation_notes|narration):\s+(.+)$/);
+    if (!match) {
+      result.push(line);
+      continue;
+    }
+
+    const [, indent, field, value] = match;
+    const trimmed = value.trim();
+    if (!TEXT_BLOCK_FIELDS.has(field) || trimmed === '|' || trimmed === '>' || isQuotedYamlValue(trimmed)) {
+      result.push(line);
+      continue;
+    }
+
+    result.push(`${indent}${field}: |`);
+    result.push(`${indent}  ${trimmed}`);
+  }
+
+  return result.join('\n');
+}
+
+function isQuotedYamlValue(value: string): boolean {
+  return (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  );
 }
 
 export class ParseError extends Error {

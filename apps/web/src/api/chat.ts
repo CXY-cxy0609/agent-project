@@ -1,5 +1,5 @@
 import http from './http';
-import type { Conversation, Message, ConversationListQuery, PageResult } from '@tutor/shared';
+import type { Conversation, Message, ConversationListQuery, MessageAttachment, PageResult } from '@tutor/shared';
 import { USE_MOCK } from '@/mock/config';
 import { mockChatApi } from '@/mock/handlers/chat';
 
@@ -32,6 +32,7 @@ interface SendMessagePayload {
   model?: string;
   generateVideo?: boolean;
   userId?: string;
+  images?: Array<{ url: string; mediaType?: string }>;
   availableSubjects?: Array<{ id: number; name: string; code?: number | string }>;
 }
 
@@ -40,6 +41,36 @@ interface PersistMessagePayload {
   role: 'user' | 'assistant' | 'system';
   content: string;
   status?: 'pending' | 'streaming' | 'done' | 'error';
+  metadata?: Record<string, unknown>;
+  attachments?: MessageAttachment[];
+}
+
+interface UploadAttachmentPayload {
+  attachment?: MessageAttachment;
+}
+
+export interface StreamAssistantMeta {
+  videoUrl?: string;
+  videoRunId?: string;
+  artifactBundleUrl?: string;
+  artifactManifestUrl?: string;
+}
+
+interface ChatApi {
+  getConversations: (params?: ConversationListQuery) => Promise<PageResult<Conversation>>;
+  getConversation: (id: string) => Promise<Conversation>;
+  getMessages: (conversationId: string) => Promise<Message[]>;
+  deleteConversation: (id: string) => Promise<unknown>;
+  createConversation: (data: { id?: string; title: string; subjectId?: number; userId?: string }) => Promise<Conversation>;
+  appendMessage: (conversationId: string, data: PersistMessagePayload) => Promise<unknown>;
+  sendMessage: (
+    data: SendMessagePayload,
+    onChunk: (text: string) => void,
+    onDone: (conversation: Conversation, meta: StreamAssistantMeta) => void,
+    onError: (err: Error) => void,
+  ) => () => void;
+  uploadAttachment: (file: File) => Promise<MessageAttachment>;
+  getVideoProgress: (taskId: string) => Promise<{ percent: number; status: string; description: string; videoUrl?: string }>;
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -79,7 +110,7 @@ function normalizeConversationPage(payload: unknown): PageResult<Conversation> {
   };
 }
 
-const realChatApi = {
+const realChatApi: ChatApi = {
   getConversations: (params?: ConversationListQuery) =>
     http
       .post<unknown, unknown>('/conversations/list', {
@@ -109,17 +140,18 @@ const realChatApi = {
   sendMessage(
     data: SendMessagePayload,
     onChunk: (text: string) => void,
-    onDone: (conversation: Conversation) => void,
+    onDone: (conversation: Conversation, meta: StreamAssistantMeta) => void,
     onError: (err: Error) => void,
   ) {
     const ctrl = new AbortController();
     const token = getAccessToken();
     let doneNotified = false;
 
+    let latestMeta: StreamAssistantMeta = {};
     const notifyDoneOnce = (conversation: Conversation) => {
       if (doneNotified) return;
       doneNotified = true;
-      onDone(conversation);
+      onDone(conversation, latestMeta);
     };
 
     fetch('/api/chat/stream', {
@@ -174,6 +206,12 @@ const realChatApi = {
                     (fallbackConversation.subjectId
                       ? `学科 ${fallbackConversation.subjectId}`
                       : fallbackConversation.subjectName);
+                  latestMeta = {
+                    videoUrl: parsed.videoUrl ?? latestMeta.videoUrl,
+                    videoRunId: parsed.videoRunId ?? latestMeta.videoRunId,
+                    artifactBundleUrl: parsed.artifactBundleUrl ?? latestMeta.artifactBundleUrl,
+                    artifactManifestUrl: parsed.artifactManifestUrl ?? latestMeta.artifactManifestUrl,
+                  };
                 }
                 if (parsed.type === 'reply' && typeof parsed.content === 'string') {
                   onChunk(parsed.content);
@@ -184,6 +222,12 @@ const realChatApi = {
                     (fallbackConversation.subjectId
                       ? `学科 ${fallbackConversation.subjectId}`
                       : fallbackConversation.subjectName);
+                  latestMeta = {
+                    videoUrl: parsed.videoUrl ?? latestMeta.videoUrl,
+                    videoRunId: parsed.videoRunId ?? latestMeta.videoRunId,
+                    artifactBundleUrl: parsed.artifactBundleUrl ?? latestMeta.artifactBundleUrl,
+                    artifactManifestUrl: parsed.artifactManifestUrl ?? latestMeta.artifactManifestUrl,
+                  };
                   notifyDoneOnce(fallbackConversation);
                 }
                 if (parsed.type === 'done') {
@@ -209,9 +253,16 @@ const realChatApi = {
   uploadAttachment: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return http.post<{ url: string; name: string }, { url: string; name: string }>('/chat/upload', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return http
+      .post<UploadAttachmentPayload, UploadAttachmentPayload>('/chat/attachments', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((payload) => {
+        if (!payload.attachment) {
+          throw new Error('attachment upload response missing attachment');
+        }
+        return payload.attachment;
+      });
   },
 
   getVideoProgress: (taskId: string) =>
@@ -220,7 +271,7 @@ const realChatApi = {
     ),
 };
 
-export const chatApi = USE_MOCK ? mockChatApi : realChatApi;
+export const chatApi: ChatApi = USE_MOCK ? (mockChatApi as ChatApi) : realChatApi;
 
 function getAccessToken(): string {
   const raw = localStorage.getItem('tutor-auth');

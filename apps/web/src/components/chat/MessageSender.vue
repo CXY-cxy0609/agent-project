@@ -14,16 +14,17 @@
       class="chat-sender"
       @submit="(text: string) => $emit('send', text)"
       @cancel="$emit('cancel')"
+      @paste-file="handlePasteFile"
     >
       <template #prefix>
         <div class="sender-prefix-btns">
           <a-upload
             :show-upload-list="false"
             :before-upload="handleFileUpload"
-            accept=".pdf,.md,image/*"
+            accept="image/*"
             multiple
           >
-            <a-tooltip title="上传文件/图片">
+            <a-tooltip title="上传图片">
               <a-button size="small" type="text" :icon="h(PaperClipOutlined)" />
             </a-tooltip>
           </a-upload>
@@ -43,7 +44,7 @@
       <template #footer>
         <div class="sender-footer">
           <span class="sender-hint">
-            {{ generateVideo ? '将生成配套讲解视频' : 'Enter 发送，Shift+Enter 换行' }}
+            {{ generateVideo ? '将生成配套讲解视频' : '支持粘贴多张图片，Enter 发送，Shift+Enter 换行' }}
           </span>
         </div>
       </template>
@@ -91,6 +92,11 @@ const senderPlaceholder = computed(() =>
 
 function handleRemoveAttachment(file: { uid: string }) {
   emit('remove-attachment', file.uid);
+}
+
+function handlePasteFile(firstFile: File, files?: FileList) {
+  const pastedFiles = files && files.length > 0 ? Array.from(files) : [firstFile];
+  pastedFiles.forEach((file) => emit('file-upload', file));
 }
 
 const handleFileUpload: UploadProps['beforeUpload'] = (file) => {

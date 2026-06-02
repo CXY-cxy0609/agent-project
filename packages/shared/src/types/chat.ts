@@ -30,6 +30,11 @@ export interface MessageAttachment {
   url: string;
   type: 'image' | 'pdf' | 'file';
   size: number;
+  mimeType?: string;
+  storageKey?: string;
+  thumbnailUrl?: string;
+  hash?: string;
+  status?: 'uploading' | 'done' | 'error';
 }
 
 export interface MessageMetadata {
@@ -37,6 +42,9 @@ export interface MessageMetadata {
   tokens?: number;
   thoughtChain?: ThoughtStep[];
   videoUrl?: string;
+  videoRunId?: string;
+  artifactBundleUrl?: string;
+  artifactManifestUrl?: string;
   videoProgress?: VideoProgress;
 }
 

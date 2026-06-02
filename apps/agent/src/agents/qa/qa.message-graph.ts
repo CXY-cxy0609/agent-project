@@ -3,7 +3,7 @@ import { SchemaParser } from '../../harness/output/schema-parser.js';
 import type { LLMClient } from '../../harness/core/llm-client.js';
 import type { RagClient } from '../../harness/rag-client/rag-client.js';
 import type { ToolRegistry } from '../../harness/tool/tool.js';
-import type { Message } from '../../harness/core/types.js';
+import type { ContentBlock, Message } from '../../harness/core/types.js';
 import type { MessageGraphNodeContext } from '../../harness/runtime/message-graph.js';
 import { metrics, METRIC } from '../../harness/observer/metrics.js';
 import { QA_PERSONA, QA_TASK, QA_OUTPUT_SCHEMA } from './qa.prompts.js';
@@ -14,7 +14,7 @@ import type { ModelGovernanceConfig } from '../../harness/runtime/model-governan
 
 const schemaParser = new SchemaParser();
 
-interface OcrEventPayload {
+interface PrepareEventPayload {
   processedQuestion: string;
   retrievalMode: RetrievalMode;
   ragBudgetTokens?: number;
@@ -28,76 +28,43 @@ interface RagEventPayload {
 export function buildQAMessageGraphNodes(
   llm: LLMClient,
   ragClient: RagClient,
-  toolRegistry: ToolRegistry,
+  _toolRegistry: ToolRegistry,
   retrievalPolicyConfig: QARetrievalPolicyConfig,
   modelConfig: ModelGovernanceConfig['qa'],
   onGenerateToken?: (token: string) => void,
 ) {
-  async function ocrNode(ctx: MessageGraphNodeContext): Promise<void> {
+  async function prepareNode(ctx: MessageGraphNodeContext): Promise<void> {
     const state = ctx.getWorkflowState();
     const question = String(state.question ?? '');
-    const imageBase64 = typeof state.imageBase64 === 'string' ? state.imageBase64 : undefined;
-    const imageMediaType = typeof state.imageMediaType === 'string' ? state.imageMediaType : 'image/jpeg';
-
-    if (!imageBase64) {
-      const payload: OcrEventPayload = {
-        processedQuestion: question,
-        retrievalMode: 'text_only',
-      };
-      ctx.setNodeState(payload);
-      ctx.emitEvent('qa.ocr.completed', payload);
-      return;
-    }
-
-    const ocrTool = toolRegistry.get('image_ocr');
-    if (!ocrTool) {
-      const payload: OcrEventPayload = {
-        processedQuestion: question,
-        retrievalMode: 'text_only',
-      };
-      ctx.setNodeState(payload);
-      ctx.emitEvent('qa.ocr.completed', payload);
-      return;
-    }
-
-    const result = (await ocrTool.execute({
-      image_base64: imageBase64,
-      media_type: imageMediaType,
-    })) as { extracted_text: string; success: boolean };
-
-    const ocrText = result.success ? result.extracted_text : '';
-    const processedQuestion = ocrText
-      ? `${question}\n\n[图片内容识别]\n${ocrText}`
-      : question;
-    const retrievalPolicy = decideRetrievalPolicy(
-      question,
-      ocrText,
-      retrievalPolicyConfig,
-    );
-    const payload: OcrEventPayload = {
-      processedQuestion,
+    const images = normalizeStateImages(state);
+    const retrievalPolicy = decideRetrievalPolicy(question, '', retrievalPolicyConfig);
+    const payload: PrepareEventPayload = {
+      processedQuestion: question,
       retrievalMode: retrievalPolicy.mode,
       ragBudgetTokens: retrievalPolicy.budgetTokens,
       ragMaxUpgradePages: retrievalPolicy.maxUpgradePages,
     };
+    if (images.length > 0) {
+      payload.retrievalMode = 'text_only';
+    }
     ctx.setNodeState(payload);
-    ctx.emitEvent('qa.ocr.completed', payload);
+    ctx.emitEvent('qa.prepare.completed', payload);
   }
 
   async function ragNode(ctx: MessageGraphNodeContext): Promise<void> {
     const state = ctx.getWorkflowState();
-    const ocr = findLatestEvent<OcrEventPayload>(ctx, 'qa.ocr.completed');
-    const processedQuestion = ocr?.processedQuestion ?? String(state.question ?? '');
+    const prepare = findLatestEvent<PrepareEventPayload>(ctx, 'qa.prepare.completed');
+    const processedQuestion = prepare?.processedQuestion ?? String(state.question ?? '');
     const subjectId = String(state.subjectId ?? 'general');
-    const retrievalMode = ocr?.retrievalMode ?? 'text_only';
+    const retrievalMode = prepare?.retrievalMode ?? 'text_only';
     const startedAt = Date.now();
     try {
       const result = await ragClient.retrieve(processedQuestion, {
         subjectId,
         topK: 5,
         retrievalMode,
-        budgetTokens: ocr?.ragBudgetTokens,
-        maxUpgradePages: ocr?.ragMaxUpgradePages,
+        budgetTokens: prepare?.ragBudgetTokens,
+        maxUpgradePages: prepare?.ragMaxUpgradePages,
       });
       const payload: RagEventPayload = {
         ragContext: result.context || undefined,
@@ -117,9 +84,9 @@ export function buildQAMessageGraphNodes(
 
   async function generateNode(ctx: MessageGraphNodeContext): Promise<void> {
     const state = ctx.getWorkflowState();
-    const ocr = findLatestEvent<OcrEventPayload>(ctx, 'qa.ocr.completed');
+    const prepare = findLatestEvent<PrepareEventPayload>(ctx, 'qa.prepare.completed');
     const rag = findLatestEvent<RagEventPayload>(ctx, 'qa.rag.completed');
-    const question = ocr?.processedQuestion ?? String(state.question ?? '');
+    const question = prepare?.processedQuestion ?? String(state.question ?? '');
     const subject = String(state.subjectId ?? '通用');
     const history = Array.isArray(state.history) ? state.history as Message[] : [];
     const generateVideo = state.generateVideo === true;
@@ -136,11 +103,13 @@ export function buildQAMessageGraphNodes(
       { agentName: 'QAAgent' },
     );
 
+    const images = normalizeStateImages(state);
     const { messages, systemPrompt, cacheBreakpoint } = new PromptBuilder()
       .setPersona(QA_PERSONA, { subject })
       .setTask(QA_TASK, { question, ragContext, conversationContext })
       .setOutputFormat(QA_OUTPUT_SCHEMA)
       .build();
+    const multimodalMessages = appendImageUrlBlocks(messages, images);
 
     let responseContent = '';
     let emittedAnswerChars = 0;
@@ -148,7 +117,7 @@ export function buildQAMessageGraphNodes(
     let finalResponse: Awaited<ReturnType<LLMClient['call']>> | undefined;
     for await (const chunk of llm.stream({
       model: modelConfig.generate,
-      messages,
+      messages: multimodalMessages,
       systemPrompt,
       cacheBreakpoint,
       maxTokens: 3000,
@@ -207,10 +176,57 @@ export function buildQAMessageGraphNodes(
   }
 
   return {
-    ocrNode,
+    prepareNode,
     ragNode,
     generateNode,
   };
+}
+
+function normalizeStateImages(state: Record<string, unknown>): Array<{ url: string; mediaType?: string }> {
+  const images = Array.isArray(state.images)
+    ? state.images
+        .map((item) => {
+          if (!item || typeof item !== 'object') return undefined;
+          const source = item as { url?: unknown; mediaType?: unknown };
+          if (typeof source.url !== 'string' || source.url.trim() === '') return undefined;
+          return {
+            url: source.url,
+            mediaType: typeof source.mediaType === 'string' ? source.mediaType : undefined,
+          };
+        })
+        .filter((item): item is { url: string; mediaType: string | undefined } => Boolean(item))
+        .slice(0, 9)
+    : [];
+
+  return images;
+}
+
+function appendImageUrlBlocks(messages: Message[], images: Array<{ url: string }>): Message[] {
+  if (images.length === 0) return messages;
+  const lastUserIndex = findLastUserMessageIndex(messages);
+  if (lastUserIndex < 0) return messages;
+
+  return messages.map((message, index) => {
+    if (index !== lastUserIndex) return message;
+    const textBlocks: ContentBlock[] = typeof message.content === 'string'
+      ? [{ type: 'text', text: message.content }]
+      : message.content;
+    const imageBlocks: ContentBlock[] = images.map((image) => ({
+      type: 'image',
+      source: { type: 'url', url: image.url },
+    }));
+    return {
+      ...message,
+      content: [...imageBlocks, ...textBlocks],
+    };
+  });
+}
+
+function findLastUserMessageIndex(messages: Message[]): number {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === 'user') return i;
+  }
+  return -1;
 }
 
 function findLatestEvent<TPayload>(ctx: MessageGraphNodeContext, eventType: string): TPayload | undefined {

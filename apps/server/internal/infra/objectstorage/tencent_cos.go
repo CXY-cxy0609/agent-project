@@ -1,6 +1,7 @@
 package objectstorage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -44,6 +45,14 @@ func NewTencentCOSClient(cfg config.ObjectStorageConfig) (*TencentCOSClient, err
 }
 
 func (c *TencentCOSClient) PutText(ctx context.Context, input PutTextInput) (PutObjectResult, error) {
+	return c.PutBytes(ctx, PutBytesInput{
+		Key:         input.Key,
+		Data:        []byte(input.Content),
+		ContentType: input.ContentType,
+	})
+}
+
+func (c *TencentCOSClient) PutBytes(ctx context.Context, input PutBytesInput) (PutObjectResult, error) {
 	if c == nil || c.client == nil {
 		return PutObjectResult{}, fmt.Errorf("tencent cos client is not initialized")
 	}
@@ -53,15 +62,20 @@ func (c *TencentCOSClient) PutText(ctx context.Context, input PutTextInput) (Put
 	}
 	contentType := strings.TrimSpace(input.ContentType)
 	if contentType == "" {
-		contentType = "text/plain; charset=utf-8"
+		contentType = "application/octet-stream"
 	}
-	size := int64(len([]byte(input.Content)))
-	body := strings.NewReader(input.Content)
-	resp, err := c.client.Object.Put(ctx, key, body, &cos.ObjectPutOptions{
+	size := int64(len(input.Data))
+	body := bytes.NewReader(input.Data)
+	options := &cos.ObjectPutOptions{
 		ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{
 			ContentType: contentType,
 		},
-	})
+	}
+	if strings.HasPrefix(key, "videos/") {
+		options.ACLHeaderOptions = &cos.ACLHeaderOptions{XCosACL: "public-read"}
+	}
+
+	resp, err := c.client.Object.Put(ctx, key, body, options)
 	if err != nil {
 		return PutObjectResult{}, err
 	}

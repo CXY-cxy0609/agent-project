@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { BaseAgent } from '../../harness/core/agent.js';
 import { PromptBuilder } from '../../harness/prompt/builder.js';
 import { SchemaParser } from '../../harness/output/schema-parser.js';
-import type { ContentBlock, ImageMediaType, ShortTermMemory, AgentContext } from '../../harness/core/types.js';
+import type { ContentBlock, ShortTermMemory, AgentContext } from '../../harness/core/types.js';
 import {
   ORCHESTRATOR_PERSONA,
   ORCHESTRATOR_TASK,
@@ -106,7 +106,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         reasoning: '前端显式开启生成视频开关',
       };
     }
-    if (hasVideoIntent(input.userMessage, Boolean(input.imageBase64))) {
+    if (hasVideoIntent(input.userMessage, getInputImages(input).length > 0)) {
       return {
         intent: 'video_request',
         subjectId: input.subjectId,
@@ -172,8 +172,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         );
         const qaInput: QAInput = {
           question: enrichedQuestion,
-          imageBase64: input.imageBase64,
-          imageMediaType: input.imageMediaType,
+          images: getInputImages(input),
           subjectId: intent.subjectId ?? input.subjectId ?? 'general',
           history: state.history,
           generateVideo: false,
@@ -254,13 +253,14 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
 
       default:
         return {
-          reply: '抱歉，我只能回答与考研备考相关的问题，包括数学、英语、政治等科目的知识点和题目解析。',
+          reply: '抱歉，我只能回答与学习相关的问题，包括数学、英语、政治等科目的知识点和题目解析。',
         };
     }
   }
 
   private async extractImageSemantic(input: OrchestratorInput): Promise<ImageSemanticOutput | undefined> {
-    if (!input.imageBase64 || !input.imageMediaType) return undefined;
+    const images = getInputImages(input);
+    if (images.length === 0) return undefined;
 
     const { messages, systemPrompt } = new PromptBuilder()
       .setPersona(ORCHESTRATOR_PERSONA, {})
@@ -273,14 +273,13 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     const userText = typeof messages[0]?.content === 'string' ? messages[0].content : '请解析图片语义';
     const multimodalContent: ContentBlock[] = [
       { type: 'text', text: userText },
-      {
+      ...images.map((image) => ({
         type: 'image',
         source: {
-          type: 'base64',
-          media_type: normalizeImageMediaType(input.imageMediaType),
-          data: input.imageBase64,
+          type: 'url',
+          url: image.url,
         },
-      },
+      }) satisfies ContentBlock),
     ];
 
     try {
@@ -443,16 +442,11 @@ function buildKnowledgeDescription(
   return sections.join('\n\n');
 }
 
-function normalizeImageMediaType(mediaType: string | undefined): ImageMediaType {
-  if (
-    mediaType === 'image/jpeg'
-    || mediaType === 'image/png'
-    || mediaType === 'image/gif'
-    || mediaType === 'image/webp'
-  ) {
-    return mediaType;
-  }
-  return 'image/png';
+function getInputImages(input: OrchestratorInput): Array<{ url: string; mediaType?: string }> {
+  const images = (input.images ?? [])
+    .filter((item) => item.url)
+    .slice(0, 9);
+  return images;
 }
 
 function hasVideoIntent(userMessage: string, hasImage: boolean): boolean {

@@ -1,6 +1,6 @@
 /**
  * QA Agent — 核心业务 Agent（节点消息驱动 + 状态分区）
- * 流程：OCR（可选）→ RAG 检索 → LLM 生成
+ * 流程：Prepare → RAG 检索 → LLM 生成
  */
 
 import { BaseAgent } from '../../harness/core/agent.js';
@@ -18,7 +18,6 @@ import type { QAInput, QAOutput } from './qa.types.js';
 import type { QARetrievalPolicyConfig } from './retrieval-policy.js';
 import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 
-const QA_OCR_EVENT = 'qa.ocr.completed';
 const QA_RAG_EVENT = 'qa.rag.completed';
 const QA_GENERATE_EVENT = 'qa.generate.completed';
 
@@ -51,16 +50,15 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
     );
     const graph = new MessageDrivenGraph({
       question: input.question,
-      imageBase64: input.imageBase64,
-      imageMediaType: input.imageMediaType,
+      images: input.images,
       subjectId: input.subjectId,
       history: input.history,
       generateVideo: input.generateVideo ?? false,
     })
-      .addNode('ocr', nodes.ocrNode)
+      .addNode('prepare', nodes.prepareNode)
       .addNode('rag', nodes.ragNode)
       .addNode('generate', nodes.generateNode)
-      .addEdge('ocr', 'rag')
+      .addEdge('prepare', 'rag')
       .addEdge('rag', 'generate')
       .addEdge('generate', '__end__');
 

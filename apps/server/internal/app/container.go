@@ -30,9 +30,6 @@ func Build(cfg config.Config) (*Container, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init database failed: %w", err)
 	}
-	if err := ensureRuntimeSchema(dbStore); err != nil {
-		return nil, fmt.Errorf("ensure runtime schema failed: %w", err)
-	}
 
 	redisStore := cache.New(cfg.Infra)
 	if redisStore == nil {

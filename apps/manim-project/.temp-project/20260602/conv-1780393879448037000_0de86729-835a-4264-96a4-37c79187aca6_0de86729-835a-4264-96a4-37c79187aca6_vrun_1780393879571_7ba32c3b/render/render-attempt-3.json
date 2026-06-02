@@ -1,0 +1,6 @@
+{
+  "attempt": 3,
+  "success": false,
+  "lastError": "│   │   title_before = Text(\"通电前：水分子无序运动\", font_size=28)    │\n│ ❱ 137 │   │   title_before.to_corner(UL)                                     │\n│   138 │   │                                                                  │\n│   139 │   │   # 飞入动画                                                     │\n│   140 │   │   fly_anims = [FadeIn(mol) for mol in water_molecules]           │\n╰──────────────────────────────────────────────────────────────────────────────╯\nNameError: name 'UL' is not defined",
+  "createdAt": "2026-06-02T10:04:17.370Z"
+}

@@ -4,10 +4,6 @@ import type { LLMClient } from '../../harness/core/llm-client.js';
 import type { ContentVectorCache } from '../../harness/core/types.js';
 import type { ToolRegistry } from '../../harness/tool/tool.js';
 import type { MessageGraphNodeContext, MessageEnvelope, MessageGraphRouteFn } from '../../harness/runtime/message-graph.js';
-import { runReasoningLoop } from '../../harness/reasoning/loop.js';
-import { validateManimScript } from '../../harness/video/script-validator.js';
-import { classifyManimError } from '../../harness/video/error-classifier.js';
-import { applyRulePatch, chooseFixStrategy } from '../../harness/video/fix-policy.js';
 import {
   createRunBundleArchive,
   finalizeRunManifest,
@@ -26,7 +22,9 @@ import type { ManimRunnerResult } from '../../tools/manim-runner.tool.js';
 import type { ModelGovernanceConfig } from '../../harness/runtime/model-governance.js';
 
 const schemaParser = new SchemaParser();
-const MAX_MANIM_RETRIES = 3;
+const MAX_MANIM_RETRIES = 4;
+const STORYBOARD_MAX_TOKENS = 16000;
+const MANIM_SCRIPT_MAX_TOKENS = 128000;
 
 interface CacheEvent {
   cacheHit: boolean;
@@ -35,13 +33,13 @@ interface CacheEvent {
 
 interface ScriptEvent {
   manimScript: string;
+  scriptPath?: string;
   scriptVersion: number;
 }
 
 interface RenderEvent {
   renderedVideoPath?: string;
   lastError?: string;
-  errorType?: 'syntax' | 'import' | 'name' | 'attribute' | 'latex' | 'timeout' | 'runtime' | 'unknown';
 }
 
 interface RunArtifactState {
@@ -112,7 +110,7 @@ export function buildVideoMessageGraphNodes(
       model: modelConfig.generateStoryboard,
       messages,
       systemPrompt,
-      maxTokens: 2000,
+      maxTokens: STORYBOARD_MAX_TOKENS,
     });
     const raw = schemaParser.parse<StoryboardRaw>(response.content, STORYBOARD_OUTPUT_SCHEMA);
     const storyboard: StoryboardScene[] = (raw.scenes as unknown[]).map((scene, index) => {
@@ -153,47 +151,35 @@ export function buildVideoMessageGraphNodes(
       throw new Error('StoryboardMissing');
     }
     const storyboardJson = JSON.stringify(storyboard, null, 2);
-    const loop = await runReasoningLoop<string>({
-      maxAttempts: 2,
-      run: async ({ feedback }) => {
-        const { messages, systemPrompt } = new PromptBuilder()
-          .setPersona(VIDEO_PERSONA, {})
-          .setTask(MANIM_SCRIPT_TASK, {
-            storyboard: feedback ? `${storyboardJson}\n\n反馈：${feedback}` : storyboardJson,
-          })
-          .build();
-        const response = await llm.call({
-          model: modelConfig.generateScript,
-          messages,
-          systemPrompt,
-          maxTokens: 4000,
-        });
-        const codeMatch = response.content.match(/```python\s*([\s\S]*?)```/);
-        const script = (codeMatch ? codeMatch[1].trim() : response.content).trim();
-        if (!script) throw new Error('ScriptParseFailed');
-        return script;
-      },
-      verify: async (script) => validateManimScript(script),
+    const artifactState = readRunArtifactState(ctx);
+    const { messages, systemPrompt } = new PromptBuilder()
+      .setPersona(VIDEO_PERSONA, {})
+      .setTask(MANIM_SCRIPT_TASK, { storyboard: storyboardJson })
+      .build();
+    const response = await llm.call({
+      model: modelConfig.generateScript,
+      messages,
+      systemPrompt,
+      maxTokens: MANIM_SCRIPT_MAX_TOKENS,
     });
-    if (!loop.success || !loop.result) {
-      throw new Error(loop.failureReason ?? 'GenerateScriptFailed');
-    }
     const currentVersion = Number(ctx.getWorkflowState().scriptVersion ?? 0) + 1;
+    const script = extractPythonScript(response.content);
+    if (!script) throw new Error('ScriptParseFailed');
+    const scriptPath = `scripts/script-v${currentVersion}.py`;
     ctx.patchWorkflowState({ scriptVersion: currentVersion });
     const payload: ScriptEvent = {
-      manimScript: loop.result,
+      manimScript: script,
+      scriptPath: artifactState.artifactRunDir ? `${artifactState.artifactRunDir}/${scriptPath}` : undefined,
       scriptVersion: currentVersion,
     };
-    const artifactState = readRunArtifactState(ctx);
-    await writeRunTextIfEnabled(artifactState, `scripts/script-v${currentVersion}.py`, `${loop.result}\n`);
+    await writeRunTextIfEnabled(artifactState, `scripts/script-v${currentVersion}.raw.md`, response.content);
+    await writeRunTextIfEnabled(artifactState, scriptPath, `${script}\n`);
     await writeRunJsonIfEnabled(artifactState, `scripts/script-v${currentVersion}.meta.json`, {
       source: 'generate',
-      attemptCount: loop.attempts.length,
       generatedAt: new Date().toISOString(),
-      verificationErrors:
-        loop.attempts[loop.attempts.length - 1]?.verificationErrors ?? [],
     });
-    ctx.setArtifact('video.script', loop.result);
+    ctx.setArtifact('video.script', script);
+    if (payload.scriptPath) ctx.setArtifact('video.script_path', payload.scriptPath);
     ctx.setNodeState({ scriptVersion: currentVersion });
     ctx.emitEvent('video.script.completed', payload);
   }
@@ -202,7 +188,8 @@ export function buildVideoMessageGraphNodes(
     const artifactState = readRunArtifactState(ctx);
     const attempt = ctx.readEvents('video.render.completed').length + 1;
     const script = resolveCurrentScript(ctx.readEvents());
-    if (!script) {
+    const scriptPath = resolveCurrentScriptPath(ctx.readEvents());
+    if (!script && !scriptPath) {
       throw new Error('ScriptMissing');
     }
     const tool = toolRegistry.get('manim_runner');
@@ -211,6 +198,7 @@ export function buildVideoMessageGraphNodes(
     }
     const result = (await tool.execute({
       script,
+      script_path: scriptPath,
       output_name: `video_${Date.now()}`,
     })) as ManimRunnerResult;
     if (result.success && result.video_path) {
@@ -226,18 +214,15 @@ export function buildVideoMessageGraphNodes(
       ctx.emitEvent('video.render.completed', payload);
       return;
     }
-    const lastError = result.error_message ?? result.stderr ?? 'UnknownRenderError';
-    const classified = classifyManimError(lastError);
+    const lastError = tailRenderError(result.error_message ?? result.stderr ?? 'UnknownRenderError');
     const retryCount = Number(ctx.getWorkflowState().retryCount ?? 0) + 1;
-    ctx.patchWorkflowState({ retryCount, lastError, errorType: classified.type });
+    ctx.patchWorkflowState({ retryCount, lastError });
     const payload: RenderEvent = {
       lastError,
-      errorType: classified.type,
     };
     await writeRunJsonIfEnabled(artifactState, `render/render-attempt-${attempt}.json`, {
       attempt,
       success: false,
-      errorType: classified.type,
       lastError,
       createdAt: new Date().toISOString(),
     });
@@ -252,75 +237,39 @@ export function buildVideoMessageGraphNodes(
       throw new Error('FixInputMissing');
     }
     const retryCount = Number(ctx.getWorkflowState().retryCount ?? 0);
-    const errorType = render.errorType ?? 'unknown';
-    const strategy = chooseFixStrategy(errorType, retryCount);
-
-    if (strategy === 'rule') {
-      const patched = applyRulePatch(script, errorType, render.lastError);
-      if (patched.applied) {
-        const validationErrors = validateManimScript(patched.script);
-        if (!validationErrors.length) {
-          const nextVersion = Number(ctx.getWorkflowState().scriptVersion ?? 0) + 1;
-          const artifactState = readRunArtifactState(ctx);
-          ctx.patchWorkflowState({ scriptVersion: nextVersion });
-          const payload: ScriptEvent = {
-            manimScript: patched.script,
-            scriptVersion: nextVersion,
-          };
-          await writeRunTextIfEnabled(artifactState, `scripts/script-v${nextVersion}.py`, `${patched.script}\n`);
-          await writeRunJsonIfEnabled(artifactState, `scripts/script-v${nextVersion}.meta.json`, {
-            source: 'fix_rule',
-            strategy,
-            reason: patched.reason,
-            generatedAt: new Date().toISOString(),
-          });
-          ctx.setArtifact('video.script', patched.script);
-          ctx.emitEvent('video.fix.completed', payload);
-          return;
-        }
-      }
-    }
-
-    const loop = await runReasoningLoop<string>({
-      maxAttempts: strategy === 'full_rewrite' ? 2 : 1,
-      run: async () => {
-        const { messages, systemPrompt } = new PromptBuilder()
-          .setPersona(VIDEO_PERSONA, {})
-          .setTask(MANIM_FIX_TASK, {
-            script,
-            error: render.lastError ?? '',
-          })
-          .build();
-        const response = await llm.call({
-          model: modelConfig.fixScript,
-          messages,
-          systemPrompt,
-          maxTokens: 4000,
-        });
-        const codeMatch = response.content.match(/```python\s*([\s\S]*?)```/);
-        return (codeMatch ? codeMatch[1].trim() : response.content).trim();
-      },
-      verify: async (candidate) => validateManimScript(candidate),
-    });
-
-    if (!loop.success || !loop.result) {
-      throw new Error(loop.failureReason ?? 'FixScriptFailed');
-    }
-    const nextVersion = Number(ctx.getWorkflowState().scriptVersion ?? 0) + 1;
     const artifactState = readRunArtifactState(ctx);
+    const { messages, systemPrompt } = new PromptBuilder()
+      .setPersona(VIDEO_PERSONA, {})
+      .setTask(MANIM_FIX_TASK, {
+        script,
+        error: tailRenderError(render.lastError),
+      })
+      .build();
+    const response = await llm.call({
+      model: modelConfig.fixScript,
+      messages,
+      systemPrompt,
+      maxTokens: MANIM_SCRIPT_MAX_TOKENS,
+    });
+    const candidate = extractPythonScript(response.content);
+    if (!candidate) throw new Error('FixScriptParseFailed');
+    const nextVersion = Number(ctx.getWorkflowState().scriptVersion ?? 0) + 1;
+    const scriptPath = `scripts/script-v${nextVersion}.py`;
     ctx.patchWorkflowState({ scriptVersion: nextVersion });
     const payload: ScriptEvent = {
-      manimScript: loop.result,
+      manimScript: candidate,
+      scriptPath: artifactState.artifactRunDir ? `${artifactState.artifactRunDir}/${scriptPath}` : undefined,
       scriptVersion: nextVersion,
     };
-    await writeRunTextIfEnabled(artifactState, `scripts/script-v${nextVersion}.py`, `${loop.result}\n`);
+    await writeRunTextIfEnabled(artifactState, `scripts/script-v${nextVersion}.raw.md`, response.content);
+    await writeRunTextIfEnabled(artifactState, scriptPath, `${candidate}\n`);
     await writeRunJsonIfEnabled(artifactState, `scripts/script-v${nextVersion}.meta.json`, {
       source: 'fix_llm',
-      strategy,
-      attemptCount: loop.attempts.length,
+      retryCount,
       generatedAt: new Date().toISOString(),
     });
-    ctx.setArtifact('video.script', loop.result);
+    ctx.setArtifact('video.script', candidate);
+    if (payload.scriptPath) ctx.setArtifact('video.script_path', payload.scriptPath);
     ctx.emitEvent('video.fix.completed', payload);
   }
 
@@ -461,8 +410,9 @@ async function writeRunJsonIfEnabled(
   if (!state.artifactRunDir) return;
   try {
     await writeRunJson(state.artifactRunDir, relativePath, payload);
-  } catch {
+  } catch (err) {
     // 产物写入失败不阻断主流程
+    console.warn(`[VIDEO_RUN] failed_to_write_json path=${state.artifactRunDir}/${relativePath}`, err);
   }
 }
 
@@ -474,8 +424,9 @@ async function writeRunTextIfEnabled(
   if (!state.artifactRunDir) return;
   try {
     await writeRunText(state.artifactRunDir, relativePath, content);
-  } catch {
+  } catch (err) {
     // 产物写入失败不阻断主流程
+    console.warn(`[VIDEO_RUN] failed_to_write_text path=${state.artifactRunDir}/${relativePath}`, err);
   }
 }
 
@@ -495,4 +446,27 @@ function resolveCurrentScript(events: readonly MessageEnvelope[]): string | unde
     }
   }
   return undefined;
+}
+
+function resolveCurrentScriptPath(events: readonly MessageEnvelope[]): string | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i];
+    if (event.event_type === 'video.fix.completed' || event.event_type === 'video.script.completed') {
+      const payload = event.payload as { scriptPath?: string };
+      if (typeof payload.scriptPath === 'string' && payload.scriptPath.length > 0) {
+        return payload.scriptPath;
+      }
+    }
+  }
+  return undefined;
+}
+
+function extractPythonScript(content: string): string {
+  const codeMatch = content.match(/```python\s*([\s\S]*?)```/) ?? content.match(/```\s*([\s\S]*?)```/);
+  return (codeMatch ? codeMatch[1] : content).trim();
+}
+
+function tailRenderError(error: string): string {
+  const normalized = error.trim();
+  return normalized.length <= 500 ? normalized : normalized.slice(normalized.length - 500);
 }

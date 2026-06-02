@@ -51,8 +51,7 @@ export interface AppConfig {
   ragServiceUrl: string;
   serverUrl: string;
   internalToken: string;
-  manimServiceUrl?: string;
-  storageServiceUrl?: string;
+  manimProjectDir?: string;
   redisUrl?: string;
   qaRetrievalPolicy?: Partial<QARetrievalPolicyConfig>;
   graphGovernance: GraphGovernanceConfig;
@@ -62,6 +61,18 @@ export interface AppConfig {
 export interface AppContainer {
   orchestratorAgent: OrchestratorAgent;
   knowledgeBaseAgent: KnowledgeBaseAgent;
+}
+
+function createRedisClient(redisUrl: string): Redis {
+  const client = new Redis(redisUrl, {
+    connectTimeout: 5000,
+    maxRetriesPerRequest: 1,
+    retryStrategy: (times) => Math.min(times * 200, 2000),
+  });
+  client.on('error', (err) => {
+    console.warn(`[container] Redis 连接异常：${err.message}`);
+  });
+  return client;
 }
 
 export function createContainer(config: AppConfig): AppContainer {
@@ -77,7 +88,7 @@ export function createContainer(config: AppConfig): AppContainer {
   const memory = (() => {
     if (config.redisUrl) {
       try {
-        redis = new Redis(config.redisUrl);
+        redis = createRedisClient(config.redisUrl);
         return new RedisShortTermMemory(redis);
       } catch {
         console.warn('[container] Redis 不可用，降级为内存短期记忆');
@@ -102,13 +113,8 @@ export function createContainer(config: AppConfig): AppContainer {
   toolRegistry.register(createImageOcrTool(llm, config.modelGovernance.tools.imageOcr));
   toolRegistry.register(createFileParserTool(config.ragServiceUrl));
 
-  if (config.manimServiceUrl) {
-    toolRegistry.register(createManimRunnerTool(config.manimServiceUrl));
-  }
-
-  if (config.storageServiceUrl) {
-    toolRegistry.register(createStorageUploadTool(config.storageServiceUrl));
-  }
+  toolRegistry.register(createManimRunnerTool(config.manimProjectDir));
+  toolRegistry.register(createStorageUploadTool(config.serverUrl, config.internalToken));
 
   // ─── Agent 实例 ────────────────────────────────────────────────────
   const videoAgent = new VideoAgent(
@@ -208,11 +214,12 @@ export function loadConfig(): AppConfig {
     ragServiceUrl: process.env.RAG_SERVICE_URL ?? 'http://localhost:8000',
     serverUrl: process.env.SERVER_URL ?? 'http://localhost:3000',
     internalToken: process.env.INTERNAL_TOKEN ?? '',
-    manimServiceUrl: process.env.MANIM_SERVICE_URL,
-    storageServiceUrl: process.env.STORAGE_SERVICE_URL,
+    manimProjectDir: process.env.MANIM_PROJECT_DIR,
     redisUrl: process.env.REDIS_URL,
     qaRetrievalPolicy: {
-      minOcrLengthForTextOnly: Number(process.env.QA_MIN_OCR_LENGTH_FOR_TEXT_ONLY ?? 120),
+      minSupplementalTextLengthForTextOnly: Number(
+        process.env.QA_MIN_SUPPLEMENTAL_TEXT_LENGTH_FOR_TEXT_ONLY ?? 120,
+      ),
       hybridBudgetTokens: Number(process.env.QA_HYBRID_BUDGET_TOKENS ?? 3000),
       hybridMaxUpgradePages: Number(process.env.QA_HYBRID_MAX_UPGRADE_PAGES ?? 3),
     },

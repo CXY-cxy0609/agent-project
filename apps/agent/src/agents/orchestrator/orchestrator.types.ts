@@ -4,9 +4,8 @@ export type IntentType = 'qa' | 'video_request' | 'knowledge_query' | 'learning_
 
 export interface OrchestratorInput {
   userMessage: string;
-  /** 多模态附件（图片 base64） */
-  imageBase64?: string;
-  imageMediaType?: string;
+  /** 多模态附件（图片 URL），最多 9 张 */
+  images?: Array<{ url: string; mediaType?: string }>;
   /** 前端显式请求生成视频 */
   generateVideo?: boolean;
   subjectId?: string;

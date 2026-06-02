@@ -8,7 +8,7 @@ requiredVars:
 
 根据以下分镜脚本，生成完整可运行的 Manim Python 代码：
 
-1. 使用 Manim Community Edition（manim v0.18+）语法
+1. 使用 Manim Community Edition（manim v0.20+）语法
 2. 所有场景封装在一个 Scene 类中
 3. 代码完整，可直接运行，包含必要的 import 语句
 4. 仅返回python代码，不包含其他内容
@@ -24,7 +24,8 @@ requiredVars:
 - `animationNotes`：动画执行说明（含时序与运动细节）
 - `narration`：该场景完整旁白
 - `subtitles`：字幕行数组（每项为单行字幕）
-- `durationSeconds`：该场景预计时长（秒）
+
+不要依赖或生成 `durationSeconds`、`duration_seconds`、`total_duration_seconds` 等固定时长字段。动画和 `wait` 时长应按画面内容与旁白自然安排，禁止为了填满预设时长插入大段空白等待。
 
 ## BaseScene 使用规范（必须遵守）
 

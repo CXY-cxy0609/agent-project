@@ -36,14 +36,22 @@
               :class="item.role"
             >
               <div class="bubble" :class="{ user: item.role === 'user', assistant: item.role === 'assistant' }">
-                <markdown-message
+                <assistant-message-content
                   v-if="item.role === 'assistant'"
                   :content="item.content || (item.loading ? '思考中...' : '')"
                   :show-copy="!item.loading"
+                  :video-url="item.videoUrl"
+                  :video-run-id="item.videoRunId"
+                  :artifact-bundle-url="item.artifactBundleUrl"
+                  :artifact-manifest-url="item.artifactManifestUrl"
                 />
-                <div v-else class="plain-text">
+                <div v-if="item.role !== 'assistant' && item.content" class="plain-text">
                   {{ item.content }}
                 </div>
+                <message-attachments
+                  v-if="item.role !== 'assistant'"
+                  :attachments="item.attachments"
+                />
               </div>
             </div>
           </div>
@@ -88,7 +96,7 @@ import { ThoughtChain as XThoughtChain } from 'ant-design-x-vue';
 import { useChatStore } from '@/stores/chat';
 import { useSubjectStore } from '@/stores/subject';
 import { useAuthStore } from '@/stores/auth';
-import { chatApi } from '@/api/chat';
+import { chatApi, type StreamAssistantMeta } from '@/api/chat';
 import { subjectsApi } from '@/api/subjects';
 import ConversationSidebar from '@/components/chat/ConversationSidebar.vue';
 import ChatHeader from '@/components/chat/ChatHeader.vue';
@@ -96,8 +104,9 @@ import ChatWelcome from '@/components/chat/ChatWelcome.vue';
 import VideoProgressBar from '@/components/chat/VideoProgressBar.vue';
 import LearningPanel from '@/components/chat/LearningPanel.vue';
 import MessageSender from '@/components/chat/MessageSender.vue';
-import MarkdownMessage from '@/components/chat/MarkdownMessage.vue';
-import type { Conversation, Message } from '@tutor/shared';
+import MessageAttachments from '@/components/chat/MessageAttachments.vue';
+import AssistantMessageContent from '@/components/chat/AssistantMessageContent.vue';
+import type { Conversation, Message, MessageAttachment } from '@tutor/shared';
 import { normalizeAssistantStreamContent } from '@/utils/chat-stream';
 
 const chatStore = useChatStore();
@@ -106,10 +115,13 @@ const authStore = useAuthStore();
 
 const inputValue = ref('');
 const generateVideo = ref(false);
-const attachments = ref<Array<{ uid: string; name: string; url: string; type: string }>>([]);
+type LocalAttachment = { uid: string; name: string; url: string; type: string; rawFile: File };
+const attachments = ref<LocalAttachment[]>([]);
+const maxImageAttachments = 9;
 const messagesContainer = ref<HTMLElement | null>(null);
 const rightPanelCollapsed = ref(false);
 const videoProgress = ref<{ percent: number; status: string; description: string } | null>(null);
+let attachmentUidSeed = 0;
 
 const mockWeakPoints = [
   { text: '极限与连续', color: 'error' },
@@ -142,6 +154,11 @@ const bubbleItems = computed(() =>
     content: m.content,
     loading: m.status === 'streaming' && !m.content,
     typing: m.status === 'streaming' && !!m.content,
+    attachments: m.attachments ?? [],
+    videoUrl: m.metadata?.videoUrl,
+    videoRunId: m.metadata?.videoRunId,
+    artifactBundleUrl: m.metadata?.artifactBundleUrl,
+    artifactManifestUrl: m.metadata?.artifactManifestUrl,
   })),
 );
 
@@ -202,7 +219,7 @@ async function startNewChat() {
   chatStore.setMessages([]);
   inputValue.value = '';
   generateVideo.value = false;
-  attachments.value = [];
+  clearAttachments();
   videoProgress.value = null;
 }
 
@@ -214,7 +231,26 @@ function sendQuickPrompt(prompt: string) {
 let cancelStream: (() => void) | null = null;
 
 async function handleSend(text: string) {
-  if (!text.trim() || chatStore.isStreaming) return;
+  const pendingAttachments = [...attachments.value];
+  if ((!text.trim() && pendingAttachments.length === 0) || chatStore.isStreaming) return;
+
+  const shouldGenerateVideo = generateVideo.value;
+  let messageAttachments: MessageAttachment[] = [];
+  try {
+    messageAttachments = await uploadMessageAttachments(pendingAttachments);
+  } catch {
+    message.error('附件上传失败，请稍后重试');
+    return;
+  }
+  const streamImages = messageAttachments
+    .filter((item) => item.type === 'image')
+    .slice(0, maxImageAttachments)
+    .map((item) => ({
+      url: item.url,
+      mediaType: item.mimeType,
+    }));
+  const streamContent = text.trim() || (streamImages.length > 0 ? '请分析这些图片。' : '我发送了附件，请查看。');
+  const titleSource = text.trim() || pendingAttachments[0]?.name || '新对话';
 
   const existingConversationId = chatStore.activeConversationId;
   let conversationId = existingConversationId ?? '';
@@ -223,7 +259,7 @@ async function handleSend(text: string) {
   if (!existingConversationId) {
     try {
       const createdConversation = await chatApi.createConversation({
-        title: text.slice(0, 24) || '新对话',
+        title: titleSource.slice(0, 24) || '新对话',
         subjectId: inferredSubjectId || undefined,
         userId: authStore.user?.id ?? 'anonymous',
       });
@@ -241,6 +277,7 @@ async function handleSend(text: string) {
 
   inputValue.value = '';
   generateVideo.value = false;
+  clearAttachments();
   const userMsg: Message = {
     id: Date.now().toString(),
     conversationId,
@@ -248,7 +285,7 @@ async function handleSend(text: string) {
     content: text,
     status: 'done',
     createdAt: new Date().toISOString(),
-    attachments: [],
+    attachments: messageAttachments,
   };
   chatStore.appendMessage(userMsg);
 
@@ -270,9 +307,10 @@ async function handleSend(text: string) {
     {
       conversationId: conversationId || undefined,
       subjectId: inferredSubjectId || undefined,
-      content: text,
-      generateVideo: generateVideo.value,
+      content: streamContent,
+      generateVideo: shouldGenerateVideo,
       userId: authStore.user?.id ?? 'anonymous',
+      images: streamImages,
       availableSubjects: subjectStore.subjects.map((subject) => ({
         id: subject.id,
         name: subject.name,
@@ -284,9 +322,17 @@ async function handleSend(text: string) {
       chatStore.updateLastAssistantMessage(normalizeAssistantStreamContent(accumulatedRaw), false);
       scrollToBottom();
     },
-    (conv) => {
+    (conv, meta: StreamAssistantMeta) => {
       const normalizedAssistant = normalizeAssistantStreamContent(accumulatedRaw);
       chatStore.updateLastAssistantMessage(normalizedAssistant, true);
+      if (meta.videoUrl || meta.videoRunId || meta.artifactBundleUrl || meta.artifactManifestUrl) {
+        chatStore.updateLastAssistantMetadata({
+          videoUrl: meta.videoUrl,
+          videoRunId: meta.videoRunId,
+          artifactBundleUrl: meta.artifactBundleUrl,
+          artifactManifestUrl: meta.artifactManifestUrl,
+        });
+      }
       chatStore.setStreaming(false);
       const finalConversationId = conv.id || conversationId;
       if (finalConversationId) {
@@ -320,12 +366,19 @@ async function handleSend(text: string) {
           role: 'user',
           content: text,
           status: 'done',
+          attachments: messageAttachments,
         }).catch(() => {});
         chatApi.appendMessage(finalConversationId, {
           id: assistantMsg.id,
           role: 'assistant',
           content: normalizedAssistant,
           status: 'done',
+          metadata: {
+            videoUrl: meta.videoUrl,
+            videoRunId: meta.videoRunId,
+            artifactBundleUrl: meta.artifactBundleUrl,
+            artifactManifestUrl: meta.artifactManifestUrl,
+          },
         }).catch(() => {});
       }
     },
@@ -365,16 +418,39 @@ async function deleteConversation() {
 }
 
 function handleFileUpload(file: File) {
+  if (!file.type.startsWith('image/')) {
+    message.warning('当前对话页暂只支持上传图片');
+    return;
+  }
+  if (attachments.value.length >= maxImageAttachments) {
+    message.warning(`最多支持上传 ${maxImageAttachments} 张图片`);
+    return;
+  }
   attachments.value.push({
-    uid: Date.now().toString(),
-    name: file.name,
+    uid: `attachment-${Date.now()}-${attachmentUidSeed++}`,
+    name: file.name || `pasted-${attachmentUidSeed}`,
     url: URL.createObjectURL(file),
     type: file.type.startsWith('image/') ? 'image' : 'file',
+    rawFile: file,
   });
 }
 
+async function uploadMessageAttachments(items: LocalAttachment[]): Promise<MessageAttachment[]> {
+  if (!items.length) return [];
+  return Promise.all(items.map((item) => chatApi.uploadAttachment(item.rawFile)));
+}
+
 function removeAttachment(uid: string) {
+  const target = attachments.value.find((a) => a.uid === uid);
+  if (target) {
+    URL.revokeObjectURL(target.url);
+  }
   attachments.value = attachments.value.filter((a) => a.uid !== uid);
+}
+
+function clearAttachments() {
+  attachments.value.forEach((item) => URL.revokeObjectURL(item.url));
+  attachments.value = [];
 }
 
 function scrollToBottom() {
@@ -393,76 +469,4 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped lang="less">
-.chat-page {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
-
-.chat-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: @color-bg;
-  position: relative;
-}
-
-.messages-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px 20px;
-}
-
-.bubble-list {
-  max-width: 800px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.bubble-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.bubble-row.user {
-  justify-content: flex-end;
-}
-
-.bubble {
-  max-width: min(88%, 680px);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: #fff;
-  border: 1px solid @color-border;
-}
-
-.bubble.user {
-  background: #f0f5ff;
-}
-
-.bubble.assistant {
-  max-width: min(100%, 780px);
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-
-.plain-text {
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.65;
-}
-
-.thought-chain-wrap {
-  flex-shrink: 0;
-  padding: 0 20px;
-  border-top: 1px solid @color-border;
-  background: #fff;
-}
-</style>
+<style lang="less" src="@/assets/styles/chat-page.less"></style>

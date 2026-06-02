@@ -1,4 +1,5 @@
-import type { Conversation, Message, ConversationListQuery, PageResult } from '@tutor/shared';
+import type { Conversation, Message, ConversationListQuery, MessageAttachment, MessageMetadata, PageResult } from '@tutor/shared';
+import type { StreamAssistantMeta } from '@/api/chat';
 import { MOCK_CONVERSATIONS, MOCK_MESSAGES, MOCK_STREAM_RESPONSE } from '../data';
 
 const delay = (ms = 400) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -64,7 +65,14 @@ export const mockChatApi = {
 
   async appendMessage(
     conversationId: string,
-    data: { id?: string; role: 'user' | 'assistant' | 'system'; content: string; status?: 'pending' | 'streaming' | 'done' | 'error' },
+    data: {
+      id?: string;
+      role: 'user' | 'assistant' | 'system';
+      content: string;
+      status?: 'pending' | 'streaming' | 'done' | 'error';
+      metadata?: MessageMetadata;
+      attachments?: MessageAttachment[];
+    },
   ): Promise<void> {
     await delay(100);
     if (!_messages[conversationId]) {
@@ -77,6 +85,8 @@ export const mockChatApi = {
       content: data.content,
       status: data.status ?? 'done',
       createdAt: new Date().toISOString(),
+      metadata: data.metadata,
+      attachments: data.attachments,
     });
   },
 
@@ -91,7 +101,7 @@ export const mockChatApi = {
       availableSubjects?: Array<{ id: number; name: string; code?: number | string }>;
     },
     onChunk: (text: string) => void,
-    onDone: (conversation: Conversation) => void,
+    onDone: (conversation: Conversation, meta: StreamAssistantMeta) => void,
     onError: (err: Error) => void,
   ): () => void {
     let cancelled = false;
@@ -164,7 +174,7 @@ export const mockChatApi = {
         conv.messageCount += 2;
         conv.updatedAt = new Date().toISOString();
 
-        onDone({ ...conv });
+        onDone({ ...conv }, {});
       } catch (err) {
         if (!cancelled) onError(err as Error);
       }
@@ -173,9 +183,23 @@ export const mockChatApi = {
     return () => { cancelled = true; };
   },
 
-  async uploadAttachment(_file: File): Promise<{ url: string; name: string }> {
+  async uploadAttachment(_file: File): Promise<MessageAttachment> {
     await delay(800);
-    return { url: '/mock/files/upload-placeholder.pdf', name: _file.name };
+    const isImage = _file.type.startsWith('image/');
+    if (!isImage) {
+      throw new Error('当前对话页暂只支持上传图片');
+    }
+    const url = URL.createObjectURL(_file);
+    return {
+      id: `att-${Date.now()}`,
+      url,
+      thumbnailUrl: isImage ? url : undefined,
+      name: _file.name || 'attachment',
+      type: 'image',
+      size: _file.size,
+      mimeType: _file.type || 'application/octet-stream',
+      status: 'done',
+    };
   },
 
   async getVideoProgress(_taskId: string): Promise<{ percent: number; status: string; description: string; videoUrl?: string }> {

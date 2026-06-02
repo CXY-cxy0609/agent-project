@@ -1,0 +1,6 @@
+{
+  "attempt": 2,
+  "success": false,
+  "lastError": "│\n│ ❱  591 │   │   │   resolved_side = side.strip().lower()                      │\n│    592 │   │   if resolved_side == \"left\":                                   │\n│    593 │   │   │   return self.left_rect                                     │\n│    594 │   │   if resolved_side == \"right\":                                  │\n╰──────────────────────────────────────────────────────────────────────────────╯\nAttributeError: 'numpy.ndarray' object has no attribute 'strip'",
+  "createdAt": "2026-06-02T10:00:32.089Z"
+}

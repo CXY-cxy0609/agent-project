@@ -1,0 +1,71 @@
+.chat-page {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: @color-bg;
+  position: relative;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.bubble-list {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bubble-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.bubble-row.user {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: min(88%, 680px);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid @color-border;
+}
+
+.bubble.user {
+  background: #f0f5ff;
+}
+
+.bubble.assistant {
+  max-width: min(100%, 780px);
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.plain-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.65;
+}
+
+.thought-chain-wrap {
+  flex-shrink: 0;
+  padding: 0 20px;
+  border-top: 1px solid @color-border;
+  background: #fff;
+}

@@ -3,8 +3,7 @@ import type { RetrievalMode } from '../../harness/rag-client/rag-client.js';
 
 export interface QAInput {
   question: string;
-  imageBase64?: string;
-  imageMediaType?: string;
+  images?: Array<{ url: string; mediaType?: string }>;
   subjectId: string;
   history: Message[];
   generateVideo?: boolean;
@@ -21,16 +20,13 @@ export interface QAOutput {
 
 export interface QAState {
   question: string;
-  imageBase64?: string;
-  imageMediaType?: string;
+  images?: Array<{ url: string; mediaType?: string }>;
   subjectId: string;
   history: Message[];
   generateVideo: boolean;
-  /** OCR 提取的文字（如果有图片） */
-  ocrText?: string;
-  /** 最终使用的问题文本（含 OCR 结果） */
+  /** 最终使用的问题文本 */
   processedQuestion?: string;
-  /** 根据 OCR 与输入推断的检索模式 */
+  /** 根据输入推断的检索模式 */
   retrievalMode?: RetrievalMode;
   /** 动态预算约束 */
   ragBudgetTokens?: number;

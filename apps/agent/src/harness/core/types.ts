@@ -5,13 +5,11 @@
 
 // ─── Message Types ─────────────────────────────────────────────────────────
 
-export type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
-
 export type ContentBlock =
   | { type: 'text'; text: string }
   | {
       type: 'image';
-      source: { type: 'base64'; media_type: ImageMediaType; data: string };
+      source: { type: 'url'; url: string };
     };
 
 export interface Message {

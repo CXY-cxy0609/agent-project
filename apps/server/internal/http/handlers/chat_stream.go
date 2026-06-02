@@ -74,7 +74,7 @@ func ChatStream(agentServiceURL string) gin.HandlerFunc {
 			req.Header.Set("Authorization", authHeader)
 		}
 
-		client := &http.Client{Timeout: 10 * time.Minute}
+		client := &http.Client{Timeout: 20 * time.Minute}
 		resp, err := client.Do(req)
 		if err != nil {
 			close(heartbeatStop)
@@ -142,14 +142,18 @@ func ChatStream(agentServiceURL string) gin.HandlerFunc {
 				if hasDelta {
 					seq++
 					sendEvent(map[string]any{
-						"type":           "delta",
-						"streamId":       streamID,
-						"sequence":       seq,
-						"delta":          "",
-						"content":        "",
-						"conversationId": upstream["conversationId"],
-						"subjectId":      upstream["subjectId"],
-						"intent":         upstream["intent"],
+						"type":                "delta",
+						"streamId":            streamID,
+						"sequence":            seq,
+						"delta":               "",
+						"content":             "",
+						"conversationId":      upstream["conversationId"],
+						"subjectId":           upstream["subjectId"],
+						"intent":              upstream["intent"],
+						"videoUrl":            upstream["videoUrl"],
+						"videoRunId":          upstream["videoRunId"],
+						"artifactBundleUrl":   upstream["artifactBundleUrl"],
+						"artifactManifestUrl": upstream["artifactManifestUrl"],
 					})
 					continue
 				}

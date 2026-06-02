@@ -49,6 +49,7 @@ class BaseScene(Scene):
 
     default_font = "PingFang SC"
     default_color = WHITE
+    background_color = "#0B1020"
     # Global layout tuning; subclasses can override these class attributes.
     show_layout_guides = True
     subtitle_rect_down_shift = 0.08
@@ -65,6 +66,7 @@ class BaseScene(Scene):
 
     def setup(self) -> None:
         super().setup()
+        self.camera.background_color = getattr(self, "background_color", "#0B1020")
         self._init_regions()
         self._draw_layout_guides()
 

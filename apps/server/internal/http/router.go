@@ -21,6 +21,7 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 	}
 
 	r := gin.New()
+	r.MaxMultipartMemory = 512 << 20 // 512 MB
 	handlers.UseDBStore(container.DBStore())
 	handlers.UseObjectStorage(cfg.ObjectStorage)
 	r.Use(gin.Recovery())
@@ -44,6 +45,7 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 			"status":  "ok",
 		})
 	})
+	r.Static("/uploads", "./uploads")
 
 	api := r.Group("/api")
 	{
@@ -116,6 +118,7 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 		chat := api.Group("/chat")
 		{
 			chat.POST("/stream", handlers.ChatStream(cfg.AI.AgentServiceURL))
+			chat.POST("/attachments", handlers.UploadChatAttachment())
 		}
 
 		tasks := api.Group("/tasks")
@@ -131,6 +134,7 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 			internal.GET("/learning-records", handlers.QueryLearningRecords(container.LearningRecordService))
 			internal.POST("/video-runs", handlers.UpsertVideoGenerationRun(container.VideoRunService))
 			internal.GET("/video-runs/:runId", handlers.GetVideoGenerationRun(container.VideoRunService))
+			internal.POST("/storage/upload", handlers.InternalStorageUpload())
 		}
 	}
 

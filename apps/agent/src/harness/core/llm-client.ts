@@ -87,59 +87,47 @@ class AnthropicLLMClient implements ILLMClient {
     } as Parameters<typeof this.client.messages.stream>[0]);
 
     let fullText = '';
-    const toolCalls: ToolCall[] = [];
+    const toolCallAcc: Record<number, { id: string; name: string; args: string }> = {};
+    beginLLMStreamResponseContent('anthropic');
 
     for await (const event of stream) {
-      if (event.type === 'content_block_delta') {
+      if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+        toolCallAcc[event.index] = {
+          id: event.content_block.id,
+          name: event.content_block.name,
+          args: '',
+        };
+      } else if (event.type === 'content_block_delta') {
         if (event.delta.type === 'text_delta') {
           fullText += event.delta.text;
           logLLMStreamDelta('anthropic', event.delta.text);
           yield { type: 'text_delta', delta: event.delta.text };
+        } else if (event.delta.type === 'input_json_delta') {
+          const toolCall = toolCallAcc[event.index];
+          if (toolCall) {
+            toolCall.args += event.delta.partial_json;
+          }
         }
-      } else if (event.type === 'message_stop') {
-        const finalMsg = await stream.finalMessage();
-        const usage = extractAnthropicUsage(finalMsg.usage);
-        const response: LLMResponse = {
-          content: fullText,
-          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-          usage,
-          model: finalMsg.model,
-          latencyMs: Date.now() - start,
-          stopReason: (finalMsg.stop_reason ?? 'end_turn') as LLMResponse['stopReason'],
-        };
-        logLLMResponse('anthropic', 'stream', options, response);
-        yield { type: 'done', finalResponse: response };
       }
     }
+
+    endLLMStreamResponseContent();
+    const finalMsg = await stream.finalMessage();
+    const toolCalls = extractAnthropicToolCalls(finalMsg.content, toolCallAcc);
+    const response: LLMResponse = {
+      content: fullText,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      usage: extractAnthropicUsage(finalMsg.usage),
+      model: finalMsg.model,
+      latencyMs: Date.now() - start,
+      stopReason: (finalMsg.stop_reason ?? 'end_turn') as LLMResponse['stopReason'],
+    };
+    logLLMResponse('anthropic', 'stream', options, response);
+    yield { type: 'done', finalResponse: response };
   }
 
   private async callOnce(options: LLMCallOptions): Promise<LLMResponse> {
-    const start = Date.now();
-    const params = this.buildParams(options);
-    const response = await this.client.messages.create(params);
-
-    const toolCalls: ToolCall[] = response.content
-      .filter((b) => b.type === 'tool_use')
-      .map((b) => {
-        if (b.type !== 'tool_use') throw new Error('unreachable');
-        return { id: b.id, name: b.name, input: b.input as Record<string, unknown> };
-      });
-
-    const textContent = response.content
-      .filter((b) => b.type === 'text')
-      .map((b) => (b.type === 'text' ? b.text : ''))
-      .join('');
-
-    const parsed: LLMResponse = {
-      content: textContent,
-      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-      usage: extractAnthropicUsage(response.usage),
-      model: response.model,
-      latencyMs: Date.now() - start,
-      stopReason: (response.stop_reason ?? 'end_turn') as LLMResponse['stopReason'],
-    };
-    logLLMResponse('anthropic', 'call', options, parsed);
-    return parsed;
+    return collectStreamResponse(this.stream(options));
   }
 
   private buildParams(options: LLMCallOptions): Anthropic.MessageCreateParamsNonStreaming {
@@ -188,34 +176,7 @@ class DoubaoLLMClient implements ILLMClient {
   }
 
   async call(options: LLMCallOptions): Promise<LLMResponse> {
-    const start = Date.now();
-    const messages = buildOpenAIMessages(options);
-    const tools = buildOpenAITools(options.tools);
-
-    const response = await this.client.chat.completions.create({
-      model: options.model,
-      messages,
-      max_tokens: options.maxTokens ?? 4096,
-      ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
-      ...(tools ? { tools } : {}),
-    } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming);
-
-    const choice = response.choices[0];
-    const toolCalls = extractOpenAIToolCalls(choice.message.tool_calls ?? []);
-
-    const parsed: LLMResponse = {
-      content: choice.message.content ?? '',
-      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-      usage: {
-        promptTokens: response.usage?.prompt_tokens ?? 0,
-        completionTokens: response.usage?.completion_tokens ?? 0,
-      },
-      model: response.model,
-      latencyMs: Date.now() - start,
-      stopReason: mapOpenAIStopReason(choice.finish_reason),
-    };
-    logLLMResponse('doubao', 'call', options, parsed);
-    return parsed;
+    return collectStreamResponse(this.stream(options));
   }
 
   async *stream(options: LLMCallOptions): AsyncGenerator<StreamChunk> {
@@ -237,6 +198,7 @@ class DoubaoLLMClient implements ILLMClient {
     let finishReason: string | null = null;
     let usage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
     const toolCallAcc: Record<number, { id: string; name: string; args: string }> = {};
+    beginLLMStreamResponseContent('doubao');
 
     for await (const chunk of stream) {
       const choice = chunk.choices?.[0];
@@ -276,6 +238,7 @@ class DoubaoLLMClient implements ILLMClient {
       }
     }
 
+    endLLMStreamResponseContent();
     const toolCalls = Object.values(toolCallAcc).map((tc) => ({
       id: tc.id,
       name: tc.name,
@@ -299,6 +262,19 @@ class DoubaoLLMClient implements ILLMClient {
 }
 
 // ─── Anthropic 工具函数 ───────────────────────────────────────────────────────
+
+async function collectStreamResponse(stream: AsyncGenerator<StreamChunk>): Promise<LLMResponse> {
+  let finalResponse: LLMResponse | undefined;
+  for await (const chunk of stream) {
+    if (chunk.type === 'done') {
+      finalResponse = chunk.finalResponse;
+    }
+  }
+  if (!finalResponse) {
+    throw new Error('LLMStreamMissingFinalResponse');
+  }
+  return finalResponse;
+}
 
 function buildAnthropicMessages(options: LLMCallOptions): Anthropic.MessageParam[] {
   const { messages, cacheBreakpoint = 0 } = options;
@@ -343,6 +319,29 @@ function extractAnthropicUsage(usage: Anthropic.Usage): TokenUsage {
   };
 }
 
+function extractAnthropicToolCalls(
+  content: Anthropic.Message['content'],
+  streamedToolCalls: Record<number, { id: string; name: string; args: string }>,
+): ToolCall[] {
+  const finalToolCalls = content
+    .filter((block) => block.type === 'tool_use')
+    .map((block) => {
+      if (block.type !== 'tool_use') throw new Error('unreachable');
+      return {
+        id: block.id,
+        name: block.name,
+        input: block.input as Record<string, unknown>,
+      };
+    });
+  if (finalToolCalls.length > 0) return finalToolCalls;
+
+  return Object.values(streamedToolCalls).map((toolCall) => ({
+    id: toolCall.id,
+    name: toolCall.name,
+    input: safeParseJSON(toolCall.args),
+  }));
+}
+
 // ─── OpenAI/Doubao 工具函数 ───────────────────────────────────────────────────
 
 function buildOpenAIMessages(
@@ -367,7 +366,7 @@ function buildOpenAIMessages(
         return {
           type: 'image_url' as const,
           image_url: {
-            url: `data:${block.source.media_type};base64,${block.source.data}`,
+            url: block.source.url,
           },
         };
       });
@@ -444,6 +443,10 @@ function logLLMResponse(
     `[LLM_RESPONSE] promptTokens=${response.usage.promptTokens} completionTokens=${response.usage.completionTokens} latencyMs=${response.latencyMs} requestMaxTokens=${requestMaxTokens}`,
   );
   console.log(`[LLM_RESPONSE] toolCalls=${toolCalls}`);
+  if (mode === 'stream') {
+    console.log('[LLM_RESPONSE] content_streamed=true');
+    return;
+  }
   console.log('[LLM_RESPONSE] content_start');
   console.log(content || '[empty]');
   console.log('[LLM_RESPONSE] content_end');
@@ -467,9 +470,24 @@ function truncateForLog(text: string, maxChars: number): string {
   return `${text.slice(0, maxChars)}\n...[truncated ${text.length - maxChars} chars]`;
 }
 
+function beginLLMStreamResponseContent(provider: 'anthropic' | 'doubao'): void {
+  if (!isLLMResponseLogEnabled()) return;
+  console.log(`[LLM_RESPONSE] content_start provider=${provider} mode=stream`);
+}
+
+function endLLMStreamResponseContent(): void {
+  if (!isLLMResponseLogEnabled()) return;
+  process.stdout.write('\n');
+  console.log('[LLM_RESPONSE] content_end');
+}
+
 function logLLMStreamDelta(provider: 'anthropic' | 'doubao', delta: string): void {
-  if (!isLLMStreamDeltaLogEnabled()) return;
   if (!delta) return;
+  if (isLLMResponseLogEnabled()) {
+    process.stdout.write(delta);
+    return;
+  }
+  if (!isLLMStreamDeltaLogEnabled()) return;
   console.log(`[LLM_STREAM_DELTA] provider=${provider} delta=${JSON.stringify(delta)}`);
 }
 

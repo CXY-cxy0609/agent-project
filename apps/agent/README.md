@@ -1,6 +1,6 @@
 # Agent 服务
 
-基于 TypeScript + Express 的智能体编排服务，是考研辅导平台的 AI 核心。对外提供 SSE 流式对话、知识库管理等 HTTP 接口，内部通过多 Agent 协作、Graph 状态机与事件总线串联完整的 AI 链路。
+基于 TypeScript + Express 的智能体编排服务，是学习辅导平台的 AI 核心。对外提供 SSE 流式对话、知识库管理等 HTTP 接口，内部通过多 Agent 协作、Graph 状态机与事件总线串联完整的 AI 链路。
 
 ---
 

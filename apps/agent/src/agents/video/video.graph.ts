@@ -24,8 +24,10 @@ import {
 import type { VideoState, StoryboardRaw, StoryboardScene } from './video.types.js';
 import type { ManimRunnerResult } from '../../tools/manim-runner.tool.js';
 
-const MAX_MANIM_RETRIES = 3;
+const MAX_MANIM_RETRIES = 4;
 const schemaParser = new SchemaParser();
+const STORYBOARD_MAX_TOKENS = 16000;
+const MANIM_SCRIPT_MAX_TOKENS = 128000;
 
 export function buildVideoNodes(
   llm: LLMClient,
@@ -60,7 +62,7 @@ export function buildVideoNodes(
       model: MODELS.SONNET,
       messages,
       systemPrompt,
-      maxTokens: 2000,
+      maxTokens: STORYBOARD_MAX_TOKENS,
     });
 
     try {
@@ -118,7 +120,7 @@ export function buildVideoNodes(
           model: MODELS.SONNET,
           messages,
           systemPrompt,
-          maxTokens: 4000,
+          maxTokens: MANIM_SCRIPT_MAX_TOKENS,
         });
 
         const codeMatch = response.content.match(/```python\s*([\s\S]*?)```/);
@@ -213,7 +215,7 @@ export function buildVideoNodes(
           model: MODELS.SONNET,
           messages,
           systemPrompt,
-          maxTokens: 4000,
+          maxTokens: MANIM_SCRIPT_MAX_TOKENS,
         });
 
         const codeMatch = response.content.match(/```python\s*([\s\S]*?)```/);

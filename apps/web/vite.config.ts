@@ -34,6 +34,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        timeout: 1200000,
+        proxyTimeout: 1200000,
       },
       '/chat': {
         target: 'http://localhost:8001',

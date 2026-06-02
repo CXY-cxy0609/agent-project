@@ -4,15 +4,34 @@
 
 ## 1) 强约束（必须遵守）
 
+### 代码要求
+
 1. 每页开始必须调用 `self.next_page(...)` 或 `self.start_page(...)`，禁止跨页堆叠残留元素。
 2. **严禁定义或调用 `_play()`**（含任何 `play` 包装器）。
 3. 动画播放统一走 `self.add_animation(...)`。
 4. **字幕区域内容只允许通过 `self.speak_with_subtitles(...)` 生成。**，每行字幕最后不能是逗号、句号等标点符号
-5. 内容布局只使用 `layout="center"` 或 `layout="left_right"`（等价 `two_columns`）。
+5. 内容布局只使用 `layout="center"` 或 `layout="left_right"`（等价 `two_columns`），为左右布局时，左边为文字讲解，右边为动画展示
 6. 双栏比例仅允许：`"1:2"`、`"1:1"`、`"2:1"`。
 7. **所有 LaTeX 公式必须通过 `apps/manim-project/function-tools/create_formula.py` 生成。**
 8. **严禁直接使用 `MathTex` 或其他绕过 `create_formula.py` 的公式渲染方案。**
-9. **必须严格遵照代码模板，在模板基础上添加/修改代码**
+9. **每个页面的主体图形必须先组成一个稳定的 `VGroup`，并且只通过一次 `self.add_animation(...)` 注册到布局中。**
+10. **后续高亮、移动、显隐等动画必须复用已注册的页面主体对象，禁止把临时 `VGroup(...)` 作为新的 `mobject` 传入 `self.add_animation(...)`。**
+11. **双栏或父容器布局中，图形必须显式传 `side=...` 或 `parent=...`，禁止依赖默认右栏布局。**
+12. **必须严格遵照代码模板，在模板基础上添加/修改代码**
+13. 避免导入模板代码外额外的库，比如`numpy`之类的
+14. manim版本：Manim Community Edition（manim v0.20+），注意不要使用废弃的属性或api
+15. 注意调整讲解节奏的连贯性，避免字幕语音过长时间的停顿
+
+### 样式要求
+
+- 字体大小
+  - 标题：32
+  - 一般正文：28
+  - 最小正文：20
+  - 字幕：28
+- 配色要求
+  - 现代化
+  - 字体颜色不得与背景色相同或相似
 
 ## 2) BaseScene 可配置类属性（全量）
 
@@ -20,10 +39,11 @@
 
 1. `default_font = "PingFang SC"`：默认字体。
 2. `default_color = WHITE`：默认文字颜色。
-3. `show_layout_guides = True`：是否显示布局辅助框。
-4. `subtitle_rect_down_shift = 0.08`：字幕区域下移量。
-5. `content_subtitle_gap = 0.12`：内容区与字幕区最小间隔。
-6. `two_column_ratio = "1:1"`：双栏默认比例。
+3. `background_color = "#0B1020"`：默认背景色，支持 Manim 颜色常量或十六进制颜色字符串。
+4. `show_layout_guides = True`：是否显示布局辅助框。
+5. `subtitle_rect_down_shift = 0.08`：字幕区域下移量。
+6. `content_subtitle_gap = 0.12`：内容区与字幕区最小间隔。
+7. `two_column_ratio = "1:1"`：双栏默认比例。
 
 ## 3) BaseScene 对外 API（非内部私有，完整声明）
 
@@ -87,13 +107,19 @@
 
 1. 公式工具文件：`apps/manim-project/function-tools/create_formula.py`
 2. 可用函数：
-   - `create_math_formula(expression, font_size=56, color=WHITE)`：纯数学公式。
+   - `create_math_formula(expression, font_size=56, color=WHITE)`：数学公式入口；纯数学走 `MathTex`，包含中文时自动走 XeLaTeX/CJK 模板。
    - `create_chinese_formula(latex_text, font_size=52, color=WHITE, cjk_font="PingFang SC")`：中英混排公式。
 3. 规则：
    - latex公式对象创建必须调用上述函数。
    - 禁止直接写 `MathTex(...)`。
+   - 纯数学、化学方程式、公式内含中文说明（如 `\text{通电}`）均优先使用 `create_math_formula(...)`。
+   - 公式外包含中文说明时使用 `create_chinese_formula(...)`，公式部分必须写在 `$...$` 内，例如 `r"电解方程：$2H_2O \\rightarrow 2H_2 + O_2$"`。
+   - 禁止为了规避中文 LaTeX 报错，把中文公式拆成普通 `Text` + 公式；应修复或使用 `create_formula.py` 的中文公式能力。
 4. 示例：
    - `formula = create_math_formula(r"n = \frac{I t}{z F}", font_size=52)`
+   - `equation = create_math_formula(r"2H_2O \rightarrow 2H_2 \uparrow + O_2 \uparrow", font_size=42)`
+   - `equation = create_math_formula(r"2H_2O \xrightarrow{\text{通电}} 2H_2 \uparrow + O_2 \uparrow", font_size=42)`
+   - `mixed = create_chinese_formula(r"电解方程：$2H_2O \rightarrow 2H_2 + O_2$", font_size=36)`
    - `self.add_animation(formula, animation=FadeIn(formula), run_time=0.8)`
 
 ## 4) 规范化调用顺序（推荐）
@@ -101,9 +127,11 @@
 1. `self.next_page(...)` / `self.start_page(...)`
 2. `self.set_title(...)` + `self.set_page_number(...)`
 3. `self.create_parent(...)`（按需）
-4. `self.add_text(...)` / `self.add_animation(...)`
-5. `self.speak_with_subtitles([...])`（字幕区内容）
-6. `self.wait(...)`（按需）
+4. 构造当前页所有主体元素，合并为稳定的 `VGroup`
+5. `self.add_text(...)` / `self.add_animation(page_group, side=... 或 parent=...)`
+6. 后续动画继续调用 `self.add_animation(page_group, animation=...)`，不要注册新的临时组
+7. `self.speak_with_subtitles([...])`（字幕区内容）
+8. `self.wait(...)`（按需）
 
 ## 5) 模板展示
 
@@ -115,14 +143,14 @@ from pathlib import Path  # 无需改动
 
 from manim import ()  # 根据场景需求从manim库中引入对应内容即可
 
-BASE_DIR = Path(__file__).resolve().parents[2]  # 无需改动
+BASE_DIR = Path(__file__).resolve().parents[4]  # 无需改动
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 if str(BASE_DIR / "function-tools") not in sys.path:
     sys.path.append(str(BASE_DIR / "function-tools"))
 
 from BaseScene import BaseScene  # 无需改动
-from create_formula import create_math_formula  # 无需改动
+from create_formula import create_math_formula, create_chinese_formula  # 无需改动
 
 
 class SceneName(BaseScene):  # 根据需求定义场景名字
@@ -149,7 +177,8 @@ class SceneName(BaseScene):  # 根据需求定义场景名字
             orbit,
         )
 
-        self.add_animation(visual_group, animation=[FadeIn(sun), Create(orbit)], run_time=0.7)
+        self.add_animation(visual_group, side="right", animation=[FadeIn(sun), Create(orbit)], run_time=0.7)
+        self.add_animation(visual_group, animation=Indicate(sun, color=YELLOW), run_time=0.6)
 
         lines = [
             "开普勒三定律描述了行星绕太阳运动的几何与时间规律"

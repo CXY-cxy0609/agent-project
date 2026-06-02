@@ -21,38 +21,51 @@ export class RedisShortTermMemory implements ShortTermMemory {
   ) {}
 
   async getHistory(sessionId: string): Promise<Message[]> {
-    const [recent, summary] = await Promise.all([
-      this.getRawHistory(sessionId),
-      this.getSummary(sessionId),
-    ]);
-    if (!summary) return recent;
-    return [buildSummaryMessage(summary), ...recent];
+    try {
+      const [recent, summary] = await Promise.all([
+        this.getRawHistory(sessionId),
+        this.getSummary(sessionId),
+      ]);
+      if (!summary) return recent;
+      return [buildSummaryMessage(summary), ...recent];
+    } catch (err) {
+      console.warn(`[RedisShortTermMemory] getHistory failed: ${formatError(err)}`);
+      return [];
+    }
   }
 
   async appendHistory(sessionId: string, messages: Message[]): Promise<void> {
-    const existing = await this.getRawHistory(sessionId);
-    const existingSummary = await this.getSummary(sessionId);
+    try {
+      const existing = await this.getRawHistory(sessionId);
+      const existingSummary = await this.getSummary(sessionId);
 
-    const updated = [...existing, ...messages];
-    const { kept, evicted } = splitForWindow(updated, this.maxTurns * 2);
-    const nextSummary = evicted.length
-      ? mergeSummary(
-          existingSummary,
-          buildSummaryFromMessages(evicted),
-          this.summaryMaxChars,
-        )
-      : existingSummary;
+      const updated = [...existing, ...messages];
+      const { kept, evicted } = splitForWindow(updated, this.maxTurns * 2);
+      const nextSummary = evicted.length
+        ? mergeSummary(
+            existingSummary,
+            buildSummaryFromMessages(evicted),
+            this.summaryMaxChars,
+          )
+        : existingSummary;
 
-    await this.redis.set(this.makeKey(sessionId), JSON.stringify(kept), 'EX', this.ttlSeconds);
-    if (nextSummary) {
-      await this.redis.set(this.makeSummaryKey(sessionId), nextSummary, 'EX', this.ttlSeconds);
-    } else {
-      await this.redis.del(this.makeSummaryKey(sessionId));
+      await this.redis.set(this.makeKey(sessionId), JSON.stringify(kept), 'EX', this.ttlSeconds);
+      if (nextSummary) {
+        await this.redis.set(this.makeSummaryKey(sessionId), nextSummary, 'EX', this.ttlSeconds);
+      } else {
+        await this.redis.del(this.makeSummaryKey(sessionId));
+      }
+    } catch (err) {
+      console.warn(`[RedisShortTermMemory] appendHistory failed: ${formatError(err)}`);
     }
   }
 
   async clearHistory(sessionId: string): Promise<void> {
-    await this.redis.del(this.makeKey(sessionId), this.makeSummaryKey(sessionId));
+    try {
+      await this.redis.del(this.makeKey(sessionId), this.makeSummaryKey(sessionId));
+    } catch (err) {
+      console.warn(`[RedisShortTermMemory] clearHistory failed: ${formatError(err)}`);
+    }
   }
 
   private makeKey(sessionId: string): string {
@@ -174,4 +187,8 @@ function compactMessageContent(content: Message['content']): string {
 function truncateText(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
   return `${text.slice(0, maxChars - 3)}...`;
+}
+
+function formatError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

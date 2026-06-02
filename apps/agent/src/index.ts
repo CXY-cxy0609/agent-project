@@ -38,8 +38,7 @@ app.post('/chat/stream', async (req, res) => {
     conversationId,
     generateVideo = false,
     userId = 'anonymous',
-    imageBase64,
-    imageMediaType,
+    images,
   } = req.body as {
     content: string;
     subjectId?: string;
@@ -47,9 +46,9 @@ app.post('/chat/stream', async (req, res) => {
     conversationId?: string;
     generateVideo?: boolean;
     userId?: string;
-    imageBase64?: string;
-    imageMediaType?: string;
+    images?: Array<{ url?: string; mediaType?: string; media_type?: string }>;
   };
+  const normalizedImages = normalizeRequestImages(images);
 
   const sendEvent = (data: unknown) => {  // 发送事件
     res.write(`data: ${JSON.stringify(data)}\n\n`);  // 发送 SSE 事件
@@ -80,8 +79,7 @@ app.post('/chat/stream', async (req, res) => {
         })),
         conversationId,
         generateVideo,
-        imageBase64,
-        imageMediaType,
+        images: normalizedImages,
       },
       ctx,
     );
@@ -106,6 +104,22 @@ app.post('/chat/stream', async (req, res) => {
     res.end();
   }
 });
+
+function normalizeRequestImages(
+  images?: Array<{ url?: string; mediaType?: string; media_type?: string }>,
+): Array<{ url: string; mediaType?: string }> {
+  return (Array.isArray(images) ? images : [])
+    .map((item) => ({
+      url: typeof item.url === 'string' ? item.url : '',
+      mediaType: typeof item.mediaType === 'string'
+        ? item.mediaType
+        : typeof item.media_type === 'string'
+          ? item.media_type
+          : undefined,
+    }))
+    .filter((item) => item.url.trim() !== '')
+    .slice(0, 9);
+}
 
 // ─── Learning Report ──────────────────────────────────────────────────────────
 

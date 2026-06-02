@@ -2,7 +2,7 @@ import type { RetrievalMode } from '../../harness/rag-client/rag-client.js';
 
 export interface QARetrievalPolicyConfig {
   hybridHintKeywords: string[];
-  minOcrLengthForTextOnly: number;
+  minSupplementalTextLengthForTextOnly: number;
   hybridBudgetTokens: number;
   hybridMaxUpgradePages: number;
 }
@@ -15,21 +15,21 @@ export interface RetrievalPolicyDecision {
 
 export const DEFAULT_QA_RETRIEVAL_POLICY: QARetrievalPolicyConfig = {
   hybridHintKeywords: ['图', '函数图像', '几何', '流程图', '表格', '矩阵', '证明', '坐标系'],
-  minOcrLengthForTextOnly: 120,
+  minSupplementalTextLengthForTextOnly: 120,
   hybridBudgetTokens: 3000,
   hybridMaxUpgradePages: 3,
 };
 
 export function decideRetrievalPolicy(
   question: string,
-  ocrText: string,
+  supplementalText: string,
   config: QARetrievalPolicyConfig,
 ): RetrievalPolicyDecision {
-  const combined = `${question}\n${ocrText}`.toLowerCase();
+  const combined = `${question}\n${supplementalText}`.toLowerCase();
   const hasVisualHints = config.hybridHintKeywords.some((hint) => combined.includes(hint));
-  const shortOcr = ocrText.trim().length < config.minOcrLengthForTextOnly;
+  const shortSupplementalText = supplementalText.trim().length < config.minSupplementalTextLengthForTextOnly;
 
-  if (hasVisualHints || shortOcr) {
+  if (hasVisualHints || shortSupplementalText) {
     return {
       mode: 'hybrid_visual',
       budgetTokens: config.hybridBudgetTokens,

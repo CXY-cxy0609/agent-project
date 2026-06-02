@@ -10,6 +10,12 @@ type PutTextInput struct {
 	ContentType string
 }
 
+type PutBytesInput struct {
+	Key         string
+	Data        []byte
+	ContentType string
+}
+
 type PutObjectResult struct {
 	Key   string
 	ETag  string
@@ -20,4 +26,5 @@ type PutObjectResult struct {
 
 type Client interface {
 	PutText(ctx context.Context, input PutTextInput) (PutObjectResult, error)
+	PutBytes(ctx context.Context, input PutBytesInput) (PutObjectResult, error)
 }

@@ -43,6 +43,18 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  function updateLastAssistantMetadata(metadata: Message['metadata']) {
+    let last: Message | undefined;
+    for (let i = messages.value.length - 1; i >= 0; i--) {
+      if (messages.value[i]?.role === 'assistant') {
+        last = messages.value[i];
+        break;
+      }
+    }
+    if (!last) return;
+    last.metadata = { ...(last.metadata ?? {}), ...(metadata ?? {}) };
+  }
+
   function setStreaming(val: boolean) {
     isStreaming.value = val;
   }
@@ -58,6 +70,7 @@ export const useChatStore = defineStore('chat', () => {
     setMessages,
     appendMessage,
     updateLastAssistantMessage,
+    updateLastAssistantMetadata,
     setStreaming,
   };
 });

@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "videoUrl": "https://agent-tutor-1313521114.cos.ap-beijing.myqcloud.com/videos/1780398629833.mp4",
+  "artifactBundleUrl": "https://agent-tutor-1313521114.cos.ap-beijing.myqcloud.com/video-runs/2026/06/02/conv-1780397861125342000_a887931a-9f6c-4f39-ba4b-aae30a68ee22/a887931a-9f6c-4f39-ba4b-aae30a68ee22/vrun_1780397861228_624e3bf7/run-bundle.tar.gz",
+  "artifactManifestUrl": "https://agent-tutor-1313521114.cos.ap-beijing.myqcloud.com/video-runs/2026/06/02/conv-1780397861125342000_a887931a-9f6c-4f39-ba4b-aae30a68ee22/a887931a-9f6c-4f39-ba4b-aae30a68ee22/vrun_1780397861228_624e3bf7/manifest.json",
+  "createdAt": "2026-06-02T11:10:31.390Z"
+}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"sort"
@@ -32,18 +33,20 @@ type identifyConversationReq struct {
 }
 
 type createMessageReq struct {
-	ConversationID string `json:"conversationId"`
-	ID             string `json:"id"`
-	Role           string `json:"role"`
-	Content        string `json:"content"`
-	ContentInline  string `json:"contentInline"`
-	ContentRef     string `json:"contentRef"`
-	ContentHash    string `json:"contentHash"`
-	ContentSize    int64  `json:"contentSize"`
-	TurnID         string `json:"turnId"`
-	ReplyToID      string `json:"replyToMessageId"`
-	TokenUsage     int    `json:"tokenUsage"`
-	Status         string `json:"status"`
+	ConversationID string                 `json:"conversationId"`
+	ID             string                 `json:"id"`
+	Role           string                 `json:"role"`
+	Content        string                 `json:"content"`
+	ContentInline  string                 `json:"contentInline"`
+	ContentRef     string                 `json:"contentRef"`
+	ContentHash    string                 `json:"contentHash"`
+	ContentSize    int64                  `json:"contentSize"`
+	TurnID         string                 `json:"turnId"`
+	ReplyToID      string                 `json:"replyToMessageId"`
+	TokenUsage     int                    `json:"tokenUsage"`
+	Status         string                 `json:"status"`
+	Metadata       any                    `json:"metadata"`
+	Attachments    []webMessageAttachment `json:"attachments"`
 }
 
 func ListConversationsWeb() gin.HandlerFunc {
@@ -188,6 +191,7 @@ func DeleteConversationWeb() gin.HandlerFunc {
 		if !ok {
 			return
 		}
+		_, _ = db.ExecContext(c, `DELETE FROM conversation_message_attachments WHERE conversation_id = ?`, id)
 		_, _ = db.ExecContext(c, `DELETE FROM conversation_messages WHERE conversation_id = ?`, id)
 		_, _ = db.ExecContext(c, `DELETE FROM conversations WHERE conversation_id = ?`, id)
 		response.OK(c, gin.H{"deleted": true})
@@ -277,10 +281,13 @@ func CreateConversationMessage() gin.HandlerFunc {
 			TokenUsage:     req.TokenUsage,
 			Status:         req.Status,
 			CreatedAt:      now,
+			Metadata:       req.Metadata,
+			Attachments:    normalizeMessageAttachments(req.Attachments),
 		}
 		if (msg.Role == "user" || msg.Role == "assistant") &&
 			strings.TrimSpace(msg.ContentInline) == "" &&
-			strings.TrimSpace(msg.ContentRef) == "" {
+			strings.TrimSpace(msg.ContentRef) == "" &&
+			len(msg.Attachments) == 0 {
 			response.Error(c, http.StatusBadRequest, "INVALID_MESSAGE_CONTENT", "message content is required")
 			return
 		}
@@ -308,6 +315,13 @@ func CreateConversationMessage() gin.HandlerFunc {
 			)
 			response.Error(c, http.StatusInternalServerError, "MESSAGE_CREATE_FAILED", "failed to create message")
 			return
+		}
+		if len(msg.Attachments) > 0 {
+			if err := insertWebMessageAttachments(c, db, msg.ID, conversationID, msg.Attachments); err != nil {
+				log.Printf("insertWebMessageAttachments failed conversation_id=%s message_id=%s err=%v", conversationID, msg.ID, err)
+				response.Error(c, http.StatusInternalServerError, "MESSAGE_ATTACHMENTS_CREATE_FAILED", "failed to create message attachments")
+				return
+			}
 		}
 		conversation.MessageCount = countWebMessages(c, db, conversationID)
 		conversation.UpdatedAt = now
@@ -408,7 +422,7 @@ func queryWebMessages(c *gin.Context, db *sql.DB, conversationID string) ([]webM
 	rows, err := db.QueryContext(
 		c,
 		`SELECT message_id, conversation_id, role, content_inline, content_ref, content_hash, content_size,
-		turn_id, reply_to_message_id, token_usage, status, created_at
+		turn_id, reply_to_message_id, token_usage, metadata_json, status, created_at
 		FROM conversation_messages
 		WHERE conversation_id = ?
 		ORDER BY seq ASC, id ASC`,
@@ -427,6 +441,7 @@ func queryWebMessages(c *gin.Context, db *sql.DB, conversationID string) ([]webM
 		var turnID sql.NullString
 		var replyToID sql.NullString
 		var status sql.NullString
+		var metadataRaw sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.ConversationID,
@@ -438,6 +453,7 @@ func queryWebMessages(c *gin.Context, db *sql.DB, conversationID string) ([]webM
 			&turnID,
 			&replyToID,
 			&item.TokenUsage,
+			&metadataRaw,
 			&status,
 			&item.CreatedAt,
 		); err != nil {
@@ -461,13 +477,25 @@ func queryWebMessages(c *gin.Context, db *sql.DB, conversationID string) ([]webM
 		if status.Valid {
 			item.Status = status.String
 		}
+		if metadataRaw.Valid && strings.TrimSpace(metadataRaw.String) != "" {
+			var decoded map[string]any
+			if err := json.Unmarshal([]byte(metadataRaw.String), &decoded); err == nil {
+				item.Metadata = decoded
+			}
+		}
 		item.Content = resolveWebMessageContent(item)
 		if strings.TrimSpace(item.Status) == "" {
 			item.Status = "done"
 		}
 		list = append(list, item)
 	}
-	return list, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := attachWebMessageAttachments(c, db, conversationID, list); err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 func insertWebMessage(c *gin.Context, db *sql.DB, item webMessage) error {
@@ -475,11 +503,19 @@ func insertWebMessage(c *gin.Context, db *sql.DB, item webMessage) error {
 	if err != nil {
 		return err
 	}
+	metadataJSON := sql.NullString{}
+	if item.Metadata != nil {
+		raw, err := json.Marshal(item.Metadata)
+		if err != nil {
+			return err
+		}
+		metadataJSON = sql.NullString{String: string(raw), Valid: true}
+	}
 	_, err = db.ExecContext(
 		c,
 		`INSERT INTO conversation_messages
-		(message_id, conversation_id, seq, turn_id, reply_to_message_id, role, status, content_inline, content_ref, content_hash, content_size, token_usage, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+		(message_id, conversation_id, seq, turn_id, reply_to_message_id, role, status, content_inline, content_ref, content_hash, content_size, token_usage, metadata_json, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
 		item.ID,
 		item.ConversationID,
 		seq,
@@ -492,8 +528,139 @@ func insertWebMessage(c *gin.Context, db *sql.DB, item webMessage) error {
 		item.ContentHash,
 		item.ContentSize,
 		item.TokenUsage,
+		metadataJSON,
 	)
 	return err
+}
+
+func insertWebMessageAttachments(c *gin.Context, db *sql.DB, messageID string, conversationID string, attachments []webMessageAttachment) error {
+	for _, attachment := range normalizeMessageAttachments(attachments) {
+		if attachment.ID == "" {
+			attachment.ID = "att-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		}
+		if attachment.Status == "" {
+			attachment.Status = "done"
+		}
+		_, err := db.ExecContext(
+			c,
+			`INSERT INTO conversation_message_attachments
+			(attachment_id, message_id, conversation_id, name, mime_type, type, size, url, object_key, thumbnail_url, hash, status, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+			attachment.ID,
+			messageID,
+			conversationID,
+			attachment.Name,
+			attachment.MimeType,
+			attachment.Type,
+			attachment.Size,
+			attachment.URL,
+			attachment.StorageKey,
+			attachment.ThumbnailURL,
+			attachment.Hash,
+			attachment.Status,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func attachWebMessageAttachments(c *gin.Context, db *sql.DB, conversationID string, messages []webMessage) error {
+	if len(messages) == 0 {
+		return nil
+	}
+	rows, err := db.QueryContext(
+		c,
+		`SELECT attachment_id, message_id, name, mime_type, type, size, url, object_key, thumbnail_url, hash, status
+		FROM conversation_message_attachments
+		WHERE conversation_id = ?
+		ORDER BY id ASC`,
+		conversationID,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	byMessageID := make(map[string][]webMessageAttachment, len(messages))
+	for rows.Next() {
+		var messageID string
+		var attachment webMessageAttachment
+		var mimeType sql.NullString
+		var objectKey sql.NullString
+		var thumbnailURL sql.NullString
+		var hash sql.NullString
+		var status sql.NullString
+		if err := rows.Scan(
+			&attachment.ID,
+			&messageID,
+			&attachment.Name,
+			&mimeType,
+			&attachment.Type,
+			&attachment.Size,
+			&attachment.URL,
+			&objectKey,
+			&thumbnailURL,
+			&hash,
+			&status,
+		); err != nil {
+			return err
+		}
+		if mimeType.Valid {
+			attachment.MimeType = mimeType.String
+		}
+		if objectKey.Valid {
+			attachment.StorageKey = objectKey.String
+		}
+		if thumbnailURL.Valid {
+			attachment.ThumbnailURL = thumbnailURL.String
+		}
+		if hash.Valid {
+			attachment.Hash = hash.String
+		}
+		if status.Valid {
+			attachment.Status = status.String
+		}
+		byMessageID[messageID] = append(byMessageID[messageID], attachment)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range messages {
+		messages[i].Attachments = byMessageID[messages[i].ID]
+	}
+	return nil
+}
+
+func normalizeMessageAttachments(attachments []webMessageAttachment) []webMessageAttachment {
+	if len(attachments) == 0 {
+		return nil
+	}
+	capacityLen := len(attachments)
+	if capacityLen > maxChatAttachmentCount {
+		capacityLen = maxChatAttachmentCount
+	}
+	normalized := make([]webMessageAttachment, 0, capacityLen)
+	for _, attachment := range attachments {
+		if len(normalized) >= maxChatAttachmentCount {
+			break
+		}
+		attachment.ID = strings.TrimSpace(attachment.ID)
+		attachment.Name = strings.TrimSpace(attachment.Name)
+		attachment.URL = strings.TrimSpace(attachment.URL)
+		attachment.Type = strings.TrimSpace(attachment.Type)
+		attachment.MimeType = strings.TrimSpace(attachment.MimeType)
+		attachment.StorageKey = strings.TrimSpace(attachment.StorageKey)
+		attachment.ThumbnailURL = strings.TrimSpace(attachment.ThumbnailURL)
+		attachment.Hash = strings.TrimSpace(attachment.Hash)
+		attachment.Status = strings.TrimSpace(attachment.Status)
+		if attachment.Name == "" || attachment.URL == "" || attachment.Type == "" || attachment.Size <= 0 {
+			continue
+		}
+		normalized = append(normalized, attachment)
+	}
+	return normalized
 }
 
 func nextConversationMessageSeq(c *gin.Context, db *sql.DB, conversationID string) (int64, error) {

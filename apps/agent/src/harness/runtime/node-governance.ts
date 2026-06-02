@@ -24,17 +24,17 @@ function nodePolicyFromEnv(prefix: string, defaults: NodeGovernancePolicy): Node
 
 const DEFAULTS: GraphGovernanceConfig = {
   qa: {
-    ocr: { timeoutMs: 8000, retry: { maxAttempts: 2, backoffMs: 200, backoffFactor: 2 } },
+    prepare: { timeoutMs: 8000, retry: { maxAttempts: 2, backoffMs: 200, backoffFactor: 2 } },
     rag: { timeoutMs: 10000, retry: { maxAttempts: 2, backoffMs: 300, backoffFactor: 2 } },
     generate: { timeoutMs: 120000, retry: { maxAttempts: 1, backoffMs: 0, backoffFactor: 2 } },
   },
   video: {
     checkCache: { timeoutMs: 4000, retry: { maxAttempts: 1, backoffMs: 0, backoffFactor: 2 } },
-    generateStoryboard: { timeoutMs: 18000, retry: { maxAttempts: 2, backoffMs: 400, backoffFactor: 2 } },
-    generateScript: { timeoutMs: 30000, retry: { maxAttempts: 2, backoffMs: 800, backoffFactor: 2 } },
-    renderManim: { timeoutMs: 60000, retry: { maxAttempts: 1, backoffMs: 0, backoffFactor: 2 } },
-    fixScript: { timeoutMs: 25000, retry: { maxAttempts: 2, backoffMs: 800, backoffFactor: 2 } },
-    uploadVideo: { timeoutMs: 15000, retry: { maxAttempts: 2, backoffMs: 400, backoffFactor: 2 } },
+    generateStoryboard: { timeoutMs: 120000, retry: { maxAttempts: 2, backoffMs: 400, backoffFactor: 2 } },
+    generateScript: { timeoutMs: 1200000, retry: { maxAttempts: 2, backoffMs: 800, backoffFactor: 2 } },
+    renderManim: { timeoutMs: 1200000, retry: { maxAttempts: 1, backoffMs: 0, backoffFactor: 2 } },
+    fixScript: { timeoutMs: 300000, retry: { maxAttempts: 2, backoffMs: 800, backoffFactor: 2 } },
+    uploadVideo: { timeoutMs: 600000, retry: { maxAttempts: 2, backoffMs: 400, backoffFactor: 2 } },
     returnCached: { timeoutMs: 2000, retry: { maxAttempts: 1, backoffMs: 0, backoffFactor: 2 } },
   },
 };
@@ -42,7 +42,7 @@ const DEFAULTS: GraphGovernanceConfig = {
 export function loadGraphGovernanceConfigFromEnv(): GraphGovernanceConfig {
   return {
     qa: {
-      ocr: nodePolicyFromEnv('QA_NODE_OCR', DEFAULTS.qa.ocr),
+      prepare: nodePolicyFromEnv('QA_NODE_PREPARE', DEFAULTS.qa.prepare),
       rag: nodePolicyFromEnv('QA_NODE_RAG', DEFAULTS.qa.rag),
       generate: nodePolicyFromEnv('QA_NODE_GENERATE', DEFAULTS.qa.generate),
     },

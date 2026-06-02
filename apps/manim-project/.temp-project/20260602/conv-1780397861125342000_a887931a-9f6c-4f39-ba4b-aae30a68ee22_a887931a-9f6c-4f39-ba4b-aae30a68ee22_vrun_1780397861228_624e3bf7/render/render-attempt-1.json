@@ -1,0 +1,6 @@
+{
+  "attempt": 1,
+  "success": false,
+  "lastError": "│\n│ ❱ 143 │   │   self.add_animation(waters, animation=FadeOut(waters), run_time │\n│   144 │   │   self.add_animation(eq, animation=FadeIn(eq), run_time=1)       │\n│   145 │   │   self.add_animation(eq, animation=Indicate(eq, color=YELLOW), r │\n│   146                                                                        │\n╰──────────────────────────────────────────────────────────────────────────────╯\nNameError: name 'FadeOut' is not defined",
+  "createdAt": "2026-06-02T11:03:46.913Z"
+}

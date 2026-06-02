@@ -83,6 +83,7 @@ export async function initVideoRunArtifactContext(params: {
 
   await fs.mkdir(path.join(runDir, 'scripts'), { recursive: true });
   await fs.mkdir(path.join(runDir, 'render'), { recursive: true });
+  console.log(`[VIDEO_RUN] artifact_dir=${runDir}`);
 
   return {
     runId,

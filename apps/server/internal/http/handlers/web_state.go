@@ -63,20 +63,34 @@ type webConversation struct {
 }
 
 type webMessage struct {
-	ID             string      `json:"id"`
-	ConversationID string      `json:"conversationId"`
-	Role           string      `json:"role"`
-	Content        string      `json:"content"`
-	ContentInline  string      `json:"contentInline,omitempty"`
-	ContentRef     string      `json:"contentRef,omitempty"`
-	ContentHash    string      `json:"contentHash,omitempty"`
-	ContentSize    int64       `json:"contentSize,omitempty"`
-	TurnID         string      `json:"turnId,omitempty"`
-	ReplyToID      string      `json:"replyToMessageId,omitempty"`
-	TokenUsage     int         `json:"tokenUsage,omitempty"`
-	Status         string      `json:"status"`
-	CreatedAt      string      `json:"createdAt"`
-	Metadata       interface{} `json:"metadata,omitempty"`
+	ID             string                 `json:"id"`
+	ConversationID string                 `json:"conversationId"`
+	Role           string                 `json:"role"`
+	Content        string                 `json:"content"`
+	ContentInline  string                 `json:"contentInline,omitempty"`
+	ContentRef     string                 `json:"contentRef,omitempty"`
+	ContentHash    string                 `json:"contentHash,omitempty"`
+	ContentSize    int64                  `json:"contentSize,omitempty"`
+	TurnID         string                 `json:"turnId,omitempty"`
+	ReplyToID      string                 `json:"replyToMessageId,omitempty"`
+	TokenUsage     int                    `json:"tokenUsage,omitempty"`
+	Status         string                 `json:"status"`
+	CreatedAt      string                 `json:"createdAt"`
+	Metadata       interface{}            `json:"metadata,omitempty"`
+	Attachments    []webMessageAttachment `json:"attachments,omitempty"`
+}
+
+type webMessageAttachment struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	Type         string `json:"type"`
+	Size         int64  `json:"size"`
+	MimeType     string `json:"mimeType,omitempty"`
+	StorageKey   string `json:"storageKey,omitempty"`
+	ThumbnailURL string `json:"thumbnailUrl,omitempty"`
+	Hash         string `json:"hash,omitempty"`
+	Status       string `json:"status,omitempty"`
 }
 
 type webKnowledgeFile struct {

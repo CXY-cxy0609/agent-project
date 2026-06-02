@@ -1,33 +1,28 @@
 /**
- * Image OCR Tool — 处理用户上传的图片，提取文字内容
- * 利用 Claude 的多模态能力直接识别图片，无需外部 OCR 服务
+ * Image OCR Tool — 面向 RAG/资料入库的图片文字提取能力。
+ * QA 对话不调用该工具；用户上传图片问答时由多模态模型直接看图。
  */
 
 import { defineTool } from '../harness/tool/tool.js';
-import { LLMClient } from '../harness/core/llm-client.js';
+import type { LLMClient } from '../harness/core/llm-client.js';
 
 export function createImageOcrTool(llm: LLMClient, model: string) {
   return defineTool<
-    { image_base64: string; media_type: string },
+    { image_url: string },
     { extracted_text: string; success: boolean }
   >({
     name: 'image_ocr',
     description:
-      '识别图片中的文字内容（包括题目、公式、表格等）。用户上传图片时，先调用此工具提取文字，再进行后续处理。',
+      '识别图片 URL 中的文字内容（包括题目、公式、表格等）。仅用于 RAG/资料入库等需要 OCR 的离线处理链路。',
     inputSchema: {
       type: 'object',
       properties: {
-        image_base64: {
+        image_url: {
           type: 'string',
-          description: 'Base64 编码的图片内容',
-        },
-        media_type: {
-          type: 'string',
-          description: '图片 MIME 类型，如 image/jpeg、image/png',
-          enum: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+          description: '公网可访问的图片 URL',
         },
       },
-      required: ['image_base64', 'media_type'],
+      required: ['image_url'],
     },
     execute: async (input) => {
       try {
@@ -40,9 +35,8 @@ export function createImageOcrTool(llm: LLMClient, model: string) {
                 {
                   type: 'image',
                   source: {
-                    type: 'base64',
-                    media_type: input.media_type as 'image/jpeg',
-                    data: input.image_base64,
+                    type: 'url',
+                    url: input.image_url,
                   },
                 },
                 {

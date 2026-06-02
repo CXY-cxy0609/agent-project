@@ -1,6 +1,6 @@
 /**
  * QA Agent Graph 节点定义
- * 流程：OCR（可选）→ RAG 检索 → LLM 生成 → 视频（可选）
+ * 流程：Prepare → RAG 检索 → LLM 生成 → 视频（可选）
  */
 
 import { PromptBuilder } from '../../harness/prompt/builder.js';
@@ -13,7 +13,7 @@ import { MODELS } from '../../constants/models.js';
 import { metrics, METRIC } from '../../harness/observer/metrics.js';
 import { QA_PERSONA, QA_TASK, QA_OUTPUT_SCHEMA } from './qa.prompts.js';
 import type { QAState, QAAnswerRaw } from './qa.types.js';
-import type { AgentContext, Message } from '../../harness/core/types.js';
+import type { AgentContext, ContentBlock, Message } from '../../harness/core/types.js';
 import { withRetry } from '../../harness/core/retry.js';
 import {
   decideRetrievalPolicy,
@@ -25,42 +25,16 @@ const schemaParser = new SchemaParser();
 export function buildQANodes(
   llm: LLMClient,
   ragClient: RagClient,
-  toolRegistry: ToolRegistry,
+  _toolRegistry: ToolRegistry,
   _ctx: AgentContext,
   retrievalPolicyConfig: QARetrievalPolicyConfig,
 ) {
-  async function ocrNode(state: Readonly<QAState>): Promise<Partial<QAState>> {
-    if (!state.imageBase64) {
-      return {
-        processedQuestion: state.question,
-        retrievalMode: 'text_only',
-        ragBudgetTokens: undefined,
-        ragMaxUpgradePages: undefined,
-      };
-    }
-
-    const ocrTool = toolRegistry.get('image_ocr');
-    if (!ocrTool) return { processedQuestion: state.question };
-
-    const result = (await ocrTool.execute({
-      image_base64: state.imageBase64,
-      media_type: state.imageMediaType ?? 'image/jpeg',
-    })) as { extracted_text: string; success: boolean };
-
-    const ocrText = result.success ? result.extracted_text : '';
-    const processedQuestion = ocrText
-      ? `${state.question}\n\n[图片内容识别]\n${ocrText}`
-      : state.question;
-
-    const retrievalPolicy = decideRetrievalPolicy(
-      state.question,
-      ocrText,
-      retrievalPolicyConfig,
-    );
+  async function prepareNode(state: Readonly<QAState>): Promise<Partial<QAState>> {
+    const images = normalizeQAStateImages(state);
+    const retrievalPolicy = decideRetrievalPolicy(state.question, '', retrievalPolicyConfig);
     return {
-      ocrText,
-      processedQuestion,
-      retrievalMode: retrievalPolicy.mode,
+      processedQuestion: state.question,
+      retrievalMode: images.length > 0 ? 'text_only' : retrievalPolicy.mode,
       ragBudgetTokens: retrievalPolicy.budgetTokens,
       ragMaxUpgradePages: retrievalPolicy.maxUpgradePages,
     };
@@ -105,17 +79,19 @@ export function buildQANodes(
       { agentName: 'QAAgent' },
     );
 
+    const images = normalizeQAStateImages(state);
     const { messages, systemPrompt, cacheBreakpoint } = new PromptBuilder()
       .setPersona(QA_PERSONA, { subject })
       .setTask(QA_TASK, { question, ragContext, conversationContext })
       .setOutputFormat(QA_OUTPUT_SCHEMA)
       .build();
+    const multimodalMessages = appendImageUrlBlocks(messages, images);
 
     const raw = await withRetry(
       async () => {
         const response = await llm.call({
           model: MODELS.SONNET,
-          messages,
+          messages: multimodalMessages,
           systemPrompt,
           cacheBreakpoint,
           maxTokens: 3000,
@@ -144,7 +120,7 @@ export function buildQANodes(
   }
 
   return {
-    ocrNode,
+    prepareNode,
     ragNode,
     generateNode,
     END,
@@ -201,4 +177,39 @@ function truncate(text: string, maxChars: number): string {
 function estimateTokens(text: string): number {
   if (!text) return 0;
   return Math.ceil(text.length / 4);
+}
+
+function normalizeQAStateImages(state: Readonly<QAState>): Array<{ url: string; mediaType?: string }> {
+  const images = (state.images ?? [])
+    .filter((item) => item.url)
+    .slice(0, 9);
+  return images;
+}
+
+function appendImageUrlBlocks(messages: Message[], images: Array<{ url: string }>): Message[] {
+  if (images.length === 0) return messages;
+  const lastUserIndex = findLastUserMessageIndex(messages);
+  if (lastUserIndex < 0) return messages;
+
+  return messages.map((message, index) => {
+    if (index !== lastUserIndex) return message;
+    const textBlocks: ContentBlock[] = typeof message.content === 'string'
+      ? [{ type: 'text', text: message.content }]
+      : message.content;
+    const imageBlocks: ContentBlock[] = images.map((image) => ({
+      type: 'image',
+      source: { type: 'url', url: image.url },
+    }));
+    return {
+      ...message,
+      content: [...imageBlocks, ...textBlocks],
+    };
+  });
+}
+
+function findLastUserMessageIndex(messages: Message[]): number {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === 'user') return i;
+  }
+  return -1;
 }
