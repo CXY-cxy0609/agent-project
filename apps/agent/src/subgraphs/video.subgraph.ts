@@ -28,6 +28,8 @@ export function createVideoSubgraph(
       context.stateStore.setNodeState(context.workflowId, 'video.input', {
         subject: input.subject,
         use_video_cache: input.useVideoCache ?? true,
+        run_id: input.runId ?? '',
+        artifact_run_dir: input.artifactRunDir ?? '',
       });
       context.emitEvent('video.node.started', 'video.run', {
         subject: input.subject,

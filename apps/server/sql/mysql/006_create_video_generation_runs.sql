@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS video_generation_runs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  run_id VARCHAR(120) NOT NULL,
+  workflow_id VARCHAR(120) NOT NULL,
+  trace_id VARCHAR(120) NOT NULL,
+  session_id VARCHAR(120) NOT NULL DEFAULT '',
+  user_id VARCHAR(80) NOT NULL DEFAULT '',
+  subject VARCHAR(120) NOT NULL DEFAULT '',
+  status VARCHAR(40) NOT NULL,
+  intent_json JSON,
+  artifact_bundle_url VARCHAR(1024) NOT NULL DEFAULT '',
+  manifest_url VARCHAR(1024) NOT NULL DEFAULT '',
+  video_url VARCHAR(1024) NOT NULL DEFAULT '',
+  error_summary TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_video_generation_runs_run_id (run_id),
+  KEY idx_video_generation_runs_workflow_id (workflow_id),
+  KEY idx_video_generation_runs_trace_id (trace_id),
+  KEY idx_video_generation_runs_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -9,6 +9,12 @@ import { validateManimScript } from '../../harness/video/script-validator.js';
 import { classifyManimError } from '../../harness/video/error-classifier.js';
 import { applyRulePatch, chooseFixStrategy } from '../../harness/video/fix-policy.js';
 import {
+  createRunBundleArchive,
+  finalizeRunManifest,
+  writeRunJson,
+  writeRunText,
+} from '../../harness/artifact/video-run-artifact.js';
+import {
   VIDEO_PERSONA,
   STORYBOARD_TASK,
   MANIM_SCRIPT_TASK,
@@ -36,6 +42,14 @@ interface RenderEvent {
   renderedVideoPath?: string;
   lastError?: string;
   errorType?: 'syntax' | 'import' | 'name' | 'attribute' | 'latex' | 'timeout' | 'runtime' | 'unknown';
+}
+
+interface RunArtifactState {
+  runId?: string;
+  workflowId?: string;
+  traceId?: string;
+  artifactRunDir?: string;
+  artifactObjectPrefix?: string;
 }
 
 export function buildVideoMessageGraphNodes(
@@ -74,6 +88,13 @@ export function buildVideoMessageGraphNodes(
   async function returnCachedNode(ctx: MessageGraphNodeContext): Promise<void> {
     const cache = findLatestEvent<CacheEvent>(ctx.readEvents('video.check_cache.completed'));
     const payload = { success: true, videoUrl: cache?.videoUrl };
+    const artifactState = readRunArtifactState(ctx);
+    await writeRunJsonIfEnabled(artifactState, 'result.json', {
+      success: true,
+      reason: 'cache_hit',
+      videoUrl: cache?.videoUrl ?? '',
+      timestamp: new Date().toISOString(),
+    });
     ctx.setNodeState(payload);
     ctx.emitEvent('video.return_cached.completed', payload);
   }
@@ -96,13 +117,30 @@ export function buildVideoMessageGraphNodes(
     const raw = schemaParser.parse<StoryboardRaw>(response.content, STORYBOARD_OUTPUT_SCHEMA);
     const storyboard: StoryboardScene[] = (raw.scenes as unknown[]).map((scene, index) => {
       const item = scene as Record<string, unknown>;
+      const sceneIndexFromModel = Number(item.scene_index ?? index + 1);
+      const normalizedSceneIndex =
+        Number.isFinite(sceneIndexFromModel) && sceneIndexFromModel > 0 ? sceneIndexFromModel - 1 : index;
+      const layoutValue = String(item.layout ?? 'center').trim().toLowerCase();
+      const layout: StoryboardScene['layout'] = layoutValue === 'left_right' ? 'left_right' : 'center';
+      const subtitles = Array.isArray(item.subtitles)
+        ? item.subtitles
+            .map((line) => String(line).trim())
+            .filter((line) => line.length > 0)
+        : [];
       return {
-        sceneIndex: index,
+        sceneIndex: normalizedSceneIndex,
+        title: String(item.title ?? `场景 ${index + 1}`),
+        layout,
         description: String(item.description ?? ''),
         animationNotes: String(item.animation_notes ?? ''),
         narration: String(item.narration ?? ''),
+        subtitles,
         durationSeconds: Number(item.duration_seconds ?? 15),
       };
+    });
+    await writeRunJsonIfEnabled(readRunArtifactState(ctx), 'storyboard.json', {
+      scenes: storyboard,
+      generatedAt: new Date().toISOString(),
     });
     ctx.setNodeState({ sceneCount: storyboard.length });
     ctx.setArtifact('video.storyboard', storyboard);
@@ -114,16 +152,14 @@ export function buildVideoMessageGraphNodes(
     if (!storyboard?.length) {
       throw new Error('StoryboardMissing');
     }
-    const storyboardText = storyboard
-      .map((s) => `场景 ${s.sceneIndex + 1}:\n描述: ${s.description}\n动画: ${s.animationNotes}\n旁白: ${s.narration}`)
-      .join('\n\n');
+    const storyboardJson = JSON.stringify(storyboard, null, 2);
     const loop = await runReasoningLoop<string>({
       maxAttempts: 2,
       run: async ({ feedback }) => {
         const { messages, systemPrompt } = new PromptBuilder()
           .setPersona(VIDEO_PERSONA, {})
           .setTask(MANIM_SCRIPT_TASK, {
-            storyboard: feedback ? `${storyboardText}\n\n反馈：${feedback}` : storyboardText,
+            storyboard: feedback ? `${storyboardJson}\n\n反馈：${feedback}` : storyboardJson,
           })
           .build();
         const response = await llm.call({
@@ -148,12 +184,23 @@ export function buildVideoMessageGraphNodes(
       manimScript: loop.result,
       scriptVersion: currentVersion,
     };
+    const artifactState = readRunArtifactState(ctx);
+    await writeRunTextIfEnabled(artifactState, `scripts/script-v${currentVersion}.py`, `${loop.result}\n`);
+    await writeRunJsonIfEnabled(artifactState, `scripts/script-v${currentVersion}.meta.json`, {
+      source: 'generate',
+      attemptCount: loop.attempts.length,
+      generatedAt: new Date().toISOString(),
+      verificationErrors:
+        loop.attempts[loop.attempts.length - 1]?.verificationErrors ?? [],
+    });
     ctx.setArtifact('video.script', loop.result);
     ctx.setNodeState({ scriptVersion: currentVersion });
     ctx.emitEvent('video.script.completed', payload);
   }
 
   async function renderNode(ctx: MessageGraphNodeContext): Promise<void> {
+    const artifactState = readRunArtifactState(ctx);
+    const attempt = ctx.readEvents('video.render.completed').length + 1;
     const script = resolveCurrentScript(ctx.readEvents());
     if (!script) {
       throw new Error('ScriptMissing');
@@ -168,6 +215,12 @@ export function buildVideoMessageGraphNodes(
     })) as ManimRunnerResult;
     if (result.success && result.video_path) {
       const payload: RenderEvent = { renderedVideoPath: result.video_path };
+      await writeRunJsonIfEnabled(artifactState, `render/render-attempt-${attempt}.json`, {
+        attempt,
+        success: true,
+        renderedVideoPath: result.video_path,
+        createdAt: new Date().toISOString(),
+      });
       ctx.setArtifact('video.rendered_path', result.video_path);
       ctx.setNodeState(payload);
       ctx.emitEvent('video.render.completed', payload);
@@ -181,6 +234,13 @@ export function buildVideoMessageGraphNodes(
       lastError,
       errorType: classified.type,
     };
+    await writeRunJsonIfEnabled(artifactState, `render/render-attempt-${attempt}.json`, {
+      attempt,
+      success: false,
+      errorType: classified.type,
+      lastError,
+      createdAt: new Date().toISOString(),
+    });
     ctx.setNodeState({ ...payload, retryCount });
     ctx.emitEvent('video.render.completed', payload);
   }
@@ -201,11 +261,19 @@ export function buildVideoMessageGraphNodes(
         const validationErrors = validateManimScript(patched.script);
         if (!validationErrors.length) {
           const nextVersion = Number(ctx.getWorkflowState().scriptVersion ?? 0) + 1;
+          const artifactState = readRunArtifactState(ctx);
           ctx.patchWorkflowState({ scriptVersion: nextVersion });
           const payload: ScriptEvent = {
             manimScript: patched.script,
             scriptVersion: nextVersion,
           };
+          await writeRunTextIfEnabled(artifactState, `scripts/script-v${nextVersion}.py`, `${patched.script}\n`);
+          await writeRunJsonIfEnabled(artifactState, `scripts/script-v${nextVersion}.meta.json`, {
+            source: 'fix_rule',
+            strategy,
+            reason: patched.reason,
+            generatedAt: new Date().toISOString(),
+          });
           ctx.setArtifact('video.script', patched.script);
           ctx.emitEvent('video.fix.completed', payload);
           return;
@@ -239,17 +307,26 @@ export function buildVideoMessageGraphNodes(
       throw new Error(loop.failureReason ?? 'FixScriptFailed');
     }
     const nextVersion = Number(ctx.getWorkflowState().scriptVersion ?? 0) + 1;
+    const artifactState = readRunArtifactState(ctx);
     ctx.patchWorkflowState({ scriptVersion: nextVersion });
     const payload: ScriptEvent = {
       manimScript: loop.result,
       scriptVersion: nextVersion,
     };
+    await writeRunTextIfEnabled(artifactState, `scripts/script-v${nextVersion}.py`, `${loop.result}\n`);
+    await writeRunJsonIfEnabled(artifactState, `scripts/script-v${nextVersion}.meta.json`, {
+      source: 'fix_llm',
+      strategy,
+      attemptCount: loop.attempts.length,
+      generatedAt: new Date().toISOString(),
+    });
     ctx.setArtifact('video.script', loop.result);
     ctx.emitEvent('video.fix.completed', payload);
   }
 
   async function uploadNode(ctx: MessageGraphNodeContext): Promise<void> {
     const renderedVideoPath = ctx.getArtifact('video.rendered_path');
+    const artifactState = readRunArtifactState(ctx);
     if (typeof renderedVideoPath !== 'string' || renderedVideoPath.length === 0) {
       throw new Error('RenderedVideoMissing');
     }
@@ -262,13 +339,55 @@ export function buildVideoMessageGraphNodes(
       object_key: `videos/${Date.now()}.mp4`,
     })) as { success: boolean; url?: string; error_message?: string };
     if (result.success && result.url) {
-      const payload = { success: true, videoUrl: result.url };
-      ctx.patchWorkflowState({ success: true, videoUrl: result.url });
+      await writeRunJsonIfEnabled(artifactState, 'result.json', {
+        success: true,
+        videoUrl: result.url,
+        createdAt: new Date().toISOString(),
+      });
+      let artifactBundleUrl: string | undefined;
+      let artifactManifestUrl: string | undefined;
+      const runArtifactContext = toRunArtifactContext(artifactState);
+      if (runArtifactContext) {
+        await finalizeRunManifest(runArtifactContext);
+        const archivePath = await createRunBundleArchive(runArtifactContext);
+        const archiveUpload = (await uploadTool.execute({
+          file_path: archivePath,
+          object_key: `${artifactState.artifactObjectPrefix}/run-bundle.tar.gz`,
+          content_type: 'application/gzip',
+        })) as { success: boolean; url?: string };
+        const manifestUpload = (await uploadTool.execute({
+          file_path: `${artifactState.artifactRunDir}/manifest.json`,
+          object_key: `${artifactState.artifactObjectPrefix}/manifest.json`,
+          content_type: 'application/json',
+        })) as { success: boolean; url?: string };
+        if (archiveUpload.success) artifactBundleUrl = archiveUpload.url;
+        if (manifestUpload.success) artifactManifestUrl = manifestUpload.url;
+      }
+      const payload = {
+        success: true,
+        videoUrl: result.url,
+        artifactBundleUrl,
+        artifactManifestUrl,
+      };
+      await writeRunJsonIfEnabled(artifactState, 'result.json', {
+        ...payload,
+        createdAt: new Date().toISOString(),
+      });
+      ctx.patchWorkflowState({
+        success: true,
+        videoUrl: result.url,
+        artifactBundleUrl,
+        artifactManifestUrl,
+      });
       ctx.setNodeState(payload);
       ctx.emitEvent('video.upload.completed', payload);
       return;
     }
     const payload = { success: false, failureReason: result.error_message ?? 'UploadFailed' };
+    await writeRunJsonIfEnabled(artifactState, 'result.json', {
+      ...payload,
+      createdAt: new Date().toISOString(),
+    });
     ctx.patchWorkflowState(payload);
     ctx.setNodeState(payload);
     ctx.emitEvent('video.upload.completed', payload);
@@ -298,6 +417,66 @@ export function buildVideoMessageGraphNodes(
     shouldUseCached,
     shouldRetryRender,
   };
+}
+
+function readRunArtifactState(ctx: MessageGraphNodeContext): RunArtifactState {
+  const state = ctx.getWorkflowState();
+  return {
+    runId: typeof state.runId === 'string' ? state.runId : undefined,
+    workflowId: typeof state.workflowId === 'string' ? state.workflowId : undefined,
+    traceId: typeof state.traceId === 'string' ? state.traceId : undefined,
+    artifactRunDir: typeof state.artifactRunDir === 'string' ? state.artifactRunDir : undefined,
+    artifactObjectPrefix: typeof state.artifactObjectPrefix === 'string' ? state.artifactObjectPrefix : undefined,
+  };
+}
+
+function toRunArtifactContext(state: RunArtifactState):
+  | {
+      runId: string;
+      workflowId: string;
+      traceId: string;
+      rootDir: string;
+      runDir: string;
+      objectPrefix: string;
+      createdAt: string;
+    }
+  | undefined {
+  if (!state.runId || !state.artifactRunDir || !state.artifactObjectPrefix) return undefined;
+  return {
+    runId: state.runId,
+    workflowId: state.workflowId ?? '',
+    traceId: state.traceId ?? '',
+    rootDir: state.artifactRunDir,
+    runDir: state.artifactRunDir,
+    objectPrefix: state.artifactObjectPrefix,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function writeRunJsonIfEnabled(
+  state: RunArtifactState,
+  relativePath: string,
+  payload: unknown,
+): Promise<void> {
+  if (!state.artifactRunDir) return;
+  try {
+    await writeRunJson(state.artifactRunDir, relativePath, payload);
+  } catch {
+    // 产物写入失败不阻断主流程
+  }
+}
+
+async function writeRunTextIfEnabled(
+  state: RunArtifactState,
+  relativePath: string,
+  content: string,
+): Promise<void> {
+  if (!state.artifactRunDir) return;
+  try {
+    await writeRunText(state.artifactRunDir, relativePath, content);
+  } catch {
+    // 产物写入失败不阻断主流程
+  }
 }
 
 function findLatestEvent<TPayload>(events: readonly MessageEnvelope[]): TPayload | undefined {

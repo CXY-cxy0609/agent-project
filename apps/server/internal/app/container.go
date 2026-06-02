@@ -19,6 +19,7 @@ type Container struct {
 	ConversationService   *service.ConversationService
 	TaskService           *service.TaskService
 	LearningRecordService *service.LearningRecordService
+	VideoRunService       *service.VideoGenerationRunService
 
 	dbStore    *database.Store
 	redisStore *cache.RedisStore
@@ -38,7 +39,7 @@ func Build(cfg config.Config) (*Container, error) {
 		log.Printf("redis store is nil, health check will report down")
 	}
 
-	userRepo, subjectRepo, conversationRepo, taskRepo, learningRepo := buildRepositories(dbStore)
+	userRepo, subjectRepo, conversationRepo, taskRepo, learningRepo, videoRunRepo := buildRepositories(dbStore)
 
 	return &Container{
 		Health:                health.NewService(dbStore, redisStore),
@@ -47,6 +48,7 @@ func Build(cfg config.Config) (*Container, error) {
 		ConversationService:   service.NewConversationService(conversationRepo),
 		TaskService:           service.NewTaskService(taskRepo),
 		LearningRecordService: service.NewLearningRecordService(learningRepo),
+		VideoRunService:       service.NewVideoGenerationRunService(videoRunRepo),
 		dbStore:               dbStore,
 		redisStore:            redisStore,
 	}, nil
@@ -60,13 +62,15 @@ func buildRepositories(
 	repository.ConversationRepository,
 	repository.TaskRepository,
 	repository.LearningRecordRepository,
+	repository.VideoGenerationRunRepository,
 ) {
 	log.Printf("repository mode: sql")
 	return repository.NewSQLUserRepository(dbStore),
 		repository.NewSQLSubjectRepository(dbStore),
 		repository.NewSQLConversationRepository(dbStore),
 		repository.NewSQLTaskRepository(dbStore),
-		repository.NewSQLLearningRecordRepository(dbStore)
+		repository.NewSQLLearningRecordRepository(dbStore),
+		repository.NewSQLVideoGenerationRunRepository(dbStore)
 }
 
 func (c *Container) Close() {

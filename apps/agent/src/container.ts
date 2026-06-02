@@ -12,6 +12,7 @@ import { RagClient } from './harness/rag-client/rag-client.js';
 import { InMemoryShortTermMemory, RedisShortTermMemory } from './harness/memory/short-term.js';
 import { HttpUserVectorMemory, HttpContentVectorCache } from './harness/memory/vector-memory.js';
 import { HttpStructuredMemory } from './harness/memory/db-memory.js';
+import { HttpVideoRunMemory } from './harness/memory/video-run-memory.js';
 import { defaultObserver } from './harness/observer/tracer.js';
 import { OrchestratorAgent } from './agents/orchestrator/orchestrator.agent.js';
 import { QAAgent } from './agents/qa/qa.agent.js';
@@ -93,6 +94,7 @@ export function createContainer(config: AppConfig): AppContainer {
   const userVectorMemory = new HttpUserVectorMemory(config.ragServiceUrl);
   const contentVectorCache = new HttpContentVectorCache(config.ragServiceUrl);
   const structuredMemory = new HttpStructuredMemory(config.serverUrl, config.internalToken);
+  const videoRunMemory = new HttpVideoRunMemory(config.serverUrl, config.internalToken);
 
   // ─── 工具注册 ──────────────────────────────────────────────────────
   const toolRegistry = new ToolRegistry();
@@ -152,6 +154,7 @@ export function createContainer(config: AppConfig): AppContainer {
     memory,
     scheduler,
     config.modelGovernance.orchestrator,
+    videoRunMemory,
   );
 
   const knowledgeBaseAgent = new KnowledgeBaseAgent(

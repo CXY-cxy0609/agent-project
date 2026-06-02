@@ -31,8 +31,13 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
     const graph = new MessageDrivenGraph({
       knowledgeDescription: input.knowledgeDescription,
       subject: input.subject,
+      workflowId: typeof ctx.metadata?.workflowId === 'string' ? ctx.metadata.workflowId : undefined,
+      traceId: ctx.traceId,
       useVideoCache: input.useVideoCache ?? true,
       cacheScoreThreshold: input.cacheScoreThreshold ?? DEFAULT_CACHE_THRESHOLD,
+      runId: input.runId,
+      artifactRunDir: input.artifactRunDir,
+      artifactObjectPrefix: input.artifactObjectPrefix,
       retryCount: 0,
       scriptVersion: 0,
       success: false,
@@ -82,6 +87,14 @@ export class VideoAgent extends BaseAgent<VideoAgentInput, VideoAgentOutput> {
           videoUrl: uploaded?.videoUrl ?? (typeof partitions.workflow_state.videoUrl === 'string' ? partitions.workflow_state.videoUrl : undefined),
           failureReason: uploaded?.failureReason
             ?? (typeof partitions.workflow_state.failureReason === 'string' ? partitions.workflow_state.failureReason : undefined),
+          artifactBundleUrl:
+            typeof partitions.workflow_state.artifactBundleUrl === 'string'
+              ? partitions.workflow_state.artifactBundleUrl
+              : undefined,
+          artifactManifestUrl:
+            typeof partitions.workflow_state.artifactManifestUrl === 'string'
+              ? partitions.workflow_state.artifactManifestUrl
+              : undefined,
         };
 
     if (output.success && output.videoUrl) {

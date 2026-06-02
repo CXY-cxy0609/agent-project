@@ -92,6 +92,9 @@ app.post('/chat/stream', async (req, res) => {
       intent: result.intent,  // 意图
       subjectId: result.subjectId,
       videoUrl: result.videoUrl,  // 视频 URL
+      videoRunId: result.videoRunId,
+      artifactBundleUrl: result.artifactBundleUrl,
+      artifactManifestUrl: result.artifactManifestUrl,
       conversationId: result.conversationId,  // 会话 ID
     });
 

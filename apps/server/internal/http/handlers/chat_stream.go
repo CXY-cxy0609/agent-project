@@ -124,14 +124,18 @@ func ChatStream(agentServiceURL string) gin.HandlerFunc {
 				hasDelta = true
 				seq++
 				sendEvent(map[string]any{
-					"type":           "delta",
-					"streamId":       streamID,
-					"sequence":       seq,
-					"delta":          delta,
-					"content":        delta,
-					"conversationId": upstream["conversationId"],
-					"subjectId":      upstream["subjectId"],
-					"intent":         upstream["intent"],
+					"type":                "delta",
+					"streamId":            streamID,
+					"sequence":            seq,
+					"delta":               delta,
+					"content":             delta,
+					"conversationId":      upstream["conversationId"],
+					"subjectId":           upstream["subjectId"],
+					"intent":              upstream["intent"],
+					"videoUrl":            upstream["videoUrl"],
+					"videoRunId":          upstream["videoRunId"],
+					"artifactBundleUrl":   upstream["artifactBundleUrl"],
+					"artifactManifestUrl": upstream["artifactManifestUrl"],
 				})
 			case "reply":
 				content, _ := upstream["content"].(string)
@@ -151,14 +155,18 @@ func ChatStream(agentServiceURL string) gin.HandlerFunc {
 				}
 				seq++
 				sendEvent(map[string]any{
-					"type":           "delta",
-					"streamId":       streamID,
-					"sequence":       seq,
-					"delta":          content,
-					"content":        content,
-					"conversationId": upstream["conversationId"],
-					"subjectId":      upstream["subjectId"],
-					"intent":         upstream["intent"],
+					"type":                "delta",
+					"streamId":            streamID,
+					"sequence":            seq,
+					"delta":               content,
+					"content":             content,
+					"conversationId":      upstream["conversationId"],
+					"subjectId":           upstream["subjectId"],
+					"intent":              upstream["intent"],
+					"videoUrl":            upstream["videoUrl"],
+					"videoRunId":          upstream["videoRunId"],
+					"artifactBundleUrl":   upstream["artifactBundleUrl"],
+					"artifactManifestUrl": upstream["artifactManifestUrl"],
 				})
 			case "error":
 				close(heartbeatStop)

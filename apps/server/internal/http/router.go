@@ -129,6 +129,8 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 		{
 			internal.POST("/learning-records", handlers.CreateLearningRecord(container.LearningRecordService))
 			internal.GET("/learning-records", handlers.QueryLearningRecords(container.LearningRecordService))
+			internal.POST("/video-runs", handlers.UpsertVideoGenerationRun(container.VideoRunService))
+			internal.GET("/video-runs/:runId", handlers.GetVideoGenerationRun(container.VideoRunService))
 		}
 	}
 

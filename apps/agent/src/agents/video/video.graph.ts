@@ -67,11 +67,24 @@ export function buildVideoNodes(
       const raw = schemaParser.parse<StoryboardRaw>(response.content, STORYBOARD_OUTPUT_SCHEMA);
       const storyboard: StoryboardScene[] = (raw.scenes as unknown[]).map((s, i) => {
         const scene = s as Record<string, unknown>;
+        const sceneIndexFromModel = Number(scene.scene_index ?? i + 1);
+        const normalizedSceneIndex =
+          Number.isFinite(sceneIndexFromModel) && sceneIndexFromModel > 0 ? sceneIndexFromModel - 1 : i;
+        const layoutValue = String(scene.layout ?? 'center').trim().toLowerCase();
+        const layout: StoryboardScene['layout'] = layoutValue === 'left_right' ? 'left_right' : 'center';
+        const subtitles = Array.isArray(scene.subtitles)
+          ? scene.subtitles
+              .map((line) => String(line).trim())
+              .filter((line) => line.length > 0)
+          : [];
         return {
-          sceneIndex: i,
+          sceneIndex: normalizedSceneIndex,
+          title: String(scene.title ?? `场景 ${i + 1}`),
+          layout,
           description: String(scene.description ?? ''),
           animationNotes: String(scene.animation_notes ?? ''),
           narration: String(scene.narration ?? ''),
+          subtitles,
           durationSeconds: Number(scene.duration_seconds ?? 15),
         };
       });
@@ -86,17 +99,15 @@ export function buildVideoNodes(
   ): Promise<Partial<VideoState>> {
     if (!state.storyboard) return { failureReason: '无分镜脚本', success: false };
 
-    const storyboardText = state.storyboard
-      .map((s) => `场景 ${s.sceneIndex + 1}:\n  描述: ${s.description}\n  动画: ${s.animationNotes}\n  旁白: ${s.narration}\n  时长: ${s.durationSeconds}s`)
-      .join('\n\n');
+    const storyboardJson = JSON.stringify(state.storyboard, null, 2);
 
     const loop = await runReasoningLoop<string>({
       maxAttempts: 2,
       run: async ({ feedback }) => {
         const taskVars = {
           storyboard: feedback
-            ? `${storyboardText}\n\n### 上轮失败反馈\n${feedback}`
-            : storyboardText,
+            ? `${storyboardJson}\n\n### 上轮失败反馈\n${feedback}`
+            : storyboardJson,
         };
         const { messages, systemPrompt } = new PromptBuilder()
           .setPersona(VIDEO_PERSONA, {})

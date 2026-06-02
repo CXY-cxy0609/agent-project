@@ -19,6 +19,10 @@ fields:
     type: number
     required: true
     description: 置信度，0.0 到 1.0
+  - name: video_required
+    type: boolean
+    required: false
+    description: 是否需要执行视频生成子图。仅在用户明确要求视频时为 true
   - name: reasoning
     type: string
     required: false
@@ -34,4 +38,5 @@ fields:
 | `intent` | string | ✓ | 意图枚举：`qa` / `video_request` / `knowledge_query` / `learning_report` / `unknown` |
 | `subject_id` | string | | 科目标识，如 `math` / `english` / `politics`，无法识别时留空 |
 | `confidence` | number | ✓ | 模型判断置信度，范围 0.0–1.0 |
+| `video_required` | boolean | | 是否明确需要视频生成；仅明确要求视频时返回 `true` |
 | `reasoning` | string | | 一句话判断理由，便于 debug |

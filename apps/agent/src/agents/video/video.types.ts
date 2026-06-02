@@ -5,25 +5,38 @@ export interface VideoAgentInput {
   useVideoCache?: boolean;
   /** 相似度阈值，默认 0.92 */
   cacheScoreThreshold?: number;
+  /** 运行日志标识 */
+  runId?: string;
+  /** 运行目录绝对路径 */
+  artifactRunDir?: string;
+  /** 对象存储前缀 */
+  artifactObjectPrefix?: string;
 }
 
 export interface VideoAgentOutput {
   videoUrl?: string;
   success: boolean;
   failureReason?: string;
+  artifactBundleUrl?: string;
+  artifactManifestUrl?: string;
 }
 
 export interface StoryboardScene {
   sceneIndex: number;
+  title: string;
+  layout: 'left_right' | 'center';
   description: string;
   animationNotes: string;
   narration: string;
+  subtitles: string[];
   durationSeconds: number;
 }
 
 export interface VideoState {
   knowledgeDescription: string;
   subject: string;
+  workflowId?: string;
+  traceId?: string;
   useVideoCache: boolean;
   cacheScoreThreshold: number;
   /** 是否命中视频缓存 */
@@ -57,9 +70,27 @@ export interface VideoState {
   /** 是否成功 */
   success: boolean;
   failureReason?: string;
+  /** 运行日志标识 */
+  runId?: string;
+  /** 运行目录绝对路径 */
+  artifactRunDir?: string;
+  /** 对象存储前缀 */
+  artifactObjectPrefix?: string;
+  /** 运行归档地址 */
+  artifactBundleUrl?: string;
+  artifactManifestUrl?: string;
 }
 
 export interface StoryboardRaw {
-  scenes: StoryboardScene[];
+  scenes: Array<{
+    scene_index: number;
+    title: string;
+    layout: 'left_right' | 'center';
+    description: string;
+    animation_notes: string;
+    narration: string;
+    subtitles: string[];
+    duration_seconds: number;
+  }>;
   total_duration_seconds: number;
 }
