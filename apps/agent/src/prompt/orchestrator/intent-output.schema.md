@@ -14,7 +14,7 @@ fields:
   - name: subject_id
     type: string
     required: false
-    description: 识别到的科目标识（math/english/politics/history 等），无法识别则留空
+    description: 识别到的科目 ID；必须是“可选科目”列表里的真实 id，无法匹配则留空
   - name: confidence
     type: number
     required: true
@@ -23,6 +23,10 @@ fields:
     type: boolean
     required: false
     description: 是否需要执行视频生成子图。仅在用户明确要求视频时为 true
+  - name: title
+    type: string
+    required: false
+    description: 当前对话首轮可用的简短标题，概括用户本轮学习主题，建议 6 到 12 个中文字符
   - name: reasoning
     type: string
     required: false
@@ -36,7 +40,8 @@ fields:
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|:----:|------|
 | `intent` | string | ✓ | 意图枚举：`qa` / `video_request` / `knowledge_query` / `learning_report` / `unknown` |
-| `subject_id` | string | | 科目标识，如 `math` / `english` / `politics`，无法识别时留空 |
+| `subject_id` | string | | 科目 ID；必须来自“可选科目”列表中的真实 `id`，无法匹配时留空 |
 | `confidence` | number | ✓ | 模型判断置信度，范围 0.0–1.0 |
 | `video_required` | boolean | | 是否明确需要视频生成；仅明确要求视频时返回 `true` |
+| `title` | string | | 首轮对话标题，简短概括学习主题，如“卢沟桥事变”“电解水原理” |
 | `reasoning` | string | | 一句话判断理由，便于 debug |

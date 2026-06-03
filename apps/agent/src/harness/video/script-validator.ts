@@ -16,11 +16,15 @@ export function validateManimScript(script: string): string[] {
     errors.push('缺少 manim 相关导入');
   }
 
-  if (!/class\s+\w+\s*\(\s*Scene\s*\)\s*:/m.test(script)) {
-    errors.push('缺少继承 Scene 的类定义');
+  if (!/from\s+BaseScene\s+import\s+BaseScene/m.test(script)) {
+    errors.push('缺少 BaseScene 导入');
   }
 
-  if (!/def\s+construct\s*\(\s*self\s*\)\s*:/m.test(script)) {
+  if (!/class\s+\w+\s*\(\s*BaseScene\s*\)\s*:/m.test(script)) {
+    errors.push('缺少继承 BaseScene 的类定义');
+  }
+
+  if (!/def\s+construct\s*\(\s*self\s*\)\s*(?:->\s*[\w.[\], |]+)?\s*:/m.test(script)) {
     errors.push('缺少 construct(self) 方法');
   }
 

@@ -1,6 +1,0 @@
-{
-  "attempt": 1,
-  "success": false,
-  "lastError": "in _call_with_frames_removed\n  File \"/Users/rainson/codehub/agent-project/apps/manim-project/.temp-project/20260602/conv-1780393879448037000_0de86729-835a-4264-96a4-37c79187aca6_0de86729-835a-4264-96a4-37c79187aca6_vrun_1780393879571_7ba32c3b/scripts/script-v1.py\", line 8, in <module>\n    from manim import (\n    ...<4 lines>...\n    )\nImportError: cannot import name 'Shift' from 'manim' (/Users/rainson/codehub/agent-project/apps/manim-project/.venv/lib/python3.13/site-packages/manim/__init__.py)",
-  "createdAt": "2026-06-02T09:56:40.947Z"
-}

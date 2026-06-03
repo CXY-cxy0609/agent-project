@@ -1,6 +1,0 @@
-{
-  "attempt": 3,
-  "success": false,
-  "lastError": "\"       │\n│   214 │   │   │   │   f\" the log file: {log_file}\",                          │\n╰──────────────────────────────────────────────────────────────────────────────╯\nValueError: latex error converting to dvi. See log output above or the log file:\n/Users/rainson/codehub/agent-project/apps/manim-project/.temp-project/20260602/c\nonv-1780396524433661000_585c4e9c-694f-4a6b-8445-137e06357ab5_585c4e9c-694f-4a6b-\n8445-137e06357ab5_vrun_1780396524576_e729351f/render/media/Tex/90ae81bbf9f04b70.\nlog",
-  "createdAt": "2026-06-02T10:39:36.057Z"
-}

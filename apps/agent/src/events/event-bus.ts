@@ -8,6 +8,7 @@ export interface QaCompletedPayload {
   question: string;
   answer: string;
   subject: string;
+  subject_id?: string;
   knowledge_points: string[];
   difficulty?: 'easy' | 'medium' | 'hard';
 }

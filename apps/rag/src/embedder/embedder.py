@@ -44,7 +44,15 @@ class EmbeddingService:
         return self._redis
 
     def _cache_key(self, text: str) -> str:
-        return f"embed:{hashlib.md5(text.encode()).hexdigest()}"
+        versioned = "|".join(
+            [
+                settings.embedding_model,
+                str(settings.embedding_dimension),
+                "normalize=true",
+                text,
+            ]
+        )
+        return f"embed:{hashlib.md5(versioned.encode()).hexdigest()}"
 
     def embed_one(self, text: str) -> list[float]:
         """对单个文本做向量化（含缓存）"""

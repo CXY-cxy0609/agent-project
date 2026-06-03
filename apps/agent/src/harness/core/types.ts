@@ -100,6 +100,8 @@ export interface ShortTermMemory {
   getHistory(sessionId: string): Promise<Message[]>;
   appendHistory(sessionId: string, messages: Message[]): Promise<void>;
   clearHistory(sessionId: string): Promise<void>;
+  getState<T>(sessionId: string, key: string): Promise<T | undefined>;
+  setState<T>(sessionId: string, key: string, value: T, ttlSeconds?: number): Promise<void>;
 }
 
 export interface UserVectorMemory {
@@ -122,6 +124,7 @@ export interface LearningRecord {
   userId: string;
   sessionId: string;
   subject: string;
+  subjectId?: string;
   chapter?: string;
   knowledgePoint: string;
   difficulty?: 'easy' | 'medium' | 'hard';

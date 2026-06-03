@@ -7,19 +7,7 @@
       </div>
     </div>
 
-    <div v-if="subjectStore.subjects.length === 0" class="empty-subjects">
-      <a-result
-        status="info"
-        title="暂无学科"
-        sub-title="请先前往学科管理添加学科，才能查看学情记录。"
-      >
-        <template #extra>
-          <a-button type="primary" @click="$router.push('/app/subjects')">前往学科管理</a-button>
-        </template>
-      </a-result>
-    </div>
-
-    <template v-else>
+    <div class="analytics-main">
       <!-- Subject Tabs -->
       <a-tabs
         v-model:activeKey="activeSubjectId"
@@ -27,6 +15,7 @@
         type="card"
         @change="handleTabChange"
       >
+        <a-tab-pane :key="0" tab="总分析" />
         <a-tab-pane
           v-for="subject in rootSubjects"
           :key="subject.id"
@@ -35,20 +24,29 @@
       </a-tabs>
 
       <a-spin :spinning="loading" class="analytics-content">
-        <a-row :gutter="[16, 16]">
-          <a-col :xs="24" :xl="16">
-            <weak-points-card :analytics="analytics" />
-          </a-col>
+        <analytics-metric-cards :analytics="analytics" />
 
-          <a-col :xs="24" :xl="8">
-            <div class="analytics-side-column">
-              <analytics-summary-card
-                :analytics="analytics"
-                :generating-summary="generatingSummary"
-                @generate="generateSummary"
-              />
-              <analytics-stats-card :analytics="analytics" />
-            </div>
+        <a-row :gutter="[16, 16]" class="hero-row">
+          <a-col :xs="24" :xl="15">
+            <streaming-summary-card
+              :analytics="analytics"
+              :generating="generatingSummary"
+              :streamed-text="summaryDraft"
+              :stage-text="summaryStageText"
+              @generate="generateSummary"
+            />
+          </a-col>
+          <a-col :xs="24" :xl="9">
+            <action-plan-panel :analytics="analytics" />
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="[16, 16]">
+          <a-col :xs="24" :xl="15">
+            <knowledge-risk-matrix :analytics="analytics" />
+          </a-col>
+          <a-col :xs="24" :xl="9">
+            <weak-points-card :analytics="analytics" />
           </a-col>
         </a-row>
 
@@ -69,7 +67,7 @@
           </div>
         </div>
       </a-spin>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -79,23 +77,28 @@ import { message } from 'ant-design-vue';
 import { analyticsApi } from '@/api/analytics';
 import { subjectsApi } from '@/api/subjects';
 import { useSubjectStore } from '@/stores/subject';
+import ActionPlanPanel from '@/components/analytics/ActionPlanPanel.vue';
+import AnalyticsMetricCards from '@/components/analytics/AnalyticsMetricCards.vue';
+import KnowledgeRiskMatrix from '@/components/analytics/KnowledgeRiskMatrix.vue';
+import StreamingSummaryCard from '@/components/analytics/StreamingSummaryCard.vue';
 import WeakPointsCard from '@/components/analytics/WeakPointsCard.vue';
-import AnalyticsSummaryCard from '@/components/analytics/AnalyticsSummaryCard.vue';
-import AnalyticsStatsCard from '@/components/analytics/AnalyticsStatsCard.vue';
 import SubjectOutlineCard from '@/components/analytics/SubjectOutlineCard.vue';
-import type { LearningAnalytics, UserSubject } from '@tutor/shared';
+import type { AnalyticsSummaryStreamEvent, LearningAnalytics, UserSubject } from '@tutor/shared';
 
 const subjectStore = useSubjectStore();
 
 const loading = ref(false);
 const generatingSummary = ref(false);
-const activeSubjectId = ref<number>();
+const activeSubjectId = ref<number>(0);
 const analytics = ref<LearningAnalytics | null>(null);
+const summaryDraft = ref('');
+const summaryStageText = ref('');
+let cancelSummaryStream: (() => void) | null = null;
 
 const rootSubjects = computed(() =>
   subjectStore.subjects
     .filter((subject) => subject.level === 1)
-    .sort((a, b) => a.code - b.code),
+    .sort((a, b) => a.id - b.id),
 );
 
 const activeSubject = computed(() =>
@@ -110,7 +113,7 @@ const activeSubjectWithOutline = computed(() => {
 const secondarySubjectsForOutline = computed(() =>
   subjectStore.subjects
     .filter((subject) => subject.level === 2 && subject.parentId === activeSubjectId.value)
-    .sort((a, b) => a.code - b.code)
+    .sort((a, b) => a.id - b.id)
     .map((subject) => ({
       ...subject,
       outline: subject.outline ?? { modules: [] },
@@ -118,12 +121,14 @@ const secondarySubjectsForOutline = computed(() =>
 );
 
 async function loadAnalytics() {
-  if (activeSubjectId.value === undefined) return;
   loading.value = true;
   try {
-    analytics.value = await analyticsApi.getAnalytics(activeSubjectId.value);
+    analytics.value = await analyticsApi.getAnalytics(
+      activeSubjectId.value === 0 ? null : activeSubjectId.value,
+      activeSubjectId.value === 0 ? 'overall' : 'subject',
+    );
   } catch {
-    analytics.value = null;
+    analytics.value = buildEmptyAnalytics();
   } finally {
     loading.value = false;
   }
@@ -136,17 +141,46 @@ function handleTabChange(id: number) {
 }
 
 async function generateSummary() {
-  if (activeSubjectId.value === undefined) return;
+  if (generatingSummary.value) return;
+  cancelSummaryStream?.();
   generatingSummary.value = true;
-  try {
-    const result = await analyticsApi.generateSummary(activeSubjectId.value);
-    if (analytics.value) {
-      analytics.value.summary = result.summary;
-      analytics.value.summaryGeneratedAt = new Date().toISOString();
-    }
-    message.success('学情总结已生成');
-  } finally {
-    generatingSummary.value = false;
+  summaryDraft.value = '';
+  summaryStageText.value = '正在连接学情分析服务...';
+  cancelSummaryStream = analyticsApi.streamSummary(
+    activeSubjectId.value === 0 ? null : activeSubjectId.value,
+    activeSubjectId.value === 0 ? 'overall' : 'subject',
+    handleSummaryEvent,
+    (err) => {
+      generatingSummary.value = false;
+      summaryStageText.value = '';
+      message.error(err.message || '学情总结生成失败');
+    },
+  );
+}
+
+function handleSummaryEvent(event: AnalyticsSummaryStreamEvent) {
+  switch (event.type) {
+    case 'summary.stage':
+      summaryStageText.value = event.message;
+      break;
+    case 'summary.delta':
+      summaryDraft.value += event.delta;
+      break;
+    case 'summary.saved':
+      if (analytics.value) {
+        analytics.value.summary = event.summary.summary;
+        analytics.value.summaryDetail = event.summary;
+        analytics.value.summaryGeneratedAt = event.summary.generatedAt ?? new Date().toISOString();
+      }
+      break;
+    case 'summary.done':
+      generatingSummary.value = false;
+      summaryStageText.value = '';
+      summaryDraft.value = '';
+      message.success('学情总结已生成');
+      break;
+    default:
+      break;
   }
 }
 
@@ -158,10 +192,23 @@ onMounted(async () => {
       rootSubjects.value.find((subject) => subject.id === preferredId) ??
       rootSubjects.value.find((subject) => subject.id === subjectStore.subjects.find((s) => s.id === preferredId)?.parentId) ??
       rootSubjects.value[0];
-    activeSubjectId.value = initialRoot.id;
-    await loadAnalytics();
+    activeSubjectId.value = initialRoot?.id ?? 0;
   }
+  await loadAnalytics();
 });
+
+function buildEmptyAnalytics(): LearningAnalytics {
+  return {
+    userId: 'current',
+    scope: activeSubjectId.value === 0 ? 'overall' : 'subject',
+    subjectId: activeSubjectId.value === 0 ? null : activeSubjectId.value,
+    subjectName: activeSubject.value?.name ?? null,
+    weakPoints: [],
+    wordCloud: [],
+    summaryDetail: null,
+    updatedAt: new Date().toISOString(),
+  };
+}
 </script>
 
 <style scoped lang="less">
@@ -219,6 +266,11 @@ onMounted(async () => {
 .analytics-content {
   width: 100%;
   overflow: visible;
+}
+
+.hero-row {
+  margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 .outline-section {

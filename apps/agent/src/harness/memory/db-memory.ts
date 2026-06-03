@@ -6,6 +6,13 @@ import type { StructuredMemory, LearningRecord, MemoryFilter } from '../core/typ
 
 const DEFAULT_TIMEOUT_MS = 3000;
 
+type LearningRecordPayload = Partial<LearningRecord> & {
+  user_id?: string;
+  session_id?: string;
+  knowledge_point?: string;
+  asked_at?: string;
+};
+
 export class HttpStructuredMemory implements StructuredMemory {
   constructor(
     private readonly serverUrl: string,
@@ -14,18 +21,43 @@ export class HttpStructuredMemory implements StructuredMemory {
 
   async write(record: LearningRecord): Promise<void> {
     try {
-      await fetch(`${this.serverUrl}/api/learning-records`, {
+      const subjectId = this.normalizeSubjectId(record.subjectId);
+      const res = await fetch(`${this.serverUrl}/api/learning-events`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-internal-token': this.internalToken,
         },
-        body: JSON.stringify(record),
+        body: JSON.stringify({
+          userId: record.userId,
+          sessionId: record.sessionId,
+          ...(subjectId !== undefined ? { subjectId } : {}),
+          subjectNameSnapshot: record.subject,
+          knowledgePoint: record.knowledgePoint,
+          chapter: record.chapter,
+          difficulty: record.difficulty ?? 'medium',
+          sourceType: 'qa',
+          eventType: 'qa_extracted',
+          metadata: {
+            legacySubject: record.subject,
+          },
+        }),
         signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
       });
-    } catch {
-      // 写入失败不影响主链路
+      if (!res.ok) {
+        const body = await this.readResponseText(res);
+        throw new Error(`HTTP ${res.status}: ${body || res.statusText}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[HttpStructuredMemory] write learning record failed: ${msg}`);
+      throw err;
     }
+  }
+
+  private normalizeSubjectId(subjectId: string | undefined): number | undefined {
+    const parsed = Number(subjectId);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
   }
 
   async query(userId: string, filters: MemoryFilter): Promise<LearningRecord[]> {
@@ -46,18 +78,17 @@ export class HttpStructuredMemory implements StructuredMemory {
       if (!res.ok) return [];
       const payload = (await res.json()) as unknown;
       const list = this.unwrapLearningRecords(payload);
-      return list.map((record) => ({
-        ...record,
-        askedAt: record.askedAt ? new Date(record.askedAt) : undefined,
-      }));
-    } catch {
+      return list.map((record) => this.normalizeLearningRecord(record));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[HttpStructuredMemory] query learning records failed: ${msg}`);
       return [];
     }
   }
 
-  private unwrapLearningRecords(payload: unknown): LearningRecord[] {
+  private unwrapLearningRecords(payload: unknown): LearningRecordPayload[] {
     if (Array.isArray(payload)) {
-      return payload as LearningRecord[];
+      return payload as LearningRecordPayload[];
     }
     if (
       typeof payload === 'object' &&
@@ -67,8 +98,29 @@ export class HttpStructuredMemory implements StructuredMemory {
       (payload as { data: { list?: unknown } }).data !== null &&
       Array.isArray((payload as { data: { list?: unknown } }).data.list)
     ) {
-      return (payload as { data: { list: LearningRecord[] } }).data.list;
+      return (payload as { data: { list: LearningRecordPayload[] } }).data.list;
     }
     return [];
+  }
+
+  private normalizeLearningRecord(record: LearningRecordPayload): LearningRecord {
+    const askedAt = record.askedAt ?? record.asked_at;
+    return {
+      userId: String(record.userId ?? record.user_id ?? ''),
+      sessionId: String(record.sessionId ?? record.session_id ?? ''),
+      subject: String(record.subject ?? ''),
+      chapter: record.chapter,
+      knowledgePoint: String(record.knowledgePoint ?? record.knowledge_point ?? ''),
+      difficulty: record.difficulty,
+      askedAt: askedAt ? new Date(askedAt) : undefined,
+    };
+  }
+
+  private async readResponseText(res: Response): Promise<string> {
+    try {
+      return await res.text();
+    } catch {
+      return '';
+    }
   }
 }

@@ -2,6 +2,12 @@ import type { Message } from '../../harness/core/types.js';
 
 export type IntentType = 'qa' | 'video_request' | 'knowledge_query' | 'learning_report' | 'unknown';
 
+export interface SubjectOption {
+  id: string;
+  name: string;
+  code?: string;
+}
+
 export interface OrchestratorInput {
   userMessage: string;
   /** 多模态附件（图片 URL），最多 9 张 */
@@ -9,8 +15,9 @@ export interface OrchestratorInput {
   /** 前端显式请求生成视频 */
   generateVideo?: boolean;
   subjectId?: string;
-  availableSubjects?: Array<{ id: string | number; name: string; code?: string | number }>;
+  availableSubjects?: SubjectOption[];
   conversationId?: string;
+  messageCount?: number;
 }
 
 export interface IntentClassification {
@@ -19,6 +26,24 @@ export interface IntentClassification {
   confidence: number;
   videoRequired?: boolean;
   reasoning?: string;
+  title?: string;
+}
+
+export interface IntentRaw {
+  intent: string;
+  subject_id?: string;
+  confidence: number;
+  video_required?: boolean;
+  reasoning?: string;
+  title?: string;
+}
+
+export interface ImageSemanticRaw {
+  problem_text: string;
+  visual_description: string;
+  known_conditions: string[];
+  target_question: string;
+  semantic_summary: string;
 }
 
 export interface ImageSemanticOutput {
@@ -48,6 +73,7 @@ export interface OrchestratorOutput {
   artifactBundleUrl?: string;
   artifactManifestUrl?: string;
   conversationId: string;
+  title?: string;
 }
 
 export interface OrchestratorState {

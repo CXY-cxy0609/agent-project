@@ -1,0 +1,782 @@
+{
+  "runId": "vrun_1780426769606_1dabcdda",
+  "workflowId": "conv-1780426753459036000:b3579a3b-ffc0-42f4-8582-350b406bf14d",
+  "traceId": "b3579a3b-ffc0-42f4-8582-350b406bf14d",
+  "createdAt": "2026-06-02T19:04:59.532Z",
+  "files": [
+    {
+      "file": "image-semantic.json",
+      "sizeBytes": 1359,
+      "sha256": "ae13f8b9fa70e95d08525fb1cc0ddc1b97980ad199c878360f4eafb83e3cf777",
+      "modifiedAt": "2026-06-02T18:59:29.609Z"
+    },
+    {
+      "file": "intent-classification.json",
+      "sizeBytes": 299,
+      "sha256": "002538eb25b226ca298623fab7c66a8b3bf8067174178053bf11e638336e97e6",
+      "modifiedAt": "2026-06-02T18:59:29.608Z"
+    },
+    {
+      "file": "render/media/Tex/3199224abb03dc8e.svg",
+      "sizeBytes": 8545,
+      "sha256": "d6cd141fb116197f0a47b107dfc8962748f9db5a28a4031279a8b30f82a60132",
+      "modifiedAt": "2026-06-02T19:04:33.747Z"
+    },
+    {
+      "file": "render/media/Tex/3199224abb03dc8e.tex",
+      "sizeBytes": 266,
+      "sha256": "3199224abb03dc8ea6473bab3c3c7a6130e0ace218ea1f2389323794601dae79",
+      "modifiedAt": "2026-06-02T19:04:33.484Z"
+    },
+    {
+      "file": "render/media/Tex/8fba4ff00b51a165.svg",
+      "sizeBytes": 17444,
+      "sha256": "9d4973314732709c8fcb5d358c4dbc02e446155835633024cc8da430abac7d77",
+      "modifiedAt": "2026-06-02T19:04:49.860Z"
+    },
+    {
+      "file": "render/media/Tex/8fba4ff00b51a165.tex",
+      "sizeBytes": 624,
+      "sha256": "8fba4ff00b51a165855429c773c8a561a997b63648c6330138bd7d719940f132",
+      "modifiedAt": "2026-06-02T19:04:49.295Z"
+    },
+    {
+      "file": "render/media/Tex/9c94f05287f0874c.svg",
+      "sizeBytes": 15978,
+      "sha256": "e81387f94ec4db828c26c1d4926c645373b423a32bf4f8916937c0867958563d",
+      "modifiedAt": "2026-06-02T19:04:49.272Z"
+    },
+    {
+      "file": "render/media/Tex/9c94f05287f0874c.tex",
+      "sizeBytes": 613,
+      "sha256": "9c94f05287f0874cd58ad9f17c0f0e17cfd4d38f8de4185bd84d6b8a7a79ca5d",
+      "modifiedAt": "2026-06-02T19:04:48.728Z"
+    },
+    {
+      "file": "render/media/Tex/c57b816da23e53c9.svg",
+      "sizeBytes": 7524,
+      "sha256": "1b9f2f014226b3d7ac2452dbe5d560bb79c6c1dad5d0431703e79e65bd8d0302",
+      "modifiedAt": "2026-06-02T19:04:34.016Z"
+    },
+    {
+      "file": "render/media/Tex/c57b816da23e53c9.tex",
+      "sizeBytes": 264,
+      "sha256": "c57b816da23e53c974b55581ccd35ddf0e850646aa5abca568c793cc2213a737",
+      "modifiedAt": "2026-06-02T19:04:33.765Z"
+    },
+    {
+      "file": "render/media/Tex/fcacfaf1a84617c4.svg",
+      "sizeBytes": 6954,
+      "sha256": "d10eb4badfea394ca8ca9a4d6505f58128f183494d290b3a5200f5e930a6f093",
+      "modifiedAt": "2026-06-02T19:04:33.468Z"
+    },
+    {
+      "file": "render/media/Tex/fcacfaf1a84617c4.tex",
+      "sizeBytes": 249,
+      "sha256": "fcacfaf1a84617c4dfcdbac5f8bae702175a9998ae6723177caf38b074fc1567",
+      "modifiedAt": "2026-06-02T19:04:33.092Z"
+    },
+    {
+      "file": "render/media/texts/01f1270c8064651f.svg",
+      "sizeBytes": 18279,
+      "sha256": "472984e6a1fa0f960390b6536f8edb425e402aea5406aefaf06975cb44245134",
+      "modifiedAt": "2026-06-02T19:04:09.593Z"
+    },
+    {
+      "file": "render/media/texts/1cc579a89110a557.svg",
+      "sizeBytes": 1966,
+      "sha256": "8e7547157359e80ea3968fdf4fefb075c8bc91505d62740f1a4b9d5c13c9cb02",
+      "modifiedAt": "2026-06-02T19:04:02.736Z"
+    },
+    {
+      "file": "render/media/texts/20596da2d1487bb8.svg",
+      "sizeBytes": 2009,
+      "sha256": "71eaec5f28c7203c0d3a79deff29707ff2cfddecd4d0b6c9511ebe043dc96dc0",
+      "modifiedAt": "2026-06-02T19:04:31.729Z"
+    },
+    {
+      "file": "render/media/texts/24822f5ba572495b.svg",
+      "sizeBytes": 1243,
+      "sha256": "d3f74eab59abaea444900a94f5fb38d784a7b99a9ac835b21172187fe00f5bb7",
+      "modifiedAt": "2026-06-02T19:04:16.714Z"
+    },
+    {
+      "file": "render/media/texts/2652075f9210b5a9.svg",
+      "sizeBytes": 10534,
+      "sha256": "f4e2ec7a89e69a95c9ae7a0ddeb82baa1421292a1c431370dea4a03172d4d21b",
+      "modifiedAt": "2026-06-02T19:04:28.735Z"
+    },
+    {
+      "file": "render/media/texts/2ac9330a98ea77f1.svg",
+      "sizeBytes": 6104,
+      "sha256": "8ae956090313573b991ae2cf391e7b1e0b087c2478729b40ba710986782bb1c9",
+      "modifiedAt": "2026-06-02T19:04:48.721Z"
+    },
+    {
+      "file": "render/media/texts/3054a3f3f232d3a4.svg",
+      "sizeBytes": 14245,
+      "sha256": "37b50c458922a095664ada5cb9f599abb42c884948356dd29677fb2a99e2012b",
+      "modifiedAt": "2026-06-02T19:04:54.306Z"
+    },
+    {
+      "file": "render/media/texts/3346d2c12951ebc5.svg",
+      "sizeBytes": 10602,
+      "sha256": "e8d5b462d69580c002b52b15d10e0cdb879b4d847ca41579533c143e6563e766",
+      "modifiedAt": "2026-06-02T19:04:15.710Z"
+    },
+    {
+      "file": "render/media/texts/38f84ae74eaf8b28.svg",
+      "sizeBytes": 1671,
+      "sha256": "c9a1ffed2bd30d4e92e9664e5ccff39d2953b123c6359ae4c6048bb63045de68",
+      "modifiedAt": "2026-06-02T19:04:48.718Z"
+    },
+    {
+      "file": "render/media/texts/3970d3904a06fd07.svg",
+      "sizeBytes": 11772,
+      "sha256": "cefedeeade6ab94dd480fd07fbcf3bf828c8b262dd6d940ff9cb5dff137087b4",
+      "modifiedAt": "2026-06-02T19:04:42.318Z"
+    },
+    {
+      "file": "render/media/texts/3e75295f93f016cf.svg",
+      "sizeBytes": 18216,
+      "sha256": "a7bf3513e0dfd191c44e2054d65227e269a1e1546f66b0e1eef854e726f7e432",
+      "modifiedAt": "2026-06-02T19:04:23.489Z"
+    },
+    {
+      "file": "render/media/texts/48ccc891dccd9dda.svg",
+      "sizeBytes": 11492,
+      "sha256": "1fda664ff5a7ff9d129c89fc8941c9d6dccecb98c943f5e7aae7cc16b0d855e8",
+      "modifiedAt": "2026-06-02T19:04:53.107Z"
+    },
+    {
+      "file": "render/media/texts/583ce1afb53047a2.svg",
+      "sizeBytes": 5878,
+      "sha256": "6da23484df1c0e25962722a956eb225db6be54d48829b904f931df2b5c7590a4",
+      "modifiedAt": "2026-06-02T19:04:48.619Z"
+    },
+    {
+      "file": "render/media/texts/5995935f9836ee78.svg",
+      "sizeBytes": 6920,
+      "sha256": "af60ededb1f076c614b50fa66f7b928ae8c32880fca795c7c4ffe968f22f5a4a",
+      "modifiedAt": "2026-06-02T19:04:55.626Z"
+    },
+    {
+      "file": "render/media/texts/68c4d1bf77d86d5d.svg",
+      "sizeBytes": 1613,
+      "sha256": "28f3025fbbef29ce283c23f07b65203a1b71b45a34d60b87612b6880fbb28a78",
+      "modifiedAt": "2026-06-02T19:04:16.711Z"
+    },
+    {
+      "file": "render/media/texts/71e782bd55b7e4c3.svg",
+      "sizeBytes": 10760,
+      "sha256": "3aeda3f102dddf65b8543ebfdd4d6a16cf23972825fce400c3c022dc2479916c",
+      "modifiedAt": "2026-06-02T19:04:27.044Z"
+    },
+    {
+      "file": "render/media/texts/7d17be5992f7323d.svg",
+      "sizeBytes": 4766,
+      "sha256": "51612588764b898d708786cdd2cd431aeba149c5d270797d623463c7f1cc12b1",
+      "modifiedAt": "2026-06-02T19:04:03.747Z"
+    },
+    {
+      "file": "render/media/texts/7dd1c878a317df6e.svg",
+      "sizeBytes": 104199,
+      "sha256": "f31ea07484914d72b1dd7741efd0b64dbbbcf24c2c0a73fd44dba5cac78a962e",
+      "modifiedAt": "2026-06-02T19:04:31.734Z"
+    },
+    {
+      "file": "render/media/texts/813e4a803b5eb1e0.svg",
+      "sizeBytes": 11390,
+      "sha256": "0797b1a42256cf0b49621f410a30b83c3c6f87650c91a338c6b1cf6ae9006ed1",
+      "modifiedAt": "2026-06-02T19:04:08.479Z"
+    },
+    {
+      "file": "render/media/texts/82513081bb3661c4.svg",
+      "sizeBytes": 15178,
+      "sha256": "1f58afa7fc7b81e33407ddf90e2865c820f4dd6b76a6c4c9af915423ef93598a",
+      "modifiedAt": "2026-06-02T19:04:38.086Z"
+    },
+    {
+      "file": "render/media/texts/8511c8aed2e2f2af.svg",
+      "sizeBytes": 2239,
+      "sha256": "edcb34c646484911ba4702e3bc4318c89c01b8d42f95599e19cd3c38c2b15c8f",
+      "modifiedAt": "2026-06-02T19:04:33.082Z"
+    },
+    {
+      "file": "render/media/texts/8652ceeafd2240f2.svg",
+      "sizeBytes": 14129,
+      "sha256": "21dc766fa62298922c5df6c6c744e28438af8710283e09e7c9069fb8da6e5597",
+      "modifiedAt": "2026-06-02T19:04:11.405Z"
+    },
+    {
+      "file": "render/media/texts/873e77d82a96be3b.svg",
+      "sizeBytes": 13428,
+      "sha256": "454d0d619e11696fe5a782d7a1714207d65529e708f2fea4dbe59fe701181e9a",
+      "modifiedAt": "2026-06-02T19:04:20.353Z"
+    },
+    {
+      "file": "render/media/texts/9876ed62eda9960a.svg",
+      "sizeBytes": 13119,
+      "sha256": "beb1d3fed0ab1edea9b356f4f400f5966c1ac3241c6ead6839193f9beff0aeb4",
+      "modifiedAt": "2026-06-02T19:04:02.754Z"
+    },
+    {
+      "file": "render/media/texts/9af6fe76a81e025c.svg",
+      "sizeBytes": 16913,
+      "sha256": "1cbdac0c3c644ee32a43efaa1c52d341e76676c2217ba43a5c1f4d1050162307",
+      "modifiedAt": "2026-06-02T19:04:13.130Z"
+    },
+    {
+      "file": "render/media/texts/9c1a8abeb76f0477.svg",
+      "sizeBytes": 13817,
+      "sha256": "2ab2c3f29068ef23a6b344774e18c3fcb4a8e5053262ac08a47b99e7570b6d40",
+      "modifiedAt": "2026-06-02T19:04:21.882Z"
+    },
+    {
+      "file": "render/media/texts/9dfd3e83576acb9c.svg",
+      "sizeBytes": 26788,
+      "sha256": "85d3015ed25eb6fc0d3923be000693f04742b6369bb2f5d0882e5f6e093cd526",
+      "modifiedAt": "2026-06-02T19:04:49.889Z"
+    },
+    {
+      "file": "render/media/texts/a0179691b67acd08.svg",
+      "sizeBytes": 16636,
+      "sha256": "d773be7b69bd63cef8219d2a5397f09f109e346829ec2fb68b0ca78abd9b7e98",
+      "modifiedAt": "2026-06-02T19:04:02.742Z"
+    },
+    {
+      "file": "render/media/texts/a8aaa38c6a5aef1c.svg",
+      "sizeBytes": 1953,
+      "sha256": "f356669cfb5c6b44ea9e30189b1e31ea2a74ea569a313e384783e212344aa2c3",
+      "modifiedAt": "2026-06-02T19:04:33.085Z"
+    },
+    {
+      "file": "render/media/texts/afe20c1db1ee6d1d.svg",
+      "sizeBytes": 12202,
+      "sha256": "ccca1c3e1d596cf83b3063852429f60efdb9a50733f43a6b911a2b7eb29a38be",
+      "modifiedAt": "2026-06-02T19:04:40.723Z"
+    },
+    {
+      "file": "render/media/texts/afe77bd48326d3fa.svg",
+      "sizeBytes": 14353,
+      "sha256": "3b0dbfb2f3089ac4f6b363fd610d273e21b306f13968315507956e35407402ab",
+      "modifiedAt": "2026-06-02T19:04:45.181Z"
+    },
+    {
+      "file": "render/media/texts/b19bcbcfde05a690.svg",
+      "sizeBytes": 10329,
+      "sha256": "115e5df1ac25e6423a703596ac56c70852995185b417e063521d0fd7af93a46f",
+      "modifiedAt": "2026-06-02T19:04:31.595Z"
+    },
+    {
+      "file": "render/media/texts/b5495cc9398a74a8.svg",
+      "sizeBytes": 12732,
+      "sha256": "ad8f5edfcddc4bb2671c1834d48e9a0a67fb5857be3dbf1163942564fac727e9",
+      "modifiedAt": "2026-06-02T19:04:52.024Z"
+    },
+    {
+      "file": "render/media/texts/c7a1a9cbbcc6b885.svg",
+      "sizeBytes": 53331,
+      "sha256": "4429274575c3fb2930806151ffb856c998e75b93e9278c176610f4571ec99d82",
+      "modifiedAt": "2026-06-02T19:04:05.847Z"
+    },
+    {
+      "file": "render/media/texts/cc45e4686d646db6.svg",
+      "sizeBytes": 10850,
+      "sha256": "2a604a8825da5fb2ae112e461f2a98a37f41b49966980e21eaf81163c7ab1f61",
+      "modifiedAt": "2026-06-02T19:04:25.201Z"
+    },
+    {
+      "file": "render/media/texts/dde8917d5101ec82.svg",
+      "sizeBytes": 14231,
+      "sha256": "bcf4a852971133513a0d85ee1bdd6cc1c1f4fb8c525c3a0c614263047704ef4a",
+      "modifiedAt": "2026-06-02T19:04:39.786Z"
+    },
+    {
+      "file": "render/media/texts/dead7eb2efa24242.svg",
+      "sizeBytes": 14146,
+      "sha256": "c0e1c02b00ee3832a81febad9a72a3ccf86e1d50db343b5cef9e2773e51a11c5",
+      "modifiedAt": "2026-06-02T19:04:43.337Z"
+    },
+    {
+      "file": "render/media/texts/e0923d6bee3d632e.svg",
+      "sizeBytes": 18364,
+      "sha256": "909081e3855f2a5131db45cb54ade9349d022c4e9f0e23f76c8b630ce0ca0595",
+      "modifiedAt": "2026-06-02T19:04:04.130Z"
+    },
+    {
+      "file": "render/media/texts/e1ef75ae12be2b5c.svg",
+      "sizeBytes": 822,
+      "sha256": "24f0be7f214bff38ddac8649f47949961b8faa5d908aadd0b7d5a388260e82f3",
+      "modifiedAt": "2026-06-02T19:04:33.088Z"
+    },
+    {
+      "file": "render/media/texts/e43ff30d28391019.svg",
+      "sizeBytes": 2667,
+      "sha256": "dcb0867cc359edfccd38f23d4dd3e351c3d787a9b242c6f47c35aa590d127d25",
+      "modifiedAt": "2026-06-02T19:04:05.842Z"
+    },
+    {
+      "file": "render/media/texts/e8b0755a36d2800c.svg",
+      "sizeBytes": 67355,
+      "sha256": "906b4546e06a2a64d540df245fa92c84d9b278d9138403b6a44f070dcc6b5ad9",
+      "modifiedAt": "2026-06-02T19:04:15.852Z"
+    },
+    {
+      "file": "render/media/texts/eee6a8fce1004193.svg",
+      "sizeBytes": 1412,
+      "sha256": "e520383a94fcec8920ec64e5d99ef395b7c23b0218943d2e23277dcd45b13bab",
+      "modifiedAt": "2026-06-02T19:04:16.713Z"
+    },
+    {
+      "file": "render/media/texts/fb434df25b721927.svg",
+      "sizeBytes": 6165,
+      "sha256": "a57369fee5a71af65d087708702896ae53f674ed61807eb15464db2981fa7a6f",
+      "modifiedAt": "2026-06-02T19:04:05.756Z"
+    },
+    {
+      "file": "render/media/texts/fe68dc5b6d391115.svg",
+      "sizeBytes": 3166,
+      "sha256": "e95555f026539b32df0b6f30402c4ac0a63cf2a3a2c16539de79fb03306db01c",
+      "modifiedAt": "2026-06-02T19:04:15.840Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/2161559665_2739250055_3274165027.mp4",
+      "sizeBytes": 56588,
+      "sha256": "5113f05e7ef93590f4fa89273982ad31eab46079646e408218f9d563667e3fed",
+      "modifiedAt": "2026-06-02T19:04:03.208Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1088393594_2774248629.mp4",
+      "sizeBytes": 76922,
+      "sha256": "d829be61fbfe28a6ca4b338a4b70221cc70d87aa7f5aec19890f45998e0755b3",
+      "modifiedAt": "2026-06-02T19:04:35.072Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1154241426_2853926164.mp4",
+      "sizeBytes": 43317,
+      "sha256": "3ada96d355e213b6f2f3be023c9a0ec039ca67d6730d3b6c2f62214ea983e5c4",
+      "modifiedAt": "2026-06-02T19:04:52.022Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1219431683_2134773473.mp4",
+      "sizeBytes": 43820,
+      "sha256": "681812194b1f0d31cecf0fbbd143dac620f324afc0286d683a391abe7c3a6c16",
+      "modifiedAt": "2026-06-02T19:04:53.105Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1223429338_3087463025.mp4",
+      "sizeBytes": 111210,
+      "sha256": "af5b93dfcefeeea83eee5be1d8300e0e7b5bf5ea55d0d1a47fa929e05e32bb20",
+      "modifiedAt": "2026-06-02T19:04:16.702Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1263091656_4122415483.mp4",
+      "sizeBytes": 68895,
+      "sha256": "9aab59d9380682705b4e1e39000111482a8b570d37bda851ed66c64bb422b84a",
+      "modifiedAt": "2026-06-02T19:04:09.591Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1275827856_3117085859.mp4",
+      "sizeBytes": 17882,
+      "sha256": "25fecf5a79f90b7b6e383e9cb69c4cd1f8754d4e4aa06084445a7a133bcb06a1",
+      "modifiedAt": "2026-06-02T19:04:31.727Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1278672037_1144969464.mp4",
+      "sizeBytes": 100089,
+      "sha256": "fda17ad0ec36162916946da70a80226561cdfbb70cd2ce9dcde4130802cc4a09",
+      "modifiedAt": "2026-06-02T19:04:17.881Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1281489849_2757171260.mp4",
+      "sizeBytes": 87582,
+      "sha256": "bced1c33a68d504490297f7dc63918adae1bada8fd169dcfeb6951ded904ed70",
+      "modifiedAt": "2026-06-02T19:04:17.374Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1464625686_3796006433.mp4",
+      "sizeBytes": 69288,
+      "sha256": "9258e01549ef37a413f8acbdc8863a2619b0480415d78d1a67ac6fdf3fa22b3e",
+      "modifiedAt": "2026-06-02T19:04:51.574Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1678737412_193086238.mp4",
+      "sizeBytes": 25850,
+      "sha256": "0f9f17f97fd1dfbdae013728830999b62c68c8caa0e8dc81a2bcf3e1cccd9ff9",
+      "modifiedAt": "2026-06-02T19:04:05.753Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1755905946_10004936.mp4",
+      "sizeBytes": 51605,
+      "sha256": "178eb974e35b00cc5a1194d9944f8379c663db7337fd24a4c4a93f2c40b63cc1",
+      "modifiedAt": "2026-06-02T19:04:07.684Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1781438543_2381768010.mp4",
+      "sizeBytes": 69337,
+      "sha256": "f1dbf024aa40afe6769e1005b4fc195e7b88bc20b717ed23b49dc8df3ec4f7eb",
+      "modifiedAt": "2026-06-02T19:04:31.593Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1814933622_1726184037.mp4",
+      "sizeBytes": 133873,
+      "sha256": "aec3add5c164e906d87ec876cff2a7d98566cb932e7ef06fcb972c83f5e5fc07",
+      "modifiedAt": "2026-06-02T19:04:27.041Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1814933622_505081549.mp4",
+      "sizeBytes": 132845,
+      "sha256": "cd2b525278430efe0a53a1a82bdb0a9f18a1bc9ef6d47578e83231e3a08f1fdb",
+      "modifiedAt": "2026-06-02T19:04:30.619Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1841508365_1238482584.mp4",
+      "sizeBytes": 101356,
+      "sha256": "0e98245d4ea56cf601409a522add1f59238b541086893aa6890e9abc6e14c9ae",
+      "modifiedAt": "2026-06-02T19:04:20.351Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_1947367598_1037972148.mp4",
+      "sizeBytes": 47068,
+      "sha256": "d43ac829b0228bdec83b55848a993e13c2b7775888a8f9bfbd6ef761e7723dfa",
+      "modifiedAt": "2026-06-02T19:04:15.708Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2080883231_2554626697.mp4",
+      "sizeBytes": 119546,
+      "sha256": "1f599d5c14b530f998870f04b573f8b8ede864d9432ec0e80a5eabdba6229211",
+      "modifiedAt": "2026-06-02T19:04:23.486Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2155266128_1391899513.mp4",
+      "sizeBytes": 94177,
+      "sha256": "123820eafaf6714e9d102f2abe0c7f462a9494dde0d737acccf31fc2c00dcacc",
+      "modifiedAt": "2026-06-02T19:04:18.705Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2193238654_2046825736.mp4",
+      "sizeBytes": 60557,
+      "sha256": "d00c3febae242e4122513b77a4c0b7f9b717a10d96b51f2a7b21f80e1bb70569",
+      "modifiedAt": "2026-06-02T19:04:06.302Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2295779047_1645989301.mp4",
+      "sizeBytes": 18372,
+      "sha256": "fefaad39ca4784bfb4cfd6235fdec312ced1f52c7961e1d71e6d247620704f03",
+      "modifiedAt": "2026-06-02T19:04:15.836Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2362167771_1646079628.mp4",
+      "sizeBytes": 141488,
+      "sha256": "059ee5e240def84e4a5f44860c3d026237e1af21073fecf14b21ee575798e87f",
+      "modifiedAt": "2026-06-02T19:04:51.013Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2469453372_2107380548.mp4",
+      "sizeBytes": 72156,
+      "sha256": "02000ebac5239ddc7c4c607aa39438d60d52895cbf00423dd511adc0cbb256c1",
+      "modifiedAt": "2026-06-02T19:04:06.788Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2523385089_2024059302.mp4",
+      "sizeBytes": 116639,
+      "sha256": "d997f9f72129b2976bac1c4465b46d82dc50d9ad77fcad0fd132e0ac7e3bd7a8",
+      "modifiedAt": "2026-06-02T19:04:42.316Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2562881400_22364073.mp4",
+      "sizeBytes": 11618,
+      "sha256": "4a4e4f5cb9a0a1bf178c3a27cd45e317ed9e7d359842d12e7c4f2fa126e2673b",
+      "modifiedAt": "2026-06-02T19:04:48.717Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2704686740_2829060151.mp4",
+      "sizeBytes": 37616,
+      "sha256": "9b45979c0e01c105484cefc2b88f6becdda0385c3796b82848bec9e574fe447d",
+      "modifiedAt": "2026-06-02T19:04:03.467Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2756536766_557679667.mp4",
+      "sizeBytes": 77588,
+      "sha256": "e601c61cd8fe88cbd02a3c06b46daae2da8ba6151c60bea9abdbddbb6f1e7123",
+      "modifiedAt": "2026-06-02T19:04:35.993Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2814278573_1996133548.mp4",
+      "sizeBytes": 91297,
+      "sha256": "e6d6fbdca8e3a5cc3c41904d018a091974c00a3be78ea67cc5a48df527745aec",
+      "modifiedAt": "2026-06-02T19:04:38.084Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2828056895_1638297194.mp4",
+      "sizeBytes": 31378,
+      "sha256": "b20de24e8af8fe52147648baddd3118fd449ed965b3f3a085649c1a56bceeea2",
+      "modifiedAt": "2026-06-02T19:04:03.743Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2900369621_1494048212.mp4",
+      "sizeBytes": 51650,
+      "sha256": "12b2739f603a3f8070a134cb62849fff840a57e9196a384b892f515beee0d51e",
+      "modifiedAt": "2026-06-02T19:04:08.244Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2953315585_1123944323.mp4",
+      "sizeBytes": 39084,
+      "sha256": "7285f43fae72b6413577eb6a376940d1a428d3e4b8b8cab519f418f339414f36",
+      "modifiedAt": "2026-06-02T19:04:56.631Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_2963458418_2111635326.mp4",
+      "sizeBytes": 88890,
+      "sha256": "06c72c68a28b87a23031aedef5b936299853dac5d7f7b85fc40282ee88be7d84",
+      "modifiedAt": "2026-06-02T19:04:19.524Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3085496054_2636400343.mp4",
+      "sizeBytes": 99434,
+      "sha256": "33d211876a1ababcbef94d717031ebb4382bcd6754ee72cc2b7d96e0ab0defc0",
+      "modifiedAt": "2026-06-02T19:04:11.403Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3201849554_2254953524.mp4",
+      "sizeBytes": 41624,
+      "sha256": "67b6052b124a7b7aaabd935c01b7cfe52dffeda4105ebffaddf1ae27983a448c",
+      "modifiedAt": "2026-06-02T19:04:07.350Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3201849554_2941315155.mp4",
+      "sizeBytes": 41624,
+      "sha256": "67b6052b124a7b7aaabd935c01b7cfe52dffeda4105ebffaddf1ae27983a448c",
+      "modifiedAt": "2026-06-02T19:04:08.477Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3201849554_3626091764.mp4",
+      "sizeBytes": 41624,
+      "sha256": "67b6052b124a7b7aaabd935c01b7cfe52dffeda4105ebffaddf1ae27983a448c",
+      "modifiedAt": "2026-06-02T19:04:07.921Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3212305224_2251280602.mp4",
+      "sizeBytes": 79350,
+      "sha256": "750800cba62e150464403478875628b03d05431f8598db509d893645328a7ec9",
+      "modifiedAt": "2026-06-02T19:04:36.947Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3308380567_1676014919.mp4",
+      "sizeBytes": 56224,
+      "sha256": "5da13014a88fcfd1c9dd8ab29ac294c39a5507ed25ebf5e4cc12ee068cffc6e3",
+      "modifiedAt": "2026-06-02T19:04:05.512Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3308380567_1744303239.mp4",
+      "sizeBytes": 130537,
+      "sha256": "550b687e554a0479d4a512cd976f0f1494ad0c33a59c49a3166ea999aab8a3c6",
+      "modifiedAt": "2026-06-02T19:04:47.267Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3308380567_3582323085.mp4",
+      "sizeBytes": 126562,
+      "sha256": "9b76359edea5807f0c6da1323770d91c9815c377806adc55ffba4499ddb5fc5f",
+      "modifiedAt": "2026-06-02T19:04:25.199Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3432362128_388901773.mp4",
+      "sizeBytes": 95582,
+      "sha256": "088fa732d1054a6ee2fc1e6fa90a8357e24e16be9681fb76b9d004225d2aa1b2",
+      "modifiedAt": "2026-06-02T19:04:13.126Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3452793670_3565900588.mp4",
+      "sizeBytes": 87085,
+      "sha256": "cb508327f8c72c9359e2dce4466bdee5fa60f2b3a7d0129577fb35ff7193e01b",
+      "modifiedAt": "2026-06-02T19:04:34.598Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_3942166254_842348456.mp4",
+      "sizeBytes": 106499,
+      "sha256": "7d8848d7c14e4dfbb526caf4197ad19ea4965c9ee4105ae865fb44035fc82d7a",
+      "modifiedAt": "2026-06-02T19:04:15.124Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_4109805848_421079045.mp4",
+      "sizeBytes": 22932,
+      "sha256": "e60b8b82b29233fa24e1ebda53a25111e324e2f2f023838d0eb1d975cbedec17",
+      "modifiedAt": "2026-06-02T19:04:04.128Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_4200668649_658967804.mp4",
+      "sizeBytes": 146540,
+      "sha256": "7d71a25e307ba0a7120f5a1d59ff843aa34c79fd9db7985768315e9097bfd980",
+      "modifiedAt": "2026-06-02T19:04:33.079Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_543366004_2557120634.mp4",
+      "sizeBytes": 127148,
+      "sha256": "85b421cd50adc095fda15806962818060ea03c5777426397ce726ee9d5c3dcb3",
+      "modifiedAt": "2026-06-02T19:04:43.332Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_543366004_3342265540.mp4",
+      "sizeBytes": 56530,
+      "sha256": "b273b56ec3bc4829c4c34969e0c7170d583b90a0248e6f562bb1a690c7b3a53b",
+      "modifiedAt": "2026-06-02T19:04:55.624Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_543366004_4036742923.mp4",
+      "sizeBytes": 122698,
+      "sha256": "6bcc0f4fc4008c4dbbba592453710799f938b34f0af8b2df0874da156cfdf454",
+      "modifiedAt": "2026-06-02T19:04:28.733Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_566144258_3282659717.mp4",
+      "sizeBytes": 11716,
+      "sha256": "eb71c060a88263941306a4b050155b5bb64621de667b40a5e290efd7eb156b6a",
+      "modifiedAt": "2026-06-02T19:04:05.841Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_679227912_12387798.mp4",
+      "sizeBytes": 120816,
+      "sha256": "68db381b27d8cc3bf6c70ae29c61820f6cc0683533f9184ea7b46ec1f1fea885",
+      "modifiedAt": "2026-06-02T19:04:40.721Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_679227912_1403993024.mp4",
+      "sizeBytes": 49674,
+      "sha256": "d4845e4d1627c1f000716afcdf3fb74e9ba57e5b9cded152fc9a06c729482157",
+      "modifiedAt": "2026-06-02T19:04:54.301Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_679227912_3839512083.mp4",
+      "sizeBytes": 121284,
+      "sha256": "3dbd6e3708a49cf075c147e6ac22dcbbd57b37943c4875f1f9ad4a99dd681b2b",
+      "modifiedAt": "2026-06-02T19:04:39.784Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_679227912_4206548841.mp4",
+      "sizeBytes": 120830,
+      "sha256": "5cf7220143436cb7b325c70d504debb07347cb3636d57300d38c693e0004eeb0",
+      "modifiedAt": "2026-06-02T19:04:45.179Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_679227912_95981193.mp4",
+      "sizeBytes": 115714,
+      "sha256": "eb3625fbd52beb55a1d3f5103ec489536721e551d64c89fa8fc97d0b1d84c528",
+      "modifiedAt": "2026-06-02T19:04:21.880Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_784684431_3923150240.mp4",
+      "sizeBytes": 73928,
+      "sha256": "d0ac5a97819f7a845e684c2aeaaf5aad7c19324f02b086ee81e185e1e8b3311d",
+      "modifiedAt": "2026-06-02T19:04:48.617Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_7892699_426720871.mp4",
+      "sizeBytes": 51398,
+      "sha256": "30be6ace9c9b5c4e1e929bc8c425719238cc2b6e40d7b833faf344b8c41593cb",
+      "modifiedAt": "2026-06-02T19:04:07.116Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_807188262_1306942981.mp4",
+      "sizeBytes": 70435,
+      "sha256": "e17e3e025abf070b98197370d053cc1aff9fbd25cf696a7c7356c3bd71478662",
+      "modifiedAt": "2026-06-02T19:04:37.398Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_807188262_2380572106.mp4",
+      "sizeBytes": 69178,
+      "sha256": "f3b18bcfbaeae16d94457fb7a17c4877728fa14377638cf01fc5620d97f92575",
+      "modifiedAt": "2026-06-02T19:04:36.430Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_807188262_2652854657.mp4",
+      "sizeBytes": 61326,
+      "sha256": "e0b83c1d866fd2f6187a3139ee7c98fc019235228145eb02013a2743dc4e77ec",
+      "modifiedAt": "2026-06-02T19:04:19.034Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_807188262_3249987927.mp4",
+      "sizeBytes": 60184,
+      "sha256": "6b60bdba7f3dc81f399424648dad21b71845f20a5a0a46fbc39a6a35556564f8",
+      "modifiedAt": "2026-06-02T19:04:18.208Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_807188262_4255440744.mp4",
+      "sizeBytes": 68391,
+      "sha256": "306492acfbd686b80d0adafb95dcd99e6ef3da88000cdd8be15d73927ad91e3d",
+      "modifiedAt": "2026-06-02T19:04:35.500Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/924266999_807188262_899125287.mp4",
+      "sizeBytes": 62123,
+      "sha256": "ff29300505fa4134c1dbe4cf651ded7a720c158722a3af5cd0d86bff6b7991f7",
+      "modifiedAt": "2026-06-02T19:04:19.854Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/StraightPrismProblem/partial_movie_file_list.txt",
+      "sizeBytes": 20653,
+      "sha256": "e075742c8f6befa87eb034dec0d5b0e234924723ded3cd5df0b404b9e1776652",
+      "modifiedAt": "2026-06-02T19:04:56.633Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/video_1780427041888.mp4",
+      "sizeBytes": 5746408,
+      "sha256": "b07bf7dc6c1d2983cecdc9027267d7205d86c62423570cbe8e4d2dcc8950ca8e",
+      "modifiedAt": "2026-06-02T19:04:57.564Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/video_1780427041888.wav",
+      "sizeBytes": 17995052,
+      "sha256": "22aa17e8d32f65efba4ee90a8511801369c67b9884832aab109c4915b61b5c6d",
+      "modifiedAt": "2026-06-02T19:04:56.870Z"
+    },
+    {
+      "file": "render/render-attempt-1.json",
+      "sizeBytes": 375,
+      "sha256": "d2c2fc0455ad2f41972025256259c3882007f3a637e26e59720d2d8a800f4c74",
+      "modifiedAt": "2026-06-02T19:04:58.987Z"
+    },
+    {
+      "file": "result.json",
+      "sizeBytes": 166,
+      "sha256": "4dea221c9178eb831962aa0c1c97cdcd3660a7c543b6cffbd4cde31161520cac",
+      "modifiedAt": "2026-06-02T19:04:59.533Z"
+    },
+    {
+      "file": "scripts/__pycache__/script-v1.cpython-313.pyc",
+      "sizeBytes": 16643,
+      "sha256": "047de4904c34aa65303ba9dac4f92a23270c8be341eaf3a04c1515517fcbe787",
+      "modifiedAt": "2026-06-02T19:04:02.613Z"
+    },
+    {
+      "file": "scripts/script-v1.meta.json",
+      "sizeBytes": 72,
+      "sha256": "cfcc09a80b61b66374b4be198061c034d9f104aefa996f6512a3f8ef4563133d",
+      "modifiedAt": "2026-06-02T19:04:01.888Z"
+    },
+    {
+      "file": "scripts/script-v1.py",
+      "sizeBytes": 12751,
+      "sha256": "98b16a0a323e1fcb19e5b63ea46b825aaaf9cced0e029491296e1089fd73f1be",
+      "modifiedAt": "2026-06-02T19:04:01.888Z"
+    },
+    {
+      "file": "scripts/script-v1.raw.md",
+      "sizeBytes": 12750,
+      "sha256": "db1e7878f073d0ef7c1b375cfb04516eb988d804d2a8e23de879c00686556d75",
+      "modifiedAt": "2026-06-02T19:04:01.887Z"
+    },
+    {
+      "file": "storyboard.json",
+      "sizeBytes": 8093,
+      "sha256": "92fd28f840c010a8c993deb41c1a8486924853b119a6698c906890f55ddf41f2",
+      "modifiedAt": "2026-06-02T19:00:51.003Z"
+    },
+    {
+      "file": "video-context.json",
+      "sizeBytes": 1818,
+      "sha256": "7b13160b50bbc48e1f4413d71c861c1091bb5064bd8b90b9af02e50a8f28e7d1",
+      "modifiedAt": "2026-06-02T18:59:29.609Z"
+    }
+  ]
+}

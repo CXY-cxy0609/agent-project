@@ -1,6 +1,0 @@
-{
-  "attempt": 1,
-  "success": false,
-  "lastError": "│\n│ ❱  61 │   │   anode = Line(start=container.get_top() + LEFT*1.2, end=contain │\n│    62 │   │   cathode = Line(start=container.get_top() + RIGHT*1.2, end=cont │\n│    63 │   │                                                                  │\n│    64 │   │   # 电源                                                         │\n╰──────────────────────────────────────────────────────────────────────────────╯\nNameError: name 'Line' is not defined",
-  "createdAt": "2026-06-02T10:37:03.215Z"
-}

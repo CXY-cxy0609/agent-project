@@ -8,7 +8,7 @@
   >
     <a-input
       v-model:value="searchKeyword"
-      placeholder="输入学科名称、编号或 ID 搜索"
+      placeholder="输入学科名称或 ID 搜索"
       :prefix="h(SearchOutlined)"
       allow-clear
       style="margin-bottom: 16px"
@@ -23,7 +23,6 @@
         >
           <div class="search-result-info">
             <span class="sr-name">{{ s.name }}</span>
-            <a-tag size="small">编号 {{ s.code }}</a-tag>
             <a-tag size="small" color="blue">ID {{ s.id }}</a-tag>
             <span class="sr-desc">{{ s.description }}</span>
           </div>

@@ -41,7 +41,7 @@ def _ensure_xelatex_installed() -> None:
 def create_chinese_formula(
     latex_text: str,
     *,
-    font_size: int = 52,
+    font_size: int = 32,
     color=WHITE,
     cjk_font: str = "PingFang SC",
 ) -> Tex:
@@ -64,7 +64,7 @@ def create_chinese_formula(
 def create_math_formula(
     expression: str,
     *,
-    font_size: int = 56,
+    font_size: int = 32,
     color=WHITE,
 ) -> MathTex | Tex:
     r"""

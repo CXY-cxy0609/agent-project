@@ -14,14 +14,10 @@ export const mockSubjectsApi = {
   async searchSubjects(keyword: string): Promise<Subject[]> {
     await delay(300);
     const kw = keyword.toLowerCase();
-    const numericKeyword = Number(keyword.trim());
-    const hasNumericKeyword = Number.isFinite(numericKeyword);
     return MOCK_ALL_SUBJECTS.filter(
       (s) =>
         s.name.toLowerCase().includes(kw) ||
-        String(s.code).includes(keyword.trim()) ||
-        String(s.id).includes(keyword.trim()) ||
-        (hasNumericKeyword && s.code === numericKeyword),
+        String(s.id).includes(keyword.trim()),
     );
   },
 

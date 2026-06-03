@@ -26,7 +26,6 @@ class Settings(BaseSettings):
     max_chunk_size: int = 512   # tokens
     chunk_overlap: float = 0.1  # 10% 重叠
     min_chunk_size: int = 50    # tokens
-    chunker_v2_enabled: bool = True
 
     # Parse Strategy
     parse_default_mode: str = "balanced"
@@ -69,6 +68,14 @@ class Settings(BaseSettings):
 
     # LLM (用于 HyDE 查询扩展)
     anthropic_api_key: str = ""
+
+    # Vision understanding (OpenAI-compatible, e.g. Doubao/Volcengine Ark)
+    vision_enabled: bool = False
+    vision_api_key: str = ""
+    vision_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
+    vision_model: str = ""
+    vision_timeout_seconds: int = 60
+    vision_pdf_dpi: int = 160
 
     # Routing / tuning
     rerank_strategy: str = "adaptive"  # off|always|adaptive

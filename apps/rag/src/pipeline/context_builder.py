@@ -10,6 +10,8 @@ import logging
 import re
 from typing import Optional
 
+from ..indexer.chunking.tokenizer import count_tokens, split_text_by_tokens
+
 logger = logging.getLogger(__name__)
 
 MAX_CONTEXT_TOKENS = 5000
@@ -19,7 +21,7 @@ TOKEN_RE = re.compile(r"[\u4e00-\u9fff]{2,}|[a-zA-Z0-9_]{2,}")
 
 
 def _estimate_tokens(text: str) -> int:
-    return len(text) // 4
+    return count_tokens(text)
 
 
 def build_context(
@@ -170,8 +172,8 @@ def _fit_text_to_budget(text: str, token_budget: int, query_terms: set[str]) -> 
 def _truncate_by_tokens(text: str, token_budget: int) -> str:
     if token_budget <= 0:
         return ""
-    approx_chars = max(1, token_budget * 4)
-    clipped = text[:approx_chars].strip()
+    windows = split_text_by_tokens(text, max_tokens=token_budget, overlap_tokens=0)
+    clipped = windows[0].strip() if windows else ""
     if not clipped:
         return ""
     if len(clipped) < len(text):

@@ -8,19 +8,35 @@
 
 1. 每页开始必须调用 `self.next_page(...)` 或 `self.start_page(...)`，禁止跨页堆叠残留元素。
 2. **严禁定义或调用 `_play()`**（含任何 `play` 包装器）。
-3. 动画播放统一走 `self.add_animation(...)`。
+3. 动画播放统一走 `self.add_animation(...)`，纯文字统一`self.add_text(...)`，公式统一`create_math_formula`
 4. **字幕区域内容只允许通过 `self.speak_with_subtitles(...)` 生成。**，每行字幕最后不能是逗号、句号等标点符号
-5. 内容布局只使用 `layout="center"` 或 `layout="left_right"`（等价 `two_columns`），为左右布局时，左边为文字讲解，右边为动画展示
+5. 内容布局只使用 `layout="center"` 或 `layout="left_right"`（等价 `two_columns`）
 6. 双栏比例仅允许：`"1:2"`、`"1:1"`、`"2:1"`。
 7. **所有 LaTeX 公式必须通过 `apps/manim-project/function-tools/create_formula.py` 生成。**
 8. **严禁直接使用 `MathTex` 或其他绕过 `create_formula.py` 的公式渲染方案。**
-9. **每个页面的主体图形必须先组成一个稳定的 `VGroup`，并且只通过一次 `self.add_animation(...)` 注册到布局中。**
+9. **每个页面的主体图形（动画元素）必须先组成一个稳定的 `VGroup`，并且只通过一次 `self.add_animation(...)` 注册到布局中，为左右布局时，左边使用`self.add_text()`即可，为居中布局时，如果是纯文本同理，无需 `VGroup`和`self.add_animation(...)`**
 10. **后续高亮、移动、显隐等动画必须复用已注册的页面主体对象，禁止把临时 `VGroup(...)` 作为新的 `mobject` 传入 `self.add_animation(...)`。**
 11. **双栏或父容器布局中，图形必须显式传 `side=...` 或 `parent=...`，禁止依赖默认右栏布局。**
 12. **必须严格遵照代码模板，在模板基础上添加/修改代码**
 13. 避免导入模板代码外额外的库，比如`numpy`之类的
 14. manim版本：Manim Community Edition（manim v0.20+），注意不要使用废弃的属性或api
 15. 注意调整讲解节奏的连贯性，避免字幕语音过长时间的停顿
+16. **场景类必须继承 `BaseScene`，不得继承 `Scene`、`ThreeDScene` 或其他 Manim 场景类。**
+17. **页面主体图形一旦通过 `self.add_animation(..., side=... 或 parent=...)` 注册到布局后，不得再向该 `VGroup` 追加新的 `Dot/Line/Polygon/Text` 等图形对象。** 后续动画只能复用注册前已加入主体 `VGroup` 的对象；需要稍后出现的高亮点、辅助线、平面应在注册前创建并用 `set_opacity(0)` 隐藏。
+
+### 立体几何渲染要求
+
+`BaseScene` 是 2D 视频管线。遇到立体几何、空间几何、棱柱、棱锥、长方体、二面角、空间向量等内容时，必须使用 **2D 伪投影教材示意图**，禁止使用 Manim 真 3D 渲染。
+
+1. 禁止导入或调用：`ThreeDScene`、`ThreeDAxes`、`Dot3D`、`Arrow3D`、`Surface`、`Cube`、`set_camera_orientation`、`move_camera`、`begin_ambient_camera_rotation`。
+2. 禁止把 `[x, y, z]` 三维坐标直接传给 `Line`、`Polygon`、`Text.next_to` 等 2D 图元；必须先投影成 `[screen_x, screen_y, 0]`。
+3. 画面绘制只使用 2D 图元：`Line`、`DashedLine`、`Polygon`、`Circle`、`Dot`、`Arrow`、`Text`、`VGroup`。
+4. 数学推导可以在文字和旁白中使用三维坐标、空间向量、法向量；右侧图形只展示投影后的 2D 示意。
+5. 可见边用 `Line`，被遮挡边用 `DashedLine`，关键点用 `Dot` 或小 `Circle` 标记。
+6. 推荐斜二测投影：一个轴横向、一个轴斜向后方、竖直高度向上。常见实现为 `screen = origin + x * RIGHT + y * depth_vector + z * UP`。
+7. 每个立体几何页面应封装 `_project_3d_to_2d(...)` 和 `_create_solid_diagram(...)` 一类 helper，返回稳定 `VGroup` 后再注册到布局。
+8. 后续高亮线段、平面、向量时，必须复用同一批投影点创建 2D 线段或多边形，禁止切换到 3D 坐标轴或相机旋转。
+9. 题目明确给出“中点、交点、垂足、平行线段端点”等依赖关系时，不要手写孤立近似坐标；应由相关端点计算得到（如 midpoint），再投影绘制，保证特殊点随图形一致移动。
 
 ### 样式要求
 
@@ -31,11 +47,12 @@
   - 字幕：28
 - 配色要求
   - 现代化
-  - 字体颜色不得与背景色相同或相似
+  - 必须初始化新的背景色
+  - 字体颜色、动画元素颜色不得与背景色相同或相似
 
 ## 2) BaseScene 可配置类属性（全量）
 
-以下类属性可在子类中覆盖：
+以下类属性可根据需要在子类中覆盖：
 
 1. `default_font = "PingFang SC"`：默认字体。
 2. `default_color = WHITE`：默认文字颜色。
@@ -87,7 +104,7 @@
    - 图形与动画统一入口。
    - `animation` 支持单个动画或动画列表（并行）。
    - 对已布局对象可重复调用做后续动画。
-   - **只能通过该方法在页面中添加动画元素**。
+   - **只能通过该方法在页面中添加动画元素，当为左右布局的左边区域时，不得使用**。
 3. `show_center_text(text: str, font_size: int = 42) -> Text`
    - 快捷 API：切到居中布局并显示文本。
 4. `show_two_columns(left_text: str, right_text: str, font_size: int = 34, column_ratio=None) -> VGroup`
@@ -157,6 +174,7 @@ class SceneName(BaseScene):  # 根据需求定义场景名字
 
     show_layout_guides = False  # 必须是False
     subtitle_rect_down_shift = 0.12  # 根据需求定义修改默认参数
+    background_color = "#0B1020"  # 根据需要修改，最好不要选择默认的颜色
 
     def construct(self) -> None:
         total_pages = 5  # 根据需要修改页数

@@ -27,6 +27,11 @@ export interface RetrievedChunk {
 export interface RetrievalOptions {
   subjectId: string;
   knowledgeBaseId?: string;
+  knowledgeBaseIds?: string[];
+  tenantId?: string;
+  requestUserId?: string;
+  includePublic?: boolean;
+  includePrivate?: boolean;
   topK?: number;
   retrievalMode?: RetrievalMode;
   budgetTokens?: number;
@@ -61,11 +66,18 @@ export class RagClient {
       `${this.ragServiceUrl}/retrieve`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': options.tenantId ?? 'public',
+        },
         body: JSON.stringify({
           query,
           subject_id: options.subjectId,
           knowledge_base_id: options.knowledgeBaseId,
+          knowledge_base_ids: options.knowledgeBaseIds,
+          request_user_id: options.requestUserId,
+          include_public: options.includePublic ?? true,
+          include_private: options.includePrivate ?? false,
           top_k: options.topK ?? 5,
           retrieval_mode: options.retrievalMode ?? 'text_only',
           budget_tokens: options.budgetTokens,
@@ -99,6 +111,15 @@ export class RagClient {
 
   private makeCacheKey(query: string, options: RetrievalOptions): string {
     const dynamicPolicyParts: string[] = [];
+    dynamicPolicyParts.push(`tenant=${options.tenantId ?? 'public'}`);
+    dynamicPolicyParts.push(`user=${options.requestUserId ?? ''}`);
+    dynamicPolicyParts.push(`public=${options.includePublic ?? true}`);
+    dynamicPolicyParts.push(`private=${options.includePrivate ?? false}`);
+    dynamicPolicyParts.push(`topK=${options.topK ?? 5}`);
+    dynamicPolicyParts.push(`singleKb=${options.knowledgeBaseId ?? ''}`);
+    if (options.knowledgeBaseIds?.length) {
+      dynamicPolicyParts.push(`kb=${[...options.knowledgeBaseIds].sort().join(',')}`);
+    }
     if (options.retrievalMode) dynamicPolicyParts.push(`mode=${options.retrievalMode}`);
     if (typeof options.budgetTokens === 'number') {
       dynamicPolicyParts.push(`budget=${options.budgetTokens}`);

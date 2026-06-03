@@ -12,7 +12,10 @@ interface RagSearchResponse {
 }
 
 export class HttpUserVectorMemory implements UserVectorMemory {
-  constructor(private readonly ragServiceUrl: string) {}
+  constructor(
+    private readonly ragServiceUrl: string,
+    private readonly internalToken?: string,
+  ) {}
 
   async search(query: string, userId: string, topK: number): Promise<string[]> {
     try {
@@ -20,7 +23,7 @@ export class HttpUserVectorMemory implements UserVectorMemory {
         `${this.ragServiceUrl}/memory/user/search`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this.headers(),
           body: JSON.stringify({ query, user_id: userId, top_k: topK }),
         },
         DEFAULT_TIMEOUT_MS,
@@ -40,7 +43,7 @@ export class HttpUserVectorMemory implements UserVectorMemory {
         `${this.ragServiceUrl}/memory/user/store`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this.headers(),
           body: JSON.stringify({ user_id: userId, content }),
         },
         DEFAULT_TIMEOUT_MS,
@@ -49,10 +52,20 @@ export class HttpUserVectorMemory implements UserVectorMemory {
       // 写入失败不影响主链路
     }
   }
+
+  private headers(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      ...(this.internalToken ? { 'x-internal-token': this.internalToken } : {}),
+    };
+  }
 }
 
 export class HttpContentVectorCache implements ContentVectorCache {
-  constructor(private readonly ragServiceUrl: string) {}
+  constructor(
+    private readonly ragServiceUrl: string,
+    private readonly internalToken?: string,
+  ) {}
 
   async search(query: string, topK: number): Promise<CachedContent[]> {
     try {
@@ -60,7 +73,7 @@ export class HttpContentVectorCache implements ContentVectorCache {
         `${this.ragServiceUrl}/memory/content/search`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this.headers(),
           body: JSON.stringify({ query, top_k: topK }),
         },
         DEFAULT_TIMEOUT_MS,
@@ -84,7 +97,7 @@ export class HttpContentVectorCache implements ContentVectorCache {
         `${this.ragServiceUrl}/memory/content/store`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this.headers(),
           body: JSON.stringify({ content, payload: cachedContent }),
         },
         DEFAULT_TIMEOUT_MS,
@@ -92,6 +105,13 @@ export class HttpContentVectorCache implements ContentVectorCache {
     } catch {
       // 写入失败不影响主链路
     }
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      ...(this.internalToken ? { 'x-internal-token': this.internalToken } : {}),
+    };
   }
 }
 

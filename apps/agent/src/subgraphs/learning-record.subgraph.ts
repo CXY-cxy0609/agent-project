@@ -8,6 +8,7 @@ export interface LearningRecordInput {
   question: string;
   answer: string;
   subject: string;
+  subjectId?: string;
   knowledgePoints: string[];
   difficulty?: 'easy' | 'medium' | 'hard';
 }
@@ -31,6 +32,7 @@ export function createLearningRecordSubgraph(
             question: input.question,
             answer: input.answer,
             subject: input.subject,
+            subjectId: input.subjectId,
             knowledgePoints: input.knowledgePoints,
             difficulty: input.difficulty,
           },

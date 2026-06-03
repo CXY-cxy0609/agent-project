@@ -1,0 +1,1136 @@
+{
+  "runId": "vrun_1780425720784_b7bc0fae",
+  "workflowId": "conv-1780425704552627000:8d750a2d-d6b3-414d-8c23-1d181915c39a",
+  "traceId": "8d750a2d-d6b3-414d-8c23-1d181915c39a",
+  "createdAt": "2026-06-02T18:48:55.872Z",
+  "files": [
+    {
+      "file": "image-semantic.json",
+      "sizeBytes": 1323,
+      "sha256": "90774158afa0c57208e44fcfb454e54f13bc8ece5700b47498659b85c57d0239",
+      "modifiedAt": "2026-06-02T18:42:00.786Z"
+    },
+    {
+      "file": "intent-classification.json",
+      "sizeBytes": 281,
+      "sha256": "018a81bd060cd51698002ac466bc915a182da1147db46b7686b12864aeb29dd4",
+      "modifiedAt": "2026-06-02T18:42:00.786Z"
+    },
+    {
+      "file": "render/media/Tex/045b374836e2796d.svg",
+      "sizeBytes": 19389,
+      "sha256": "eb07df3a4d23db639f8e767b70a30f1bbef9ac986e97db1d12a75906063b1867",
+      "modifiedAt": "2026-06-02T18:46:29.820Z"
+    },
+    {
+      "file": "render/media/Tex/045b374836e2796d.tex",
+      "sizeBytes": 638,
+      "sha256": "045b374836e2796d0079a95c4a8190ced35cf71dbef77f6abea43ccdbab97515",
+      "modifiedAt": "2026-06-02T18:46:29.341Z"
+    },
+    {
+      "file": "render/media/Tex/18a020a751a55495.svg",
+      "sizeBytes": 20363,
+      "sha256": "9359ebb8ff454a7116245e97900e23dd7241768d5392b2f0849dcdab08a246be",
+      "modifiedAt": "2026-06-02T18:46:30.330Z"
+    },
+    {
+      "file": "render/media/Tex/18a020a751a55495.tex",
+      "sizeBytes": 662,
+      "sha256": "18a020a751a55495fc4268ff52b876557e4a1d658226536eb8fa1b8704534aac",
+      "modifiedAt": "2026-06-02T18:46:29.858Z"
+    },
+    {
+      "file": "render/media/Tex/35a6971d63c195a5.svg",
+      "sizeBytes": 22162,
+      "sha256": "b2d441d90e04329f17d9b17e2c1a737da1c6a76378a76a249f6c0db65d42fdbe",
+      "modifiedAt": "2026-06-02T18:46:29.302Z"
+    },
+    {
+      "file": "render/media/Tex/35a6971d63c195a5.tex",
+      "sizeBytes": 647,
+      "sha256": "35a6971d63c195a51f7463ca25f1482ab96d8487e848e54e3531899abf95d134",
+      "modifiedAt": "2026-06-02T18:46:28.777Z"
+    },
+    {
+      "file": "render/media/Tex/5765d062add76acd.svg",
+      "sizeBytes": 10433,
+      "sha256": "9e79b8faef0e3f14681099bcdc2c058372b82ad1d8708df5ff4e2e7b30471107",
+      "modifiedAt": "2026-06-02T18:46:30.923Z"
+    },
+    {
+      "file": "render/media/Tex/5765d062add76acd.tex",
+      "sizeBytes": 287,
+      "sha256": "5765d062add76acddf33bc20be32cf4a80841ccf66b2ace56e321f00ac26325d",
+      "modifiedAt": "2026-06-02T18:46:30.662Z"
+    },
+    {
+      "file": "render/media/Tex/63efda178fb7ca3c.svg",
+      "sizeBytes": 20406,
+      "sha256": "e53d5c108f54a4165356d591694f4387187cae8a5eac0fea4504934ff6bb9291",
+      "modifiedAt": "2026-06-02T18:48:45.843Z"
+    },
+    {
+      "file": "render/media/Tex/63efda178fb7ca3c.tex",
+      "sizeBytes": 641,
+      "sha256": "63efda178fb7ca3c67a0aef0a50a31b1df76b155aff2727e83a433963739e183",
+      "modifiedAt": "2026-06-02T18:48:45.304Z"
+    },
+    {
+      "file": "render/media/Tex/6557a631eaa444ba.svg",
+      "sizeBytes": 11177,
+      "sha256": "fe612958829fba97a96353b840d2de6c33ce5f6814964fb2e2d74455c43783f9",
+      "modifiedAt": "2026-06-02T18:46:30.633Z"
+    },
+    {
+      "file": "render/media/Tex/6557a631eaa444ba.tex",
+      "sizeBytes": 322,
+      "sha256": "6557a631eaa444ba3de8c68682abec1bb17cad4216a17070ae3ef8097babe51a",
+      "modifiedAt": "2026-06-02T18:46:30.372Z"
+    },
+    {
+      "file": "render/media/Tex/b10d4acda877829f.svg",
+      "sizeBytes": 21025,
+      "sha256": "0ac08749b3a45d0e2805f5bc773cb96946fc804e4dc36ae6d5275af9b5b88f65",
+      "modifiedAt": "2026-06-02T18:48:46.351Z"
+    },
+    {
+      "file": "render/media/Tex/b10d4acda877829f.tex",
+      "sizeBytes": 635,
+      "sha256": "b10d4acda877829f915eb81ae146fa94147c813d20b95653deff59361c868672",
+      "modifiedAt": "2026-06-02T18:48:45.876Z"
+    },
+    {
+      "file": "render/media/texts/00de14bb635a413a.svg",
+      "sizeBytes": 1966,
+      "sha256": "cbfcd290748cea1e7393318d8dd3be63adceb3073e6d967f7b459e614a78dc77",
+      "modifiedAt": "2026-06-02T18:48:13.886Z"
+    },
+    {
+      "file": "render/media/texts/03a10d39a1ebf03e.svg",
+      "sizeBytes": 9047,
+      "sha256": "16abdbfc183f55dc91b03a185cb19a8fb38154315805395fd26d5f7deffcc379",
+      "modifiedAt": "2026-06-02T18:48:42.353Z"
+    },
+    {
+      "file": "render/media/texts/0abafe5500f5e415.svg",
+      "sizeBytes": 2053,
+      "sha256": "4e65630a8103f6b9850cd33f757f73a1285bc9a1cf63686ab70cce436f3a5fa6",
+      "modifiedAt": "2026-06-02T18:48:31.108Z"
+    },
+    {
+      "file": "render/media/texts/0c71ba263a823546.svg",
+      "sizeBytes": 44208,
+      "sha256": "952a19eddad90559964d1133b90bbaeec0593ef0968f271949173a34b169c7f4",
+      "modifiedAt": "2026-06-02T18:48:22.338Z"
+    },
+    {
+      "file": "render/media/texts/142e1f71bb66e6ff.svg",
+      "sizeBytes": 11181,
+      "sha256": "07e9c1317cb43463a6387283b067913ab77c138380252e6c0c1bccccf1e1d975",
+      "modifiedAt": "2026-06-02T18:48:19.632Z"
+    },
+    {
+      "file": "render/media/texts/165e846acd8ed763.svg",
+      "sizeBytes": 9101,
+      "sha256": "85a1a9a1a5b6fc71bfdf74ce30b90916a31e647e22cfaeb51d3a3b544d957251",
+      "modifiedAt": "2026-06-02T18:48:48.423Z"
+    },
+    {
+      "file": "render/media/texts/169075cbb72a5f92.svg",
+      "sizeBytes": 6814,
+      "sha256": "44bc515005ff5d1ec52d14248e3b887165492be6de4a0fd0d31384d05a37ba7a",
+      "modifiedAt": "2026-06-02T18:48:28.107Z"
+    },
+    {
+      "file": "render/media/texts/195f97c90dca73c2.svg",
+      "sizeBytes": 7572,
+      "sha256": "4803607389756f6780a49d088d01723252b7aa042ea291be8c327616b8bd880d",
+      "modifiedAt": "2026-06-02T18:48:27.399Z"
+    },
+    {
+      "file": "render/media/texts/20b09245fbb57092.svg",
+      "sizeBytes": 16388,
+      "sha256": "f2de1c0c533c47222a6c9e35091d4a6ff254e4045e992622199bc0c2467eb781",
+      "modifiedAt": "2026-06-02T18:48:51.210Z"
+    },
+    {
+      "file": "render/media/texts/26dc6688225d246f.svg",
+      "sizeBytes": 1493,
+      "sha256": "b25d4a44233864b9a71770e8f47065eec0c50b0acb2dca7108272e6697509cde",
+      "modifiedAt": "2026-06-02T18:48:31.104Z"
+    },
+    {
+      "file": "render/media/texts/2b4605451e989574.svg",
+      "sizeBytes": 32708,
+      "sha256": "b10bc8c2d262a013312166a10a16ba9882c3f67d7fb90e60b93615848e1c7a1b",
+      "modifiedAt": "2026-06-02T18:48:46.384Z"
+    },
+    {
+      "file": "render/media/texts/2fce5584aa788ab6.svg",
+      "sizeBytes": 5372,
+      "sha256": "53a80f996aeb94109127abbd48a6e62b9ada59403eb8489393d07cbec5de0b4c",
+      "modifiedAt": "2026-06-02T18:48:31.187Z"
+    },
+    {
+      "file": "render/media/texts/3acbe06fbcd05560.svg",
+      "sizeBytes": 13162,
+      "sha256": "67b6a552a9f294080bf75807d4bc1f09be592589e3c5839cd1e14e3ddf1ca6fc",
+      "modifiedAt": "2026-06-02T18:48:36.070Z"
+    },
+    {
+      "file": "render/media/texts/42a83d97e6e251e0.svg",
+      "sizeBytes": 11753,
+      "sha256": "3c6294af17d3d09c679f3eb339447be9e2fd78b31dcb90bdd2e7655972086d2f",
+      "modifiedAt": "2026-06-02T18:48:49.823Z"
+    },
+    {
+      "file": "render/media/texts/44ad03ce5e3ad1b0.svg",
+      "sizeBytes": 13812,
+      "sha256": "e96b47fcc154f1e1c7e88e92b904696158e18821d9f97551f96f668b3ffcaee3",
+      "modifiedAt": "2026-06-02T18:48:15.172Z"
+    },
+    {
+      "file": "render/media/texts/4d175461891cfe6e.svg",
+      "sizeBytes": 1416,
+      "sha256": "5005b253b884dc05216b8bcb265556e7f60be5233d046243e6ed972dd007c6ab",
+      "modifiedAt": "2026-06-02T18:48:31.122Z"
+    },
+    {
+      "file": "render/media/texts/4fe77d6c7206505e.svg",
+      "sizeBytes": 12670,
+      "sha256": "18707622731aa82544cb8b6a14c5098059501d7c6d1b188df191be1bf9bca453",
+      "modifiedAt": "2026-06-02T18:48:17.362Z"
+    },
+    {
+      "file": "render/media/texts/549da97adfc00f11.svg",
+      "sizeBytes": 11564,
+      "sha256": "f3d2e5be758b978e1569318301db21d29ea7d95bc35f7b8e1b63f99d1b9b27b7",
+      "modifiedAt": "2026-06-02T18:48:26.633Z"
+    },
+    {
+      "file": "render/media/texts/5555703f7c1cfe50.svg",
+      "sizeBytes": 12469,
+      "sha256": "efa5b6bc66c48bb5d2101e62a0c86df194b076e35491f0339b4b21ca1e8dfe43",
+      "modifiedAt": "2026-06-02T18:48:25.747Z"
+    },
+    {
+      "file": "render/media/texts/56fe94564d79d283.svg",
+      "sizeBytes": 2140,
+      "sha256": "fe7d184f9722d7980803cc8d7ea419bd8d97601009f2cdd7d45b4eb0703cd1f5",
+      "modifiedAt": "2026-06-02T18:48:31.113Z"
+    },
+    {
+      "file": "render/media/texts/5aed1fc44024fd39.svg",
+      "sizeBytes": 10556,
+      "sha256": "4b1e213f6f4e90e8743000ba9335ff5eca589c77e1215e289d04e9b666a6488f",
+      "modifiedAt": "2026-06-02T18:48:22.213Z"
+    },
+    {
+      "file": "render/media/texts/5ced07acb88106b2.svg",
+      "sizeBytes": 1623,
+      "sha256": "9647402e493b72609e11eb6fc905bdbf5449ec5ec1c4eba91e32b811203336e7",
+      "modifiedAt": "2026-06-02T18:48:31.120Z"
+    },
+    {
+      "file": "render/media/texts/5e9a513366db0425.svg",
+      "sizeBytes": 12450,
+      "sha256": "f6f3cfc4c5268942fe758f87c24948608a9f4c0bf7228cbfa21c01351fe965e3",
+      "modifiedAt": "2026-06-02T18:48:47.266Z"
+    },
+    {
+      "file": "render/media/texts/631ecdbc70562516.svg",
+      "sizeBytes": 2864,
+      "sha256": "8849d25ab87e2b91de3468ad2510f2f0a57c8733c4917a2b4d4fa81f79f47d8a",
+      "modifiedAt": "2026-06-02T18:48:31.115Z"
+    },
+    {
+      "file": "render/media/texts/6561baea3937d441.svg",
+      "sizeBytes": 8866,
+      "sha256": "5fba24a71571dd08234145fb6d53bb3bd717ce5d0edbc3e7ec5cbd19cdd768ab",
+      "modifiedAt": "2026-06-02T18:48:30.585Z"
+    },
+    {
+      "file": "render/media/texts/69f083e013fc61bf.svg",
+      "sizeBytes": 11772,
+      "sha256": "dc41bc2e70395e95458f77474419474e39315a8dda321dc802c931372ca0597b",
+      "modifiedAt": "2026-06-02T18:48:39.007Z"
+    },
+    {
+      "file": "render/media/texts/6c8ddcab6c3ac73b.svg",
+      "sizeBytes": 15838,
+      "sha256": "01fb10d9f407efdcb60fb0113894a95b5b4893d5d00c321d0905f232dac42d2c",
+      "modifiedAt": "2026-06-02T18:48:13.897Z"
+    },
+    {
+      "file": "render/media/texts/6e540118d410ca15.svg",
+      "sizeBytes": 8875,
+      "sha256": "7c0e0b13d41af654192900ff58c5607be60ad840c9715b3c93fa27c14d345173",
+      "modifiedAt": "2026-06-02T18:48:18.022Z"
+    },
+    {
+      "file": "render/media/texts/7dbf85b2d1cfeb9b.svg",
+      "sizeBytes": 4916,
+      "sha256": "8bfb25d7531f4e353f5e820f0e80ca6c3b8411ec25ecb534b19380c7a252c23d",
+      "modifiedAt": "2026-06-02T18:48:31.177Z"
+    },
+    {
+      "file": "render/media/texts/97b820c688c1ba36.svg",
+      "sizeBytes": 2316,
+      "sha256": "bc618763217f136ec615e7fe98bfc93083368dd8d3b75800d555a96346303647",
+      "modifiedAt": "2026-06-02T18:48:31.118Z"
+    },
+    {
+      "file": "render/media/texts/9a19a75d3b3ae974.svg",
+      "sizeBytes": 4816,
+      "sha256": "3ffb819a930cca25c8081ba3f6fec8c326a9b238d0b4ef4a2309473d7238c031",
+      "modifiedAt": "2026-06-02T18:48:14.231Z"
+    },
+    {
+      "file": "render/media/texts/9ce77c568718282f.svg",
+      "sizeBytes": 1329,
+      "sha256": "3290a3db19d49e23b77dffda247da307db2cf739014e4884ccd1a9f2c8551c3c",
+      "modifiedAt": "2026-06-02T18:48:31.106Z"
+    },
+    {
+      "file": "render/media/texts/9e24dd2f2fb82a3e.svg",
+      "sizeBytes": 6143,
+      "sha256": "e384957bc86efc12e2a51f3a848a09b7570ad53d8098b443adfca1a75b8033c8",
+      "modifiedAt": "2026-06-02T18:48:16.155Z"
+    },
+    {
+      "file": "render/media/texts/a3d9dc3458bfe588.svg",
+      "sizeBytes": 13503,
+      "sha256": "512ae35dc9d3462a2d3ecf67b26bcbeb3a92b7eb1c414f1c97b6e970d03bec75",
+      "modifiedAt": "2026-06-02T18:48:25.029Z"
+    },
+    {
+      "file": "render/media/texts/a9483ac3bd36a3a5.svg",
+      "sizeBytes": 1274,
+      "sha256": "72e52414e9b54f7ecaf1c02dbc75022e453afff3812c5a655d5ab909048f16a7",
+      "modifiedAt": "2026-06-02T18:48:31.123Z"
+    },
+    {
+      "file": "render/media/texts/afbb00d4e05152ce.svg",
+      "sizeBytes": 8955,
+      "sha256": "9110bf7687d3b3b9a09b654018ee1aaebd6bad09fe7dc13b46aa9d5fea4b2adb",
+      "modifiedAt": "2026-06-02T18:48:28.897Z"
+    },
+    {
+      "file": "render/media/texts/afd004b07d8128c9.svg",
+      "sizeBytes": 5085,
+      "sha256": "e8ceae1cd7c0459e99074ab07e8eeaefa94584f0d26c1f48e573c11e0a5cb830",
+      "modifiedAt": "2026-06-02T18:48:13.736Z"
+    },
+    {
+      "file": "render/media/texts/b54a6fdcec83d21f.svg",
+      "sizeBytes": 2304,
+      "sha256": "1c6255823b73da428e5733a34e5ab857270d4d1714d8ca5b447a9948ad0cc4a6",
+      "modifiedAt": "2026-06-02T18:48:31.111Z"
+    },
+    {
+      "file": "render/media/texts/ba9aef69e88b7d9c.svg",
+      "sizeBytes": 8078,
+      "sha256": "906a605167362e1dfb400d5b37023a161f46bbe4cd81fa742209081717079c34",
+      "modifiedAt": "2026-06-02T18:48:37.733Z"
+    },
+    {
+      "file": "render/media/texts/bb83bd4b78ad51fd.svg",
+      "sizeBytes": 4597,
+      "sha256": "30598b6973943eedd39099393b669d05fc3a9388d205b38bb7085edd19462a67",
+      "modifiedAt": "2026-06-02T18:48:31.173Z"
+    },
+    {
+      "file": "render/media/texts/c1438ffea799819d.svg",
+      "sizeBytes": 6367,
+      "sha256": "73e9b0440314132b0172949fa827b34973f7ab089a053b0efb3a2bf1cddae3e7",
+      "modifiedAt": "2026-06-02T18:48:31.182Z"
+    },
+    {
+      "file": "render/media/texts/c8a3f771c2473dd3.svg",
+      "sizeBytes": 3411,
+      "sha256": "08e083c926deb4e17554491e4ef674e4963b8566cfe7cb21a50736e421917668",
+      "modifiedAt": "2026-06-02T18:48:45.218Z"
+    },
+    {
+      "file": "render/media/texts/cfa74fdf488fdfd1.svg",
+      "sizeBytes": 2009,
+      "sha256": "3f10c57f661e3b51ea27b36f76c3f88fa48c76f5b052dbc273e2355f80c4fa51",
+      "modifiedAt": "2026-06-02T18:48:30.709Z"
+    },
+    {
+      "file": "render/media/texts/d5f513b69a1e4698.svg",
+      "sizeBytes": 2667,
+      "sha256": "d5a73156f45e588b02f26136ed0e4a356467dd55f2586514f1827d10d25195ba",
+      "modifiedAt": "2026-06-02T18:48:16.242Z"
+    },
+    {
+      "file": "render/media/texts/d67531240eb5f6e3.svg",
+      "sizeBytes": 11621,
+      "sha256": "975342c5cfae9903d813d8ca440058020f26e35886e540781debb6192f0f1c93",
+      "modifiedAt": "2026-06-02T18:48:18.881Z"
+    },
+    {
+      "file": "render/media/texts/d6e6f2d89d92c652.svg",
+      "sizeBytes": 1671,
+      "sha256": "28abe2d652d4eb08b29e263b0d208cc35d521e6197e1e64a4d5d400c2bb1ccc5",
+      "modifiedAt": "2026-06-02T18:48:45.300Z"
+    },
+    {
+      "file": "render/media/texts/dd1cfd7344037e55.svg",
+      "sizeBytes": 53333,
+      "sha256": "b7a221020b8bbc29296bfd886ffa32fca5ef4c6a83954e9b364e33c72b5aee3f",
+      "modifiedAt": "2026-06-02T18:48:16.245Z"
+    },
+    {
+      "file": "render/media/texts/ded06ce98bcbf5b0.svg",
+      "sizeBytes": 12427,
+      "sha256": "d1fede4c62348cd3c1bbc8fc90f9c65e9f1041ce90829740f6d5479e9279093d",
+      "modifiedAt": "2026-06-02T18:48:20.418Z"
+    },
+    {
+      "file": "render/media/texts/e4c7087f865ecfd2.svg",
+      "sizeBytes": 11034,
+      "sha256": "7fc1bf30ca227b8be97ae87380109d66140f910814456380807f7df568c59c62",
+      "modifiedAt": "2026-06-02T18:48:13.889Z"
+    },
+    {
+      "file": "render/media/texts/e53a9430443aa610.svg",
+      "sizeBytes": 14462,
+      "sha256": "3ac8b0bb7cc74ed4b299f59ef2445ee42f143fe185764d4f45fbd30ffa642bde",
+      "modifiedAt": "2026-06-02T18:48:40.669Z"
+    },
+    {
+      "file": "render/media/texts/e707119eaca39ba8.svg",
+      "sizeBytes": 3166,
+      "sha256": "4bad9534c7d42caa68ceb865cdbeb8503627b944568586f304bbe9588be64912",
+      "modifiedAt": "2026-06-02T18:48:22.335Z"
+    },
+    {
+      "file": "render/media/texts/e908c48a000e0610.svg",
+      "sizeBytes": 1505,
+      "sha256": "a938492edf987b6d4996853cd03a4f3063537030357ea4ab18b92c7c50a7ab62",
+      "modifiedAt": "2026-06-02T18:48:31.109Z"
+    },
+    {
+      "file": "render/media/texts/f41552e33e6745c3.svg",
+      "sizeBytes": 13724,
+      "sha256": "d31b4ff93845d0caa05a179d66484ad2257001c238ad9a6b50e9763c5ccdc93b",
+      "modifiedAt": "2026-06-02T18:48:34.516Z"
+    },
+    {
+      "file": "render/media/texts/f845a18d60fa53a8.svg",
+      "sizeBytes": 16198,
+      "sha256": "7eca905997996223c5698573c3642f942f95fc80ed010611a5c3f85a04e8f109",
+      "modifiedAt": "2026-06-02T18:48:14.589Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/2161559665_3614849882_223132457.mp4",
+      "sizeBytes": 10417,
+      "sha256": "0f09144281db7e992bef420c8682c8a158d00819232b2b2202ec08a0c54834b9",
+      "modifiedAt": "2026-06-02T18:46:00.786Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_1188801963_1469585378.mp4",
+      "sizeBytes": 41471,
+      "sha256": "16275bcfb4b68c96d8c9d51e195fbfd8f0cea650883d5c3d55fcdc974a90d0e2",
+      "modifiedAt": "2026-06-02T18:46:01.380Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_1195812252_3395638128.mp4",
+      "sizeBytes": 143638,
+      "sha256": "24cbf4ca1d9d03024c212769def0337d98041a0c7b2906a8e99fa877305c2a67",
+      "modifiedAt": "2026-06-02T18:46:14.143Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_153566173_82663342.mp4",
+      "sizeBytes": 37073,
+      "sha256": "bc660effbd5135f2a952c7627af6337e7de7b47a07c583150f22854cb839128d",
+      "modifiedAt": "2026-06-02T18:46:01.041Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_1865313587_599917610.mp4",
+      "sizeBytes": 43390,
+      "sha256": "abc989396dabcfe2b76666133aeee2ecb79ab4fa45edb9fa49b391ebe8992a50",
+      "modifiedAt": "2026-06-02T18:46:14.994Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_1971493519_1627533130.mp4",
+      "sizeBytes": 53568,
+      "sha256": "242fdf72ec5cf2c76d68e845849774cb752284f982964e4004f5f79d8ff2c650",
+      "modifiedAt": "2026-06-02T18:46:15.972Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_1971493519_3145320563.mp4",
+      "sizeBytes": 50810,
+      "sha256": "d6ea4ba7a5a4433a260aaace9273e99bf19ca108560360de34ed2475339e0f38",
+      "modifiedAt": "2026-06-02T18:46:05.574Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_1983993741_2608445973.mp4",
+      "sizeBytes": 43043,
+      "sha256": "764ba9af44c623b8656a78220eb105c48da87b3ec23ed07b211265c3f54924be",
+      "modifiedAt": "2026-06-02T18:46:16.260Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_2271867692_2538058212.mp4",
+      "sizeBytes": 91435,
+      "sha256": "e63af36ee4790c5cc8ff9b490b862f333297ac1eddc3086f1bb41fdc3f9341cd",
+      "modifiedAt": "2026-06-02T18:46:19.684Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_2403850693_1068777762.mp4",
+      "sizeBytes": 26745,
+      "sha256": "7a4db093bf99de2eaab8584ab95845a7636964631bd325c10fc8d5148d59f35f",
+      "modifiedAt": "2026-06-02T18:46:31.191Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_2454593479_3334843691.mp4",
+      "sizeBytes": 93595,
+      "sha256": "3f802db35a903736234cf545e919488504908de682509f98ef32a7455699cfba",
+      "modifiedAt": "2026-06-02T18:46:23.185Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_2454593479_336028114.mp4",
+      "sizeBytes": 71992,
+      "sha256": "ac17b1e21a10d852017227ce61dabb13ce0b814e2e35f8a72df4743eee3b7ce7",
+      "modifiedAt": "2026-06-02T18:46:04.264Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_2521098932_3248128933.mp4",
+      "sizeBytes": 71897,
+      "sha256": "321498e9a8e963646006c3fbb94ae75da6d560f4a6a99c33d8dc4d02cb4686f9",
+      "modifiedAt": "2026-06-02T18:46:02.892Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_2770675685_3285325101.mp4",
+      "sizeBytes": 94487,
+      "sha256": "0ac43a8964fff92155f34c586c00c3d42d0ac1b6c17ee7cf10ef2d52124b3ecb",
+      "modifiedAt": "2026-06-02T18:46:12.251Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_2965264077_3925191078.mp4",
+      "sizeBytes": 28442,
+      "sha256": "cec1bc1fa722de28339b4e2d9f743f51ac92f6337e921a873e69dd6dd9333537",
+      "modifiedAt": "2026-06-02T18:46:04.658Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_2994308850_2449504065.mp4",
+      "sizeBytes": 90945,
+      "sha256": "b98bf52e61832dd1d8e6275dbf92954bc948c2e3ec947a6e47004240a04be255",
+      "modifiedAt": "2026-06-02T18:46:10.602Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3013189004_690584945.mp4",
+      "sizeBytes": 10682,
+      "sha256": "6cd0e170d8e46e0514f8473283d439e8d42471d6abe199d399651f02098ed7a6",
+      "modifiedAt": "2026-06-02T18:46:04.746Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3111509786_2739872860.mp4",
+      "sizeBytes": 107291,
+      "sha256": "5230650d4127d6d2d1532c2d286de6b63b8bb98b512889a1b3e85d4cfca2843e",
+      "modifiedAt": "2026-06-02T18:46:21.535Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3201849554_1006381232.mp4",
+      "sizeBytes": 32858,
+      "sha256": "40f7cb634e13457bac72957a1420fefe88d507704fc917406d3945fcb10729b0",
+      "modifiedAt": "2026-06-02T18:46:04.407Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3201849554_3050778472.mp4",
+      "sizeBytes": 47002,
+      "sha256": "ed9cc7d2baf19e0874b17e0a70a7b278bc9a71388453dc9c42cc0cd6907726fd",
+      "modifiedAt": "2026-06-02T18:46:14.406Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3201849554_3825067716.mp4",
+      "sizeBytes": 49264,
+      "sha256": "76395ec6eb76a061bb3301d34761b159b8ea12548c94aa41774d8a4e1f20401a",
+      "modifiedAt": "2026-06-02T18:46:28.027Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3365355418_445030756.mp4",
+      "sizeBytes": 44341,
+      "sha256": "f635dbfca7e3e8c87c1e66ce9fe1e32bf0220e9bd3e05b3502a90bd1a6ab635a",
+      "modifiedAt": "2026-06-02T18:46:18.180Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3384478119_1576786892.mp4",
+      "sizeBytes": 82081,
+      "sha256": "96edb7e1a6132dd0f38743d73eb2d7a2b0d8abddd56bb7ab7395a43cf5ed163f",
+      "modifiedAt": "2026-06-02T18:46:07.201Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3458909868_393705694.mp4",
+      "sizeBytes": 89590,
+      "sha256": "9c216afd2fc9ae4607f23486cb56fe207bade1e2e24d4e343c7c4dbaea0fe46b",
+      "modifiedAt": "2026-06-02T18:46:27.752Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3458909868_3945754121.mp4",
+      "sizeBytes": 88910,
+      "sha256": "b36afc1610c79db7422f05b1b2fce7d3cddb9a6202fd401515bf4407dc3bf296",
+      "modifiedAt": "2026-06-02T18:46:24.681Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3486659105_1645989301.mp4",
+      "sizeBytes": 14210,
+      "sha256": "6565a3fc7849e71521f0ec2f89292679de4b51f74cfef35a8e8f06f2b44f4ca1",
+      "modifiedAt": "2026-06-02T18:46:15.109Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3612772004_267564053.mp4",
+      "sizeBytes": 56585,
+      "sha256": "cd61d9db9c5804cff2e6a84ba396c924d5539160cd09e9457be52de129c5a2ce",
+      "modifiedAt": "2026-06-02T18:46:05.199Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_3892225402_532683307.mp4",
+      "sizeBytes": 103243,
+      "sha256": "4cb8f601c3d2f6b5a1e49cbad198098be5342707c4ed928f4f1306f300ed215a",
+      "modifiedAt": "2026-06-02T18:46:09.036Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_4026528254_2753523651.mp4",
+      "sizeBytes": 42805,
+      "sha256": "1dd814ff4029f184c8b1a6edf4a9fa6db9e51e8ac23d08f11842b9a06e01408a",
+      "modifiedAt": "2026-06-02T18:46:05.835Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_407323051_2291016431.mp4",
+      "sizeBytes": 12916,
+      "sha256": "2f65cce2b24a54c9775aaeb66ec739a51268d727f7d95e87d2f51af50dd0b818",
+      "modifiedAt": "2026-06-02T18:46:28.771Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_4114239068_1949260482.mp4",
+      "sizeBytes": 47552,
+      "sha256": "6a91c27bcc236573146934e57dca2de14987f0951e491eb5f55b375c8e3307fd",
+      "modifiedAt": "2026-06-02T18:46:28.659Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_4258553699_2292853486.mp4",
+      "sizeBytes": 43043,
+      "sha256": "764ba9af44c623b8656a78220eb105c48da87b3ec23ed07b211265c3f54924be",
+      "modifiedAt": "2026-06-02T18:46:16.820Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_4276339280_3034437623.mp4",
+      "sizeBytes": 59628,
+      "sha256": "d01be3b17595e86d24f7d72c6a726f86ae9a0a32e5d84095aa28d90887412b40",
+      "modifiedAt": "2026-06-02T18:46:15.578Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_526088966_3241262013.mp4",
+      "sizeBytes": 96828,
+      "sha256": "3cd110f607794c4c027670077b0ee011993535bbd486b5a88dedd1a39a3ffd67",
+      "modifiedAt": "2026-06-02T18:46:26.284Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_739693482_1618113379.mp4",
+      "sizeBytes": 49191,
+      "sha256": "37e5cfa57dd1bd274b5bef2d7e4f74070196a1369fac50860fcce1841c464651",
+      "modifiedAt": "2026-06-02T18:46:17.335Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_1373797307.mp4",
+      "sizeBytes": 38426,
+      "sha256": "2bbf73cfece5795adde6a90923a4466efef583b4b50b81d08d1ffcddcb240f2d",
+      "modifiedAt": "2026-06-02T18:46:17.053Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_2259862838.mp4",
+      "sizeBytes": 38426,
+      "sha256": "2bbf73cfece5795adde6a90923a4466efef583b4b50b81d08d1ffcddcb240f2d",
+      "modifiedAt": "2026-06-02T18:46:16.497Z"
+    },
+    {
+      "file": "render/media/videos/script-v1/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_934375362.mp4",
+      "sizeBytes": 39527,
+      "sha256": "41169cd41d50dce791c607542f02d47781dddb2e28c0ea2227ab9a2784b08f91",
+      "modifiedAt": "2026-06-02T18:46:17.741Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/2161559665_3614849882_223132457.mp4",
+      "sizeBytes": 10417,
+      "sha256": "0f09144281db7e992bef420c8682c8a158d00819232b2b2202ec08a0c54834b9",
+      "modifiedAt": "2026-06-02T18:48:13.882Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1004928316_2890487076.mp4",
+      "sizeBytes": 72371,
+      "sha256": "c51f739e83bab20cd674b50ef0e81b66b6be13bb355ffef99a57743a7667f41d",
+      "modifiedAt": "2026-06-02T18:48:39.005Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1020501499_1960626936.mp4",
+      "sizeBytes": 71663,
+      "sha256": "29550885f0de09f0a8c6386bb21ef0962854ad056ba751a1add407c8e60a4993",
+      "modifiedAt": "2026-06-02T18:48:48.422Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1174392226_1949260482.mp4",
+      "sizeBytes": 49713,
+      "sha256": "ee37059f2235fab89c0fbed4c9c9bd709481dc9531d20fb50a0667079cf4cbff",
+      "modifiedAt": "2026-06-02T18:48:30.583Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1188801963_1469585378.mp4",
+      "sizeBytes": 41471,
+      "sha256": "16275bcfb4b68c96d8c9d51e195fbfd8f0cea650883d5c3d55fcdc974a90d0e2",
+      "modifiedAt": "2026-06-02T18:48:14.587Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1195812252_437200296.mp4",
+      "sizeBytes": 141796,
+      "sha256": "1bef65bf13bcd0f709ebfc0a3b6adef84b1e4d562f7fea4ea57b7257d2d7ad62",
+      "modifiedAt": "2026-06-02T18:48:21.326Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1517836394_1627533130.mp4",
+      "sizeBytes": 53181,
+      "sha256": "ed53629f613a1fa9cddcd717b493e71e5622727bbf38ab8db81ee6ce814a5aa4",
+      "modifiedAt": "2026-06-02T18:48:23.214Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1517836394_3145320563.mp4",
+      "sizeBytes": 54137,
+      "sha256": "9eda468577fa977f965a8f700e0656429deac07f6543a1da6c3fbf1e026bd972",
+      "modifiedAt": "2026-06-02T18:48:17.101Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1517836394_3374045686.mp4",
+      "sizeBytes": 39841,
+      "sha256": "062e9cfa4c0aad8697f3c5db67998f9fcf7f1d79603fa817c716deec797fda66",
+      "modifiedAt": "2026-06-02T18:48:31.516Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_153566173_82663342.mp4",
+      "sizeBytes": 37073,
+      "sha256": "bc660effbd5135f2a952c7627af6337e7de7b47a07c583150f22854cb839128d",
+      "modifiedAt": "2026-06-02T18:48:14.228Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1839128356_629181717.mp4",
+      "sizeBytes": 56476,
+      "sha256": "3121d038554f3297e7ab2b67dea169cfc5bcebafc9969b4631b216a6e1df0e12",
+      "modifiedAt": "2026-06-02T18:48:52.827Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1862088583_3010811462.mp4",
+      "sizeBytes": 35428,
+      "sha256": "2fda86a3745571bc461a6beb683205201fd08fd1442985be12777e46352a13e9",
+      "modifiedAt": "2026-06-02T18:48:32.165Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_1983993741_939807419.mp4",
+      "sizeBytes": 42376,
+      "sha256": "15e94f874f6ea975c174374ba5654f5df9b4e23f174fa6a17f91bab92564a15a",
+      "modifiedAt": "2026-06-02T18:48:23.507Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2265831547_1344960689.mp4",
+      "sizeBytes": 34413,
+      "sha256": "fa93413a22a04cd373b0aed166118d526f09d448e094945c033c921851c20fa6",
+      "modifiedAt": "2026-06-02T18:48:31.822Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2271867692_1436681532.mp4",
+      "sizeBytes": 83299,
+      "sha256": "646df408c5db99fb2a5a17362770dae34c82101afd8708e6ac7c18f289e17173",
+      "modifiedAt": "2026-06-02T18:48:51.208Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2271867692_3442592717.mp4",
+      "sizeBytes": 84389,
+      "sha256": "29fa983b6350366690c14e2a704186da96e67c7e2b7456f1db8f66fde20b161d",
+      "modifiedAt": "2026-06-02T18:48:49.821Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2271867692_4128549261.mp4",
+      "sizeBytes": 91523,
+      "sha256": "908d03760b68b19c096d3d7a1f4e627649f517970cead64bb9a009da70cc4fed",
+      "modifiedAt": "2026-06-02T18:48:25.745Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2337269255_1814875242.mp4",
+      "sizeBytes": 9162,
+      "sha256": "13603deae4e50545f88c356d52932048f93e7bba78441653f4b42efd2c6d065b",
+      "modifiedAt": "2026-06-02T18:48:45.299Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2403850693_1068777762.mp4",
+      "sizeBytes": 26745,
+      "sha256": "7a4db093bf99de2eaab8584ab95845a7636964631bd325c10fc8d5148d59f35f",
+      "modifiedAt": "2026-06-02T18:48:31.100Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_241533562_599917610.mp4",
+      "sizeBytes": 43013,
+      "sha256": "1f635795617ad4be66d9a9c6b2db20647831f8263c1880a9c24923b26e3dfabe",
+      "modifiedAt": "2026-06-02T18:48:22.209Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2454593479_3072841837.mp4",
+      "sizeBytes": 92504,
+      "sha256": "e8a80f731ae77fd83a031249b1e1c61763ac89f6a09ee8f4e7782523e61dccd2",
+      "modifiedAt": "2026-06-02T18:48:40.667Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2454593479_336028114.mp4",
+      "sizeBytes": 71992,
+      "sha256": "ac17b1e21a10d852017227ce61dabb13ce0b814e2e35f8a72df4743eee3b7ce7",
+      "modifiedAt": "2026-06-02T18:48:15.757Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2454593479_3409451681.mp4",
+      "sizeBytes": 92554,
+      "sha256": "597f4b4e5dacb7fe0aeb55859c28ca0b28741c33ddcec8e12658f0a944b7db06",
+      "modifiedAt": "2026-06-02T18:48:37.730Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2454593479_635195665.mp4",
+      "sizeBytes": 93745,
+      "sha256": "7836935961cf72fe6e506615f498dd48f3e0d85b67236299aa9265a15115afae",
+      "modifiedAt": "2026-06-02T18:48:27.395Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2454593479_961328411.mp4",
+      "sizeBytes": 93299,
+      "sha256": "a4ae52ad04550d75663a236722004078bda1f8eaa85133e526ec96846723cb2c",
+      "modifiedAt": "2026-06-02T18:48:42.351Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2483791600_1065519067.mp4",
+      "sizeBytes": 38705,
+      "sha256": "56248f4be09f701637ddc70533f091f5198ce44d71b1616af52dc3f30f03a9c3",
+      "modifiedAt": "2026-06-02T18:48:46.763Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2521098932_3248128933.mp4",
+      "sizeBytes": 71897,
+      "sha256": "321498e9a8e963646006c3fbb94ae75da6d560f4a6a99c33d8dc4d02cb4686f9",
+      "modifiedAt": "2026-06-02T18:48:15.169Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2770675685_817135974.mp4",
+      "sizeBytes": 93275,
+      "sha256": "42df421308dcf1170325fc16a6d5f9a9f69e5845a3e804c8307989160f20fa35",
+      "modifiedAt": "2026-06-02T18:48:20.415Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2818492388_789916575.mp4",
+      "sizeBytes": 58244,
+      "sha256": "d361df8177ae34eacc4b7887aea35d08d4854ad1331cd9472e318c51a8f8a0be",
+      "modifiedAt": "2026-06-02T18:48:34.510Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2965264077_3925191078.mp4",
+      "sizeBytes": 28442,
+      "sha256": "cec1bc1fa722de28339b4e2d9f743f51ac92f6337e921a873e69dd6dd9333537",
+      "modifiedAt": "2026-06-02T18:48:16.153Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_296540154_1381764824.mp4",
+      "sizeBytes": 52313,
+      "sha256": "4aca0a6a41873eaed5099754dba0da52d972cc656163ac96b8d4bc955d0724af",
+      "modifiedAt": "2026-06-02T18:48:34.074Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_2994308850_1717414321.mp4",
+      "sizeBytes": 89774,
+      "sha256": "d4fde3a9a2d9a12f05f396b937717f50979bdde33d017d8e2d4324416323bb40",
+      "modifiedAt": "2026-06-02T18:48:19.629Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3013189004_690584945.mp4",
+      "sizeBytes": 10682,
+      "sha256": "6cd0e170d8e46e0514f8473283d439e8d42471d6abe199d399651f02098ed7a6",
+      "modifiedAt": "2026-06-02T18:48:16.239Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3111509786_1143432852.mp4",
+      "sizeBytes": 107665,
+      "sha256": "286232df20d42d642bf3ec95427ce7a8a0c8025206f4f492180ad2cae366e6f4",
+      "modifiedAt": "2026-06-02T18:48:26.630Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3192550865_2963032775.mp4",
+      "sizeBytes": 46210,
+      "sha256": "ea4440ca31811e87df26e546d1726525687abcb3efbffbe3533c2ec0bce86d3a",
+      "modifiedAt": "2026-06-02T18:48:45.216Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3201849554_1006381232.mp4",
+      "sizeBytes": 32858,
+      "sha256": "40f7cb634e13457bac72957a1420fefe88d507704fc917406d3945fcb10729b0",
+      "modifiedAt": "2026-06-02T18:48:15.902Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3201849554_1028543825.mp4",
+      "sizeBytes": 46397,
+      "sha256": "85f30a3d1d594361dc85f359eaff92f742ebd22eb1f888ef963931603cf95ccc",
+      "modifiedAt": "2026-06-02T18:48:21.600Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3201849554_688738263.mp4",
+      "sizeBytes": 48614,
+      "sha256": "055a96bf583aa8987936459470c3155c6d1ce3f971d7162927a0da441f5db90b",
+      "modifiedAt": "2026-06-02T18:48:29.914Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3201849554_77373081.mp4",
+      "sizeBytes": 50056,
+      "sha256": "07eaaeae64496e823bd0e750eeb34129fea8f8251d0d55ca5e40f7c57b7d1303",
+      "modifiedAt": "2026-06-02T18:48:44.306Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3365355418_4075014448.mp4",
+      "sizeBytes": 43721,
+      "sha256": "65bfec2367a31aa48730a90def8df57b4b7e8bdbaa0033c7f9fd0e0717adf857",
+      "modifiedAt": "2026-06-02T18:48:25.028Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3384478119_3223852717.mp4",
+      "sizeBytes": 81011,
+      "sha256": "47e875dab47d2d02a8dd263849029720de6c9d1ed2ec2c1293d54fe39f755d72",
+      "modifiedAt": "2026-06-02T18:48:18.018Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3384478119_795994862.mp4",
+      "sizeBytes": 82216,
+      "sha256": "3dc218cc6ebba713d9e75e5e7d1ffb2964479fa0d45974a6cc70ee0871b11e0d",
+      "modifiedAt": "2026-06-02T18:48:52.532Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3458909868_1406677602.mp4",
+      "sizeBytes": 88980,
+      "sha256": "ab7c1d22a9eb34b78d783841e56373be4a559eeb87d351bcdb10533190978a6b",
+      "modifiedAt": "2026-06-02T18:48:28.104Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3458909868_1867983247.mp4",
+      "sizeBytes": 87632,
+      "sha256": "8297185e4496c0fd0ecb3a2b38938b6afb16e88d39c74477c38515f8a62f2e7f",
+      "modifiedAt": "2026-06-02T18:48:43.909Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3458909868_2582922647.mp4",
+      "sizeBytes": 88896,
+      "sha256": "922fd1c80d0ba15eadb29cae53113ca73f54e3500f0d0f70edb2a6f7ecd2fb39",
+      "modifiedAt": "2026-06-02T18:48:36.068Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3458909868_3218493876.mp4",
+      "sizeBytes": 89660,
+      "sha256": "8d58bfa60dbad4302d10d2f7a02205a004bb5d3d32d5ef7df0c4263d920bb78a",
+      "modifiedAt": "2026-06-02T18:48:29.625Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3486659105_1645989301.mp4",
+      "sizeBytes": 14210,
+      "sha256": "6565a3fc7849e71521f0ec2f89292679de4b51f74cfef35a8e8f06f2b44f4ca1",
+      "modifiedAt": "2026-06-02T18:48:22.329Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3521076888_1062803081.mp4",
+      "sizeBytes": 44266,
+      "sha256": "31a694ae37565827af3b07bb6d31828e576c0529fd882e1a1f7a5129ab104046",
+      "modifiedAt": "2026-06-02T18:48:33.208Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3612772004_267564053.mp4",
+      "sizeBytes": 56585,
+      "sha256": "cd61d9db9c5804cff2e6a84ba396c924d5539160cd09e9457be52de129c5a2ce",
+      "modifiedAt": "2026-06-02T18:48:16.718Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3684254699_14142794.mp4",
+      "sizeBytes": 99504,
+      "sha256": "c10333e4be8e965992e0b96fcae0af41ac2e47df038045deb48decbfcb388f04",
+      "modifiedAt": "2026-06-02T18:48:47.262Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_3892225402_1080934075.mp4",
+      "sizeBytes": 101942,
+      "sha256": "8016180ec552ef4e85c924b321ad325a31094f304483bc249e761498cd434b5c",
+      "modifiedAt": "2026-06-02T18:48:18.879Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_4026528254_2492632827.mp4",
+      "sizeBytes": 42078,
+      "sha256": "158b8b239488b86606af8f2269fc41c4dc7713f3cfe6d02360f69baf83803e6e",
+      "modifiedAt": "2026-06-02T18:48:17.361Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_407323051_2291016431.mp4",
+      "sizeBytes": 12916,
+      "sha256": "2f65cce2b24a54c9775aaeb66ec739a51268d727f7d95e87d2f51af50dd0b818",
+      "modifiedAt": "2026-06-02T18:48:30.704Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_4258553699_2965187287.mp4",
+      "sizeBytes": 42376,
+      "sha256": "15e94f874f6ea975c174374ba5654f5df9b4e23f174fa6a17f91bab92564a15a",
+      "modifiedAt": "2026-06-02T18:48:24.004Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_4276339280_3034437623.mp4",
+      "sizeBytes": 59628,
+      "sha256": "d01be3b17595e86d24f7d72c6a726f86ae9a0a32e5d84095aa28d90887412b40",
+      "modifiedAt": "2026-06-02T18:48:22.815Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_526088966_228655899.mp4",
+      "sizeBytes": 97030,
+      "sha256": "aa8215205c43c3a261a03dfa97d7fa474ed13a01dfe0eeef1f027f13c392385d",
+      "modifiedAt": "2026-06-02T18:48:28.895Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_732826232_102312138.mp4",
+      "sizeBytes": 44419,
+      "sha256": "5a0d6dece4f9aa5f7676726adabe5fbaaa43097099423f18dde40b7ac901b46d",
+      "modifiedAt": "2026-06-02T18:48:32.853Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_739693482_2107644337.mp4",
+      "sizeBytes": 48433,
+      "sha256": "e60856d91e800cbbe2eb866f9b546863d3dcfaa6933b3abeff2d9ed4e1f7f6d9",
+      "modifiedAt": "2026-06-02T18:48:24.525Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_2583028662.mp4",
+      "sizeBytes": 38994,
+      "sha256": "e91754196ae65b0ed0d91618d500234699e74ded9227bfe1e47490aef1e8da86",
+      "modifiedAt": "2026-06-02T18:48:24.764Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_2590447846.mp4",
+      "sizeBytes": 37880,
+      "sha256": "cb79190922a103dc3ec68e477666ba33c81cbee396aa4b9afdb9f7a58d2d6ff2",
+      "modifiedAt": "2026-06-02T18:48:24.241Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_3055517293.mp4",
+      "sizeBytes": 20349,
+      "sha256": "5fa1f10dff8c9339aa1e9854c1baa626b413df136444d1b68c45f0ede216434e",
+      "modifiedAt": "2026-06-02T18:48:46.883Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_3600342104.mp4",
+      "sizeBytes": 37880,
+      "sha256": "cb79190922a103dc3ec68e477666ba33c81cbee396aa4b9afdb9f7a58d2d6ff2",
+      "modifiedAt": "2026-06-02T18:48:23.741Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_3942133640.mp4",
+      "sizeBytes": 35047,
+      "sha256": "110c4798a2f560fcdaa5c433eb55af45b574569e2e53e1ed24cbf4b4778f58bc",
+      "modifiedAt": "2026-06-02T18:48:33.517Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/924266999_807188262_544425275.mp4",
+      "sizeBytes": 28542,
+      "sha256": "25e4991c68be23a984d9824ed884463516ffcb329fa764357c442d32f8a4b0cb",
+      "modifiedAt": "2026-06-02T18:48:32.421Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/partial_movie_files/SolidGeometryExam/partial_movie_file_list.txt",
+      "sizeBytes": 21127,
+      "sha256": "4846cb92ef439e711eef361dc402a0cff475cbb4a16fabeefeb1df0408fa6e9e",
+      "modifiedAt": "2026-06-02T18:48:52.828Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/video_1780426093004.mp4",
+      "sizeBytes": 4855054,
+      "sha256": "916093c78791a23a17535352fb184fdeef90dbe8dc5286474a5b71881a8bb735",
+      "modifiedAt": "2026-06-02T18:48:53.828Z"
+    },
+    {
+      "file": "render/media/videos/script-v2/1080p60/video_1780426093004.wav",
+      "sizeBytes": 16914860,
+      "sha256": "7de39b57377651ca7b65076f9d02b44bb0effc1f66ef1780bd3b0039c2b64cc2",
+      "modifiedAt": "2026-06-02T18:48:53.025Z"
+    },
+    {
+      "file": "render/render-attempt-1.json",
+      "sizeBytes": 808,
+      "sha256": "7bad521119df4126a6361bd9a6992dcef1b91b889554a8a63403658b85be0297",
+      "modifiedAt": "2026-06-02T18:46:31.346Z"
+    },
+    {
+      "file": "render/render-attempt-2.json",
+      "sizeBytes": 375,
+      "sha256": "37ed92f0e100844a6322c8b0eba91aa9868783eb3f6901c205698de7012f9f93",
+      "modifiedAt": "2026-06-02T18:48:55.290Z"
+    },
+    {
+      "file": "result.json",
+      "sizeBytes": 166,
+      "sha256": "2c97125636ec011803f17b647ccd2c99cd23d889e768287606176623aee5d6c1",
+      "modifiedAt": "2026-06-02T18:48:55.872Z"
+    },
+    {
+      "file": "scripts/__pycache__/script-v1.cpython-313.pyc",
+      "sizeBytes": 17760,
+      "sha256": "95631cd0ecee47f1d1ada0df039b6beee04a71c7167908a08d398f79c59307ee",
+      "modifiedAt": "2026-06-02T18:46:00.529Z"
+    },
+    {
+      "file": "scripts/__pycache__/script-v2.cpython-313.pyc",
+      "sizeBytes": 17756,
+      "sha256": "7dd4b808df5ba9eb3745403b9eb01c73870554808df8ea2b6cf5f30d1aac77cb",
+      "modifiedAt": "2026-06-02T18:48:13.668Z"
+    },
+    {
+      "file": "scripts/script-v1.meta.json",
+      "sizeBytes": 72,
+      "sha256": "d4ebfc91b3ca52e5807647e124dbb15ed2c55467fbd0e9f1b5eeeb21830bc48e",
+      "modifiedAt": "2026-06-02T18:45:59.862Z"
+    },
+    {
+      "file": "scripts/script-v1.py",
+      "sizeBytes": 14694,
+      "sha256": "cfcaa8c58668ae11781430c6e51f00168a72af4c2f67132526db08679b5b4a0a",
+      "modifiedAt": "2026-06-02T18:45:59.861Z"
+    },
+    {
+      "file": "scripts/script-v1.raw.md",
+      "sizeBytes": 14707,
+      "sha256": "2fb4b19c71800eee4eb4ca5e676898954b9b20688cbdc87ac6e89a64bc46d625",
+      "modifiedAt": "2026-06-02T18:45:59.861Z"
+    },
+    {
+      "file": "scripts/script-v2.meta.json",
+      "sizeBytes": 90,
+      "sha256": "2e9a192acba7ca8340a03cf662a55f7b4c4e779a628c571412dfe69a4abce463",
+      "modifiedAt": "2026-06-02T18:48:13.004Z"
+    },
+    {
+      "file": "scripts/script-v2.py",
+      "sizeBytes": 14693,
+      "sha256": "502cf3b65a26d4b8c47dd55340460d10d48cf1b966a3a2556e8ee62384df4635",
+      "modifiedAt": "2026-06-02T18:48:13.003Z"
+    },
+    {
+      "file": "scripts/script-v2.raw.md",
+      "sizeBytes": 14706,
+      "sha256": "aad16015be31e959fe9fa26d5823d970f619d31b37655cf3026bf9671112d896",
+      "modifiedAt": "2026-06-02T18:48:13.002Z"
+    },
+    {
+      "file": "storyboard.json",
+      "sizeBytes": 7305,
+      "sha256": "f8ef90cc92d3b0469b2f4f0a66f378d16110c0678d41612a9d221458d76540ec",
+      "modifiedAt": "2026-06-02T18:43:28.951Z"
+    },
+    {
+      "file": "video-context.json",
+      "sizeBytes": 1766,
+      "sha256": "324a5bf680e2addedc688986382d1fec6dbb2b4a02a8e340321fa15f92ee1390",
+      "modifiedAt": "2026-06-02T18:42:00.787Z"
+    }
+  ]
+}

@@ -21,6 +21,12 @@ type createConversationWebReq struct {
 	UserID    string `json:"userId"`
 }
 
+type updateConversationWebReq struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	SubjectID int    `json:"subjectId"`
+}
+
 type listConversationReq struct {
 	SubjectID int    `json:"subjectId"`
 	Title     string `json:"title"`
@@ -179,6 +185,38 @@ func CreateConversationWeb() gin.HandlerFunc {
 	}
 }
 
+func UpdateConversationWeb() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req updateConversationWebReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_BODY", "invalid conversation update body")
+			return
+		}
+		if strings.TrimSpace(req.ID) == "" || strings.TrimSpace(req.Title) == "" {
+			response.Error(c, http.StatusBadRequest, "INVALID_CONVERSATION_FIELDS", "id and title are required")
+			return
+		}
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		conversation, err := getWebConversationByID(c, db, req.ID)
+		if err != nil {
+			response.Error(c, http.StatusNotFound, "CONVERSATION_NOT_FOUND", "conversation not found")
+			return
+		}
+		conversation.Title = truncateRunes(strings.TrimSpace(req.Title), 24)
+		if req.SubjectID > 0 {
+			conversation.SubjectID = req.SubjectID
+		}
+		if err := updateWebConversation(c, db, conversation); err != nil {
+			response.Error(c, http.StatusInternalServerError, "CONVERSATION_UPDATE_FAILED", "failed to update conversation")
+			return
+		}
+		response.OK(c, gin.H{"conversation": conversation})
+	}
+}
+
 func DeleteConversationWeb() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req identifyConversationReq
@@ -325,15 +363,6 @@ func CreateConversationMessage() gin.HandlerFunc {
 		}
 		conversation.MessageCount = countWebMessages(c, db, conversationID)
 		conversation.UpdatedAt = now
-		titleSource := strings.TrimSpace(resolveContentInline(req.ContentInline, req.Content))
-		if req.Role == "user" && conversation.Title == "新对话" && titleSource != "" {
-			runes := []rune(titleSource)
-			if len(runes) > 24 {
-				conversation.Title = string(runes[:24])
-			} else {
-				conversation.Title = string(runes)
-			}
-		}
 		if err := updateWebConversation(c, db, conversation); err != nil {
 			log.Printf("updateWebConversation failed conversation_id=%s err=%v", conversationID, err)
 			response.Error(c, http.StatusInternalServerError, "CONVERSATION_UPDATE_FAILED", "failed to update conversation")
@@ -349,7 +378,7 @@ func queryWebConversations(c *gin.Context, db *sql.DB, subjectID int, title stri
 		COALESCE(s.name, '未分配学科') AS subject_name,
 		(SELECT COUNT(1) FROM conversation_messages m WHERE m.conversation_id = c.conversation_id) AS message_count
 		FROM conversations c
-		LEFT JOIN subjects s ON s.subject_id = c.subject_id
+		LEFT JOIN subjects s ON s.id = c.subject_id
 		WHERE 1=1`
 	args := []any{}
 	if subjectID > 0 {
@@ -385,7 +414,7 @@ func getWebConversationByID(c *gin.Context, db *sql.DB, id string) (webConversat
 		COALESCE(s.name, '未分配学科') AS subject_name,
 		(SELECT COUNT(1) FROM conversation_messages m WHERE m.conversation_id = c.conversation_id) AS message_count
 		FROM conversations c
-		LEFT JOIN subjects s ON s.subject_id = c.subject_id
+		LEFT JOIN subjects s ON s.id = c.subject_id
 		WHERE c.conversation_id = ?`,
 		id,
 	).Scan(&item.ID, &item.Title, &item.SubjectID, &item.UserID, &item.CreatedAt, &item.UpdatedAt, &item.SubjectName, &item.MessageCount)
@@ -421,7 +450,7 @@ func updateWebConversation(c *gin.Context, db *sql.DB, item webConversation) err
 func queryWebMessages(c *gin.Context, db *sql.DB, conversationID string) ([]webMessage, error) {
 	rows, err := db.QueryContext(
 		c,
-		`SELECT message_id, conversation_id, role, content_inline, content_ref, content_hash, content_size,
+		`SELECT message_id, conversation_id, seq, role, content_inline, content_ref, content_hash, content_size,
 		turn_id, reply_to_message_id, token_usage, metadata_json, status, created_at
 		FROM conversation_messages
 		WHERE conversation_id = ?
@@ -445,6 +474,7 @@ func queryWebMessages(c *gin.Context, db *sql.DB, conversationID string) ([]webM
 		if err := rows.Scan(
 			&item.ID,
 			&item.ConversationID,
+			&item.Seq,
 			&item.Role,
 			&contentInline,
 			&contentRef,
@@ -713,9 +743,17 @@ func querySubjectName(c *gin.Context, db *sql.DB, subjectID int) (string, error)
 		return "", nil
 	}
 	var name string
-	err := db.QueryRowContext(c, `SELECT name FROM subjects WHERE subject_id = ?`, subjectID).Scan(&name)
+	err := db.QueryRowContext(c, `SELECT name FROM subjects WHERE id = ?`, subjectID).Scan(&name)
 	if err != nil {
 		return "", err
 	}
 	return name, nil
+}
+
+func truncateRunes(value string, maxLen int) string {
+	runes := []rune(value)
+	if len(runes) <= maxLen {
+		return value
+	}
+	return string(runes[:maxLen])
 }

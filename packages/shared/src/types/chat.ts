@@ -16,11 +16,14 @@ export interface Conversation {
 export interface Message {
   id: string;
   conversationId: string;
+  seq?: number;
   role: MessageRole;
   content: string;
   attachments?: MessageAttachment[];
   status: MessageStatus;
   createdAt: string;
+  turnId?: string;
+  replyToMessageId?: string;
   metadata?: MessageMetadata;
 }
 
@@ -40,6 +43,8 @@ export interface MessageAttachment {
 export interface MessageMetadata {
   model?: string;
   tokens?: number;
+  reasoning?: string;
+  semanticSummary?: string;
   thoughtChain?: ThoughtStep[];
   videoUrl?: string;
   videoRunId?: string;

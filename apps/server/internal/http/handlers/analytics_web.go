@@ -27,7 +27,7 @@ func GetAnalytics() gin.HandlerFunc {
 			userID = "0"
 		}
 		subjectName := "未知学科"
-		_ = db.QueryRowContext(c, `SELECT name FROM subjects WHERE subject_id = ?`, subjectID).Scan(&subjectName)
+		_ = db.QueryRowContext(c, `SELECT name FROM subjects WHERE id = ?`, subjectID).Scan(&subjectName)
 		data := webAnalytics{
 			UserID:      userID,
 			SubjectID:   subjectID,

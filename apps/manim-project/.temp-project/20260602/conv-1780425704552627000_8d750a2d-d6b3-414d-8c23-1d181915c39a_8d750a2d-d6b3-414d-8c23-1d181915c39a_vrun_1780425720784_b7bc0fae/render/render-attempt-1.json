@@ -1,0 +1,6 @@
+{
+  "attempt": 1,
+  "success": false,
+  "lastError": "points_2d[\"D\"]                                        │\n│ ❱ 243 │   │   x_axis = Arrow(origin, origin + 1.2 * RIGHT, color=\"#1A1A2E\",  │\n│   244 │   │   y_axis = Arrow(origin, origin + 0.6 * (0.5 * RIGHT - 0.3 * UP) │\n│   245 │   │   z_axis = Arrow(origin, origin + 1.2 * UP, color=\"#1A1A2E\", str │\n│   246 │   │   axes = VGroup(x_axis, y_axis, z_axis)                          │\n╰──────────────────────────────────────────────────────────────────────────────╯\nNameError: name 'Arrow' is not defined",
+  "createdAt": "2026-06-02T18:46:31.345Z"
+}

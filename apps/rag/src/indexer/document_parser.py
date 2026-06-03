@@ -5,13 +5,12 @@
 
 from __future__ import annotations
 
-import io
-import logging
 from dataclasses import dataclass
 
+from ..document.extractors import extract_office_or_text
+from ..document.models import DocumentAst, DocumentBlock, DocumentPage, FileAsset
+from ..document.pdf import parse_pdf_document
 from .parser_models import ParseMode, ParseOptions, PageSignal
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -22,166 +21,208 @@ class ParsedDocument:
     metadata: dict
     page_signals: list[PageSignal]
     parse_profile: dict
+    document: DocumentAst
 
 
 def parse_document(
-    content: bytes, filename: str, options: ParseOptions | None = None
+    content: bytes,
+    filename: str,
+    options: ParseOptions | None = None,
+    mime_type: str | None = None,
 ) -> ParsedDocument:
     """根据文件类型选择解析策略"""
     options = options or ParseOptions()
+    asset = FileAsset.from_bytes(content, filename, mime_type)
     filename_lower = filename.lower()
 
     if filename_lower.endswith((".md", ".markdown", ".txt")):
-        return _parse_markdown(content, filename, options.mode)
+        return _parse_markdown(asset, options.mode)
     elif filename_lower.endswith(".pdf"):
-        return _parse_pdf(content, filename, options)
+        return _parse_pdf(asset, options)
     else:
-        # 未知类型尝试作为文本处理
+        text, extracted_type = extract_office_or_text(content, filename)
+        page_signal = PageSignal(
+            page_number=1,
+            page_type="text_page" if text.strip() else "image_page",
+            text_density=1.0 if text.strip() else 0.0,
+            quality_score=0.7 if text.strip() else 0.1,
+            extracted_chars=len(text.strip()),
+        )
+        document = _build_text_document(
+            text=text,
+            asset=asset,
+            doc_type=extracted_type,
+            page_signals=[page_signal],
+            markdown=extracted_type in {"html", "xlsx", "csv"},
+        )
         return ParsedDocument(
-            text=content.decode("utf-8", errors="ignore"),
-            doc_type="plain_text",
+            text=text,
+            doc_type=extracted_type,
             page_count=1,
             metadata={"filename": filename},
-            page_signals=[],
+            page_signals=[page_signal],
             parse_profile={"mode": options.mode, "ocr_upgraded_pages": 0},
+            document=document,
         )
 
 
-def _parse_markdown(content: bytes, filename: str, mode: ParseMode) -> ParsedDocument:
-    text = content.decode("utf-8", errors="ignore")
+def _parse_markdown(asset: FileAsset, mode: ParseMode) -> ParsedDocument:
+    text = asset.content.decode("utf-8", errors="ignore")
+    page_signal = PageSignal(
+        page_number=1,
+        page_type="text_page",
+        text_density=1.0 if text.strip() else 0.0,
+        quality_score=1.0 if text.strip() else 0.0,
+        extracted_chars=len(text),
+    )
+    document = _build_text_document(
+        text=text,
+        asset=asset,
+        doc_type="markdown" if asset.filename.lower().endswith((".md", ".markdown")) else "plain_text",
+        page_signals=[page_signal],
+        markdown=True,
+    )
     return ParsedDocument(
         text=text,
-        doc_type="markdown",
+        doc_type=document.doc_type,
         page_count=1,
-        metadata={"filename": filename},
-        page_signals=[
-            PageSignal(
-                page_number=1,
-                page_type="text_page",
-                text_density=1.0 if text.strip() else 0.0,
-                quality_score=1.0 if text.strip() else 0.0,
-                extracted_chars=len(text),
-            )
-        ],
+        metadata={"filename": asset.filename},
+        page_signals=[page_signal],
         parse_profile={"mode": mode, "ocr_upgraded_pages": 0},
+        document=document,
     )
 
 
-def _parse_pdf(content: bytes, filename: str, options: ParseOptions) -> ParsedDocument:
-    """优先尝试文字提取，提取失败则标记为需要 OCR"""
-    try:
-        from pypdf import PdfReader
+def _parse_pdf(asset: FileAsset, options: ParseOptions) -> ParsedDocument:
+    artifact = parse_pdf_document(asset, options)
+    return ParsedDocument(
+        text=artifact.document.plain_text(),
+        doc_type=artifact.document.doc_type,
+        page_count=len(artifact.document.pages),
+        metadata=artifact.document.metadata,
+        page_signals=artifact.page_signals,
+        parse_profile=artifact.parse_profile,
+        document=artifact.document,
+    )
 
-        reader = PdfReader(io.BytesIO(content))
-        page_count = len(reader.pages)
-        pages_text: list[str] = []
-        page_signals: list[PageSignal] = []
-        image_pages: list[int] = []
 
-        for i, page in enumerate(reader.pages):
-            extracted = page.extract_text() or ""
-            cleaned = extracted.strip()
-            density = min(1.0, len(cleaned) / 1200) if page_count > 0 else 0.0
-            page_type = _classify_page(cleaned)
-            quality_score = _estimate_quality_score(cleaned, page_type)
-            page_signals.append(
-                PageSignal(
-                    page_number=i + 1,
-                    page_type=page_type,
-                    text_density=density,
-                    quality_score=quality_score,
-                    extracted_chars=len(cleaned),
+def _build_text_document(
+    text: str,
+    asset: FileAsset,
+    doc_type: str,
+    page_signals: list[PageSignal],
+    markdown: bool = False,
+) -> DocumentAst:
+    blocks = _split_text_blocks(text, page_number=1, markdown=markdown)
+    page = DocumentPage(
+        page_number=1,
+        page_type=page_signals[0].page_type,
+        text_density=page_signals[0].text_density,
+        quality_score=page_signals[0].quality_score,
+        extracted_chars=page_signals[0].extracted_chars,
+        block_ids=[block.block_id for block in blocks],
+    )
+    return DocumentAst(
+        doc_type=doc_type,
+        filename=asset.filename,
+        content_hash=asset.content_hash,
+        pages=[page],
+        blocks=blocks,
+        metadata={"filename": asset.filename},
+    )
+
+
+def _split_text_blocks(text: str, page_number: int, markdown: bool) -> list[DocumentBlock]:
+    lines = text.splitlines()
+    blocks: list[DocumentBlock] = []
+    section_path: list[str] = []
+    current: list[str] = []
+    start_line = 1
+    in_fence = False
+    block_counter = 1
+
+    def flush(end_line: int) -> None:
+        nonlocal current, start_line, block_counter
+        block_text = "\n".join(current).strip()
+        if not block_text:
+            current = []
+            return
+        block_type = _classify_block(block_text, markdown)
+        blocks.append(
+            DocumentBlock(
+                block_id=f"p{page_number}-b{block_counter}",
+                block_type=block_type,
+                text=block_text,
+                page_start=page_number,
+                page_end=page_number,
+                line_start=start_line,
+                line_end=end_line,
+                section_path=list(section_path),
+                structured_payload=_structured_payload_for_block(block_text, block_type),
+            )
+        )
+        block_counter += 1
+        current = []
+
+    for idx, raw_line in enumerate(lines, start=1):
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if markdown and stripped.startswith("```"):
+            in_fence = not in_fence
+        if markdown and stripped.startswith("#") and not in_fence:
+            flush(idx - 1)
+            heading = stripped.lstrip("#").strip()
+            level = len(stripped) - len(stripped.lstrip("#"))
+            section_path = section_path[: max(0, level - 1)] + [heading]
+            blocks.append(
+                DocumentBlock(
+                    block_id=f"p{page_number}-b{block_counter}",
+                    block_type="heading",
+                    text=stripped,
+                    page_start=page_number,
+                    page_end=page_number,
+                    line_start=idx,
+                    line_end=idx,
+                    section_path=list(section_path),
+                    structured_payload={"heading_level": level, "heading_text": heading},
                 )
             )
+            block_counter += 1
+            start_line = idx + 1
+            continue
+        if not stripped:
+            flush(idx - 1)
+            start_line = idx + 1
+            continue
+        if not current:
+            start_line = idx
+        current.append(line)
 
-            if cleaned:
-                pages_text.append(f"[第 {i + 1} 页]\n{extracted}")
-            if page_type == "image_page":
-                image_pages.append(i + 1)
-
-        full_text = "\n\n".join(pages_text)
-        upgraded_pages = 0
-
-        # 文本过少时，生成页面提示信息，避免直接空文本入库
-        if len(full_text.strip()) < 100 and page_count > 0:
-            fallback = _fallback_ocr(content, filename, page_count, options, page_signals)
-            return fallback
-
-        if image_pages and options.mode != "fast":
-            top_pages = image_pages[: max(0, options.max_upgrade_pages)]
-            upgraded_pages = len(top_pages)
-            hint_lines = [f"[第 {p} 页] 此页为图像内容，建议按需触发视觉OCR精处理" for p in top_pages]
-            if hint_lines:
-                full_text = f"{full_text}\n\n" + "\n".join(hint_lines)
-
-        return ParsedDocument(
-            text=full_text,
-            doc_type="pdf_text",
-            page_count=page_count,
-            metadata={"filename": filename},
-            page_signals=page_signals,
-            parse_profile={"mode": options.mode, "ocr_upgraded_pages": upgraded_pages},
-        )
-
-    except Exception as e:
-        logger.warning(f"PDF text extraction failed for {filename}: {e}")
-        return _fallback_ocr(content, filename, 0, options, [])
+    flush(len(lines))
+    return blocks
 
 
-def _fallback_ocr(
-    content: bytes,
-    filename: str,
-    page_count: int,
-    options: ParseOptions,
-    page_signals: list[PageSignal],
-) -> ParsedDocument:
-    """
-    图片型 PDF 的 OCR 处理
-    当前实现：返回占位文本 + 页级信号，实际 OCR 可接入外部服务。
-    """
-    logger.info(f"PDF {filename} appears to be image-based, OCR required")
-    _ = content  # 预留给 OCR 接入，当前不使用
-
-    return ParsedDocument(
-        text=(
-            "[此文档为图片型 PDF，当前仅完成轻量解析。"
-            "如需更高质量数学/图表识别，请按需触发视觉 OCR 精处理。]"
-        ),
-        doc_type="pdf_ocr",
-        page_count=page_count,
-        metadata={"filename": filename, "ocr_required": True},
-        page_signals=page_signals or _default_image_page_signals(page_count),
-        parse_profile={"mode": options.mode, "ocr_upgraded_pages": 0},
-    )
+def _classify_block(text: str, markdown: bool) -> str:
+    stripped = text.strip()
+    if markdown and stripped.startswith("```"):
+        return "code"
+    if all(line.strip().startswith("|") and line.strip().endswith("|") for line in stripped.splitlines()):
+        return "table"
+    if stripped.startswith(("- ", "* ", "1. ")):
+        return "list"
+    if "$" in stripped or "\\(" in stripped or "\\[" in stripped:
+        return "formula"
+    return "paragraph"
 
 
-def _classify_page(extracted_text: str) -> str:
-    chars = len(extracted_text.strip())
-    if chars < 40:
-        return "image_page"
-    if chars < 220:
-        return "mixed_page"
-    return "text_page"
+def _structured_payload_for_block(text: str, block_type: str) -> dict:
+    if block_type == "table":
+        rows = [line for line in text.splitlines() if line.strip()]
+        return {"row_count": len(rows), "format": "markdown_like"}
+    if block_type == "code":
+        first_line = text.splitlines()[0].strip()
+        language = first_line.strip("`").strip() or None
+        return {"language": language}
+    return {}
 
 
-def _estimate_quality_score(extracted_text: str, page_type: str) -> float:
-    chars = len(extracted_text.strip())
-    if page_type == "image_page":
-        return 0.2
-    if page_type == "mixed_page":
-        return min(0.7, 0.3 + chars / 1000)
-    return min(0.98, 0.65 + chars / 2000)
-
-
-def _default_image_page_signals(page_count: int) -> list[PageSignal]:
-    pages = max(1, page_count)
-    return [
-        PageSignal(
-            page_number=i + 1,
-            page_type="image_page",
-            text_density=0.0,
-            quality_score=0.2,
-            extracted_chars=0,
-        )
-        for i in range(pages)
-    ]

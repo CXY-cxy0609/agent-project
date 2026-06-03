@@ -34,13 +34,11 @@ export function applyRulePatch(
   }
 
   if (errorType === 'name' && /name ['"]np['"] is not defined/i.test(rawError)) {
-    if (!/import\s+numpy\s+as\s+np/m.test(script)) {
-      return {
-        applied: true,
-        script: `import numpy as np\n${script}`,
-        reason: '补充 numpy 别名导入',
-      };
-    }
+    return {
+      applied: false,
+      script,
+      reason: '2D 伪投影管线不自动补充 numpy，应改用 Manim 向量或 create_geometry_diagram.py',
+    };
   }
 
   return { applied: false, script, reason: '无可用规则补丁' };

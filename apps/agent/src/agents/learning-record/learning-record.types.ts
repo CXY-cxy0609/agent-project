@@ -14,6 +14,7 @@ export interface ConversationSummary {
   question: string;
   answer: string;
   subject: string;
+  subjectId?: string;
   knowledgePoints: string[];
   difficulty?: 'easy' | 'medium' | 'hard';
 }

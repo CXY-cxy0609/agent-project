@@ -1,0 +1,12 @@
+{
+  "intent": {
+    "intent": "video_request",
+    "subjectId": 9001,
+    "confidence": 1,
+    "videoRequired": true,
+    "reasoning": "前端显式开启生成视频开关",
+    "title": "解析一下这题"
+  },
+  "userMessage": "解析一下这题",
+  "generatedAt": "2026-06-02T18:59:29.607Z"
+}

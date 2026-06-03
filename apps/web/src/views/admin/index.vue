@@ -201,7 +201,6 @@ const subjectsLoading = ref(false);
 const subjectColumns = [
   { title: '学科 ID', dataIndex: 'id', key: 'id', ellipsis: true },
   { title: '学科名称', dataIndex: 'name', key: 'name' },
-  { title: '学科编号', dataIndex: 'code', key: 'code', width: 120 },
   { title: '说明', dataIndex: 'description', key: 'description', ellipsis: true },
   { title: '操作', key: 'actions', width: 160, align: 'center' as const },
 ];

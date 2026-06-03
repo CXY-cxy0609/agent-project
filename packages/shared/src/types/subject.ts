@@ -1,7 +1,6 @@
 export interface Subject {
   id: number;
   name: string;
-  code: number;
   parentId: number | null;
   level: SubjectLevel;
   description?: string;
@@ -38,7 +37,6 @@ export type SubjectLevel = 1 | 2;
 
 export interface CreateSubjectDto {
   name: string;
-  code: number;
   parentId?: number | null;
   description?: string;
 }

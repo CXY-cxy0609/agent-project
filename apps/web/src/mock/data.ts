@@ -43,7 +43,6 @@ export const MOCK_SUBJECTS: UserSubject[] = [
   {
     id: 101,
     name: '高等数学',
-    code: 1001,
     parentId: null,
     level: 1,
     description: '理工科进阶学习核心科目，涵盖微积分、级数、微分方程等重点内容',
@@ -135,7 +134,6 @@ export const MOCK_SUBJECTS: UserSubject[] = [
   {
     id: 102,
     name: '线性代数',
-    code: 1002,
     parentId: null,
     level: 1,
     description: '矩阵、行列式、向量空间、线性变换等基础内容',
@@ -191,7 +189,6 @@ export const MOCK_SUBJECTS: UserSubject[] = [
   {
     id: 103,
     name: '英语',
-    code: 2001,
     parentId: null,
     level: 1,
     description: '英语综合学习，覆盖阅读理解、完型填空与写作训练',
@@ -202,7 +199,6 @@ export const MOCK_SUBJECTS: UserSubject[] = [
   {
     id: 201,
     name: '高数（强化）',
-    code: 100101,
     parentId: 101,
     level: 2,
     description: '高等数学强化阶段子学科，聚焦高频题型与跨章节综合',

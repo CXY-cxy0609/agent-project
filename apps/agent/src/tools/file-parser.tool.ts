@@ -7,7 +7,7 @@ import { defineTool } from '../harness/tool/tool.js';
 
 type ParseMode = 'fast' | 'balanced' | 'quality';
 
-export function createFileParserTool(ragServiceUrl: string) {
+export function createFileParserTool(ragServiceUrl: string, internalToken?: string) {
   return defineTool<
     {
       file_content_base64: string;
@@ -71,6 +71,7 @@ export function createFileParserTool(ragServiceUrl: string) {
 
         const res = await fetch(`${ragServiceUrl}/parse`, {
           method: 'POST',
+          headers: internalToken ? { 'x-internal-token': internalToken } : undefined,
           body: formData,
           signal: AbortSignal.timeout(10000),
         });

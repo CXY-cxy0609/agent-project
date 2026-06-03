@@ -5,6 +5,7 @@ export interface QAInput {
   question: string;
   images?: Array<{ url: string; mediaType?: string }>;
   subjectId: string;
+  subjectName?: string;
   history: Message[];
   generateVideo?: boolean;
 }
@@ -14,6 +15,7 @@ export interface QAOutput {
   knowledgePoints: string[];
   difficulty: 'easy' | 'medium' | 'hard';
   subject: string;
+  subjectId?: string;
   videoUrl?: string;
   needsVideo: boolean;
 }
@@ -22,6 +24,7 @@ export interface QAState {
   question: string;
   images?: Array<{ url: string; mediaType?: string }>;
   subjectId: string;
+  subjectName?: string;
   history: Message[];
   generateVideo: boolean;
   /** 最终使用的问题文本 */

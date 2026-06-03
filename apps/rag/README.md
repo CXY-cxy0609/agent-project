@@ -12,10 +12,14 @@ apps/rag
 │   ├── retrieval_pipeline.py       # 检索主链路：预处理→召回→重排→上下文构建
 │   ├── query_preprocessor.py       # Query 预处理（含 HyDE 扩展）
 │   └── context_builder.py          # 上下文压缩与拼接
+├── src/document
+│   ├── models.py                   # Document AST / Page / Block / ParseArtifact
+│   └── extractors.py               # Office / CSV / HTML 基础文本抽取
 ├── src/indexer
 │   ├── indexer.py                  # 入库主链路：解析→切分→向量化→写入
-│   ├── document_parser.py          # 文档解析（PDF/Markdown/Text）
-│   ├── chunker.py                  # 语义切分与短块合并
+│   ├── document_parser.py          # 文档解析并生成 Document AST
+│   ├── chunker.py                  # AST Chunker facade
+│   ├── chunking/ast_chunker.py     # AST 驱动语义切分、结构保护与短块策略
 │   └── vector_store.py             # Qdrant 读写封装
 ├── src/embedder/embedder.py        # Embedding 服务（支持 Redis 缓存）
 ├── src/reranker/reranker.py        # Cross-Encoder 重排
@@ -27,7 +31,7 @@ apps/rag
 ### 关键设计
 
 - **检索质量链路**：`Query 预处理 + HyDE + 向量召回 + Rerank + Context Builder`。
-- **索引稳定性**：按文档类型选择切分策略（Markdown 标题切分 / 纯文本滑窗切分）。
+- **索引稳定性**：所有文档统一解析为 `Document AST`，再由 AST Chunker 执行结构保护、多元数据追踪和 token 窗口兜底。
 - **缓存优化**：Embedding 结果支持 Redis 缓存，减少重复向量计算成本。
 
 ## 2. 架构流程图
@@ -42,17 +46,17 @@ apps/rag
   ▼
 FastAPI  main.py
   │
-  ├─ 二进制文件 ──▶ document_parser.py ──▶ 提取纯文本
-  │                  （PDF / Markdown / Text）
-  │
-  └─ 纯文本直接进入 ──────────────────────────┐
-                                              ▼
-                                       chunker.py
-                                     ┌──────┴──────┐
-                              markdown?          plain text?
-                         标题锚点切分            滑窗切分
-                           短块合并             overlap 合并
-                                     └──────┬──────┘
+  └─ 文件/文本 ──▶ document_parser.py
+                   （PDF / Markdown / Text / Office / CSV / HTML）
+                         │
+                         ▼
+                  Document AST（page / block / section / quality signals）
+                         │
+                         ▼
+                  chunker.py / ast_chunker.py
+                  结构保护 + 短块策略 + token 窗口兜底
+                         │
+                         ▼
                                             ▼
                                     EmbeddingService
                                    （sentence-transformers）

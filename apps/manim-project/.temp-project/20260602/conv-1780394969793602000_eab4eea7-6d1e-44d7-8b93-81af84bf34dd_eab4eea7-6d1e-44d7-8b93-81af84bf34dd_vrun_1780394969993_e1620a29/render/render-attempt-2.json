@@ -1,6 +1,0 @@
-{
-  "attempt": 2,
-  "success": false,
-  "lastError": "d_animation(split_atoms2, animation=FadeIn(split_atoms2 │\n│ ❱ 201 │   │   self.add_animation(water_group, animation=FadeOut(water_group) │\n│   202 │   │                                                                  │\n│   203 │   │   # 移动原子                                                     │\n│   204 │   │   target_h1 = split_atoms1[1].copy().move_to(DOWN * 1.2 + LEFT * │\n╰──────────────────────────────────────────────────────────────────────────────╯\nNameError: name 'FadeOut' is not defined",
-  "createdAt": "2026-06-02T10:14:05.284Z"
-}

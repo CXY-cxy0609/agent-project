@@ -81,6 +81,7 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 		{
 			conversations.POST("/list", handlers.ListConversationsWeb())
 			conversations.POST("", handlers.CreateConversationWeb())
+			conversations.POST("/update", handlers.UpdateConversationWeb())
 			conversations.POST("/detail", handlers.GetConversationWeb())
 			conversations.POST("/delete", handlers.DeleteConversationWeb())
 			conversations.POST("/messages/list", handlers.ListConversationMessages())
@@ -89,8 +90,24 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 
 		analytics := api.Group("/analytics")
 		{
+			analytics.POST("/overview", handlers.GetAnalyticsOverview())
+			analytics.POST("/summary/generate", handlers.GenerateAnalyticsSummaryV2(cfg.AI.AgentServiceURL, cfg.Auth.InternalToken))
+			analytics.POST("/summary/stream", handlers.StreamAnalyticsSummary(cfg.AI.AgentServiceURL, cfg.Auth.InternalToken))
 			analytics.GET("/:subjectId", handlers.GetAnalytics())
 			analytics.POST("/:subjectId/summary", handlers.GenerateAnalyticsSummary())
+		}
+
+		assessments := api.Group("/assessments")
+		{
+			assessments.POST("/generate", handlers.GenerateAssessment(cfg.AI.AgentServiceURL, cfg.Auth.InternalToken))
+			assessments.POST("/generate/stream", handlers.StreamGenerateAssessment(cfg.AI.AgentServiceURL, cfg.Auth.InternalToken))
+			assessments.POST("/regenerate/stream", handlers.StreamRegenerateAssessment(cfg.AI.AgentServiceURL, cfg.Auth.InternalToken))
+			assessments.POST("/submit", handlers.SubmitAssessment())
+			assessments.POST("/grade", handlers.GradeAssessment(cfg.AI.AgentServiceURL, cfg.Auth.InternalToken))
+			assessments.POST("/grade/stream", handlers.StreamGradeAssessment(cfg.AI.AgentServiceURL, cfg.Auth.InternalToken))
+			assessments.POST("/detail", handlers.GetAssessmentDetail())
+			assessments.POST("/list", handlers.ListAssessments())
+			assessments.POST("/answers/attachments/upload", handlers.UploadAssessmentAnswerAttachment())
 		}
 
 		knowledge := api.Group("/knowledge-bases")
@@ -100,9 +117,9 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 			knowledge.POST("/detail", handlers.GetKnowledgeBase())
 			knowledge.POST("/update", handlers.UpdateKnowledgeBase())
 			knowledge.POST("/delete", handlers.DeleteKnowledgeBase())
-			knowledge.POST("/files/upload", handlers.UploadKnowledgeFile())
+			knowledge.POST("/files/upload", handlers.UploadKnowledgeFile(cfg.AI.RAGServiceURL, cfg.Auth.InternalToken))
 			knowledge.POST("/files/update", handlers.UpdateKnowledgeFile())
-			knowledge.POST("/files/delete", handlers.DeleteKnowledgeFile())
+			knowledge.POST("/files/delete", handlers.DeleteKnowledgeFile(cfg.AI.RAGServiceURL, cfg.Auth.InternalToken))
 			knowledge.POST("/files/reorder", handlers.ReorderKnowledgeFiles())
 			knowledge.POST("/files/content", handlers.GetKnowledgeFileContent())
 		}
@@ -132,6 +149,8 @@ func NewRouter(cfg config.Config, container *app.Container) *gin.Engine {
 		{
 			internal.POST("/learning-records", handlers.CreateLearningRecord(container.LearningRecordService))
 			internal.GET("/learning-records", handlers.QueryLearningRecords(container.LearningRecordService))
+			internal.POST("/learning-events", handlers.CreateLearningEvent())
+			internal.POST("/internal/subjects/my/list", handlers.InternalListUserSubjects())
 			internal.POST("/video-runs", handlers.UpsertVideoGenerationRun(container.VideoRunService))
 			internal.GET("/video-runs/:runId", handlers.GetVideoGenerationRun(container.VideoRunService))
 			internal.POST("/storage/upload", handlers.InternalStorageUpload())

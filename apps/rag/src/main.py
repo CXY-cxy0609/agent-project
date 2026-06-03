@@ -56,6 +56,18 @@ write_limiter = WindowRateLimiter(
     limit=settings.rate_limit_write_per_window,
     window_seconds=settings.rate_limit_window_seconds,
 )
+SUPPORTED_UPLOAD_EXTENSIONS = {
+    ".pdf",
+    ".md",
+    ".markdown",
+    ".txt",
+    ".docx",
+    ".pptx",
+    ".xlsx",
+    ".csv",
+    ".html",
+    ".htm",
+}
 
 
 @app.on_event("startup")
@@ -93,6 +105,10 @@ class RetrieveRequest(BaseModel):
     query: str
     subject_id: Optional[str] = None
     knowledge_base_id: Optional[str] = None
+    knowledge_base_ids: Optional[list[str]] = None
+    request_user_id: Optional[str] = None
+    include_public: bool = True
+    include_private: bool = False
     top_k: int = 5
     retrieval_mode: str = "text_only"
     budget_tokens: Optional[int] = None
@@ -108,6 +124,7 @@ class ChunkInfo(BaseModel):
 class RetrieveResponse(BaseModel):
     context: str
     chunks: list[ChunkInfo]
+    security_scope: dict = Field(default_factory=dict)
 
 
 class IndexTaskAcceptedResponse(BaseModel):
@@ -128,6 +145,8 @@ class IndexTextRequest(BaseModel):
     knowledge_base_id: str
     subject_id: str
     doc_name: str
+    visibility: str = "public"
+    owner_user_id: Optional[str] = None
     doc_id: Optional[str] = None
     doc_version: Optional[int] = None
     wait: bool = Field(default=settings.index_task_wait_default)
@@ -182,8 +201,13 @@ async def retrieve(req: RetrieveRequest, request: Request):
         result = await asyncio.wait_for(
             retrieval_pipeline.retrieve(
                 query=req.query,
+                tenant_id=tenant_id,
                 subject_id=req.subject_id,
                 knowledge_base_id=req.knowledge_base_id,
+                knowledge_base_ids=req.knowledge_base_ids,
+                request_user_id=req.request_user_id,
+                include_public=req.include_public,
+                include_private=req.include_private,
                 top_k=req.top_k,
                 retrieval_mode=req.retrieval_mode,
                 budget_tokens=req.budget_tokens,
@@ -196,6 +220,7 @@ async def retrieve(req: RetrieveRequest, request: Request):
     return RetrieveResponse(
         context=result.context,
         chunks=[ChunkInfo(content=c.content, score=c.score, metadata=c.metadata) for c in result.chunks],
+        security_scope=result.security_scope,
     )
 
 
@@ -206,11 +231,17 @@ async def index_upload(
     knowledge_base_id: str = Form(...),
     subject_id: str = Form(...),
     doc_name: str = Form(...),
+    visibility: str = Form(default="public"),
+    owner_user_id: Optional[str] = Form(default=None),
     doc_id: Optional[str] = Form(default=None),
     doc_version: Optional[int] = Form(default=None),
+    mode: ParseMode = Form(settings.parse_default_mode),
+    max_upgrade_pages: int = Form(settings.parse_max_upgrade_pages),
+    budget_tokens: int = Form(settings.parse_budget_tokens),
     wait: bool = Form(default=settings.index_task_wait_default),
 ):
-    if file.content_type not in ("application/pdf", "text/markdown", "text/plain"):
+    filename = file.filename or doc_name
+    if not _is_supported_upload(filename):
         raise BadRequestError("unsupported file type")
     tenant_id = tenant_from_request(request)
     enforce_rate_limit(write_limiter, _rate_limit_key(request, tenant_id, "index_upload"))
@@ -220,12 +251,20 @@ async def index_upload(
         {
             "tenant_id": tenant_id,
             "content": content,
-            "filename": file.filename or doc_name,
+            "filename": filename,
             "knowledge_base_id": knowledge_base_id,
             "subject_id": subject_id,
             "doc_name": doc_name,
+            "visibility": visibility,
+            "owner_user_id": owner_user_id,
             "doc_id": doc_id,
             "doc_version": doc_version,
+            "mime_type": file.content_type,
+            "parse_options": {
+                "mode": mode,
+                "max_upgrade_pages": max_upgrade_pages,
+                "budget_tokens": budget_tokens,
+            },
         },
     )
     if wait:
@@ -247,6 +286,8 @@ async def index_text(request: Request, req: IndexTextRequest):
             "knowledge_base_id": req.knowledge_base_id,
             "subject_id": req.subject_id,
             "doc_name": req.doc_name,
+            "visibility": req.visibility,
+            "owner_user_id": req.owner_user_id,
             "doc_id": req.doc_id,
             "doc_version": req.doc_version,
         },
@@ -284,14 +325,17 @@ async def delete_document(request: Request, knowledge_base_id: str, doc_id: str)
 @app.post("/parse", response_model=ParseResponse, dependencies=[Depends(require_internal_token)])
 async def parse_file(
     file: UploadFile = File(...),
+    parse_only: bool = Form(default=True),
     mode: ParseMode = Form(settings.parse_default_mode),
     max_upgrade_pages: int = Form(settings.parse_max_upgrade_pages),
     budget_tokens: int = Form(settings.parse_budget_tokens),
 ):
+    _ = parse_only
     content = await file.read()
     parsed = parse_document(
         content,
         file.filename or "unknown",
+        mime_type=file.content_type,
         options=ParseOptions(
             mode=mode,
             max_upgrade_pages=max_upgrade_pages,
@@ -321,6 +365,11 @@ async def user_memory_store(request: Request, req: UserMemoryStoreRequest):
     return {"status": "stored"}
 
 
+def _is_supported_upload(filename: str) -> bool:
+    lower = filename.lower()
+    return any(lower.endswith(ext) for ext in SUPPORTED_UPLOAD_EXTENSIONS)
+
+
 @app.post("/memory/content/search", dependencies=[Depends(require_internal_token)])
 async def content_cache_search(request: Request, req: ContentCacheSearchRequest):
     tenant_id = tenant_from_request(request)
@@ -343,8 +392,14 @@ async def _handle_index_upload_task(payload: dict) -> dict:
         knowledge_base_id=payload["knowledge_base_id"],
         subject_id=payload["subject_id"],
         doc_name=payload["doc_name"],
+        visibility=payload.get("visibility", "public"),
+        owner_user_id=payload.get("owner_user_id"),
         doc_id=payload.get("doc_id"),
         doc_version=payload.get("doc_version"),
+        parse_options=ParseOptions(**payload["parse_options"])
+        if payload.get("parse_options")
+        else None,
+        mime_type=payload.get("mime_type"),
     )
 
 
@@ -355,6 +410,8 @@ async def _handle_index_text_task(payload: dict) -> dict:
         knowledge_base_id=payload["knowledge_base_id"],
         subject_id=payload["subject_id"],
         doc_name=payload["doc_name"],
+        visibility=payload.get("visibility", "public"),
+        owner_user_id=payload.get("owner_user_id"),
         doc_id=payload.get("doc_id"),
         doc_version=payload.get("doc_version"),
     )

@@ -1,5 +1,5 @@
 export type KnowledgeBaseType = 'public' | 'private';
-export type KnowledgeFileType = 'pdf' | 'md';
+export type KnowledgeFileType = 'pdf' | 'md' | 'txt' | 'docx' | 'pptx' | 'xlsx' | 'csv' | 'html';
 
 export interface KnowledgeBase {
   id: string;
@@ -24,6 +24,10 @@ export interface KnowledgeFile {
   size: number;
   order: number;
   content?: string;
+  mimeType?: string;
+  storageKey?: string;
+  hash?: string;
+  status?: string;
   createdAt: string;
   updatedAt: string;
 }

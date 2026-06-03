@@ -13,12 +13,15 @@ import { InMemoryShortTermMemory, RedisShortTermMemory } from './harness/memory/
 import { HttpUserVectorMemory, HttpContentVectorCache } from './harness/memory/vector-memory.js';
 import { HttpStructuredMemory } from './harness/memory/db-memory.js';
 import { HttpVideoRunMemory } from './harness/memory/video-run-memory.js';
+import { HttpUserSubjectClient } from './harness/subjects/user-subject-client.js';
 import { defaultObserver } from './harness/observer/tracer.js';
 import { OrchestratorAgent } from './agents/orchestrator/orchestrator.agent.js';
 import { QAAgent } from './agents/qa/qa.agent.js';
 import { VideoAgent } from './agents/video/video.agent.js';
 import { KnowledgeBaseAgent } from './agents/knowledge-base/knowledge-base.agent.js';
 import { LearningRecordAgent } from './agents/learning-record/learning-record.agent.js';
+import { AssessmentAgent } from './agents/assessment/assessment.agent.js';
+import { LearningSummaryAgent } from './agents/learning-summary/learning-summary.agent.js';
 import { createRagRetrievalTool } from './tools/rag-retrieval.tool.js';
 import { createImageOcrTool } from './tools/image-ocr.tool.js';
 import { createFileParserTool } from './tools/file-parser.tool.js';
@@ -61,6 +64,8 @@ export interface AppConfig {
 export interface AppContainer {
   orchestratorAgent: OrchestratorAgent;
   knowledgeBaseAgent: KnowledgeBaseAgent;
+  assessmentAgent: AssessmentAgent;
+  learningSummaryAgent: LearningSummaryAgent;
 }
 
 function createRedisClient(redisUrl: string): Redis {
@@ -102,16 +107,17 @@ export function createContainer(config: AppConfig): AppContainer {
     redis,
   );
 
-  const userVectorMemory = new HttpUserVectorMemory(config.ragServiceUrl);
-  const contentVectorCache = new HttpContentVectorCache(config.ragServiceUrl);
+  const userVectorMemory = new HttpUserVectorMemory(config.ragServiceUrl, config.internalToken);
+  const contentVectorCache = new HttpContentVectorCache(config.ragServiceUrl, config.internalToken);
   const structuredMemory = new HttpStructuredMemory(config.serverUrl, config.internalToken);
   const videoRunMemory = new HttpVideoRunMemory(config.serverUrl, config.internalToken);
+  const userSubjectClient = new HttpUserSubjectClient(config.serverUrl, config.internalToken);
 
   // ─── 工具注册 ──────────────────────────────────────────────────────
   const toolRegistry = new ToolRegistry();
   toolRegistry.register(createRagRetrievalTool(ragClient));
   toolRegistry.register(createImageOcrTool(llm, config.modelGovernance.tools.imageOcr));
-  toolRegistry.register(createFileParserTool(config.ragServiceUrl));
+  toolRegistry.register(createFileParserTool(config.ragServiceUrl, config.internalToken));
 
   toolRegistry.register(createManimRunnerTool(config.manimProjectDir));
   toolRegistry.register(createStorageUploadTool(config.serverUrl, config.internalToken));
@@ -161,12 +167,25 @@ export function createContainer(config: AppConfig): AppContainer {
     scheduler,
     config.modelGovernance.orchestrator,
     videoRunMemory,
+    userSubjectClient,
   );
 
   const knowledgeBaseAgent = new KnowledgeBaseAgent(
     llm,
     defaultObserver,
     config.ragServiceUrl,
+  );
+
+  const assessmentAgent = new AssessmentAgent(
+    llm,
+    defaultObserver,
+    config.modelGovernance.qa.generate,
+  );
+
+  const learningSummaryAgent = new LearningSummaryAgent(
+    llm,
+    defaultObserver,
+    config.modelGovernance.learningRecord.generateReport,
   );
 
   // ─── 异步事件订阅 ──────────────────────────────────────────────────
@@ -190,6 +209,7 @@ export function createContainer(config: AppConfig): AppContainer {
           question: event.payload.question,
           answer: event.payload.answer,
           subject: event.payload.subject,
+          subjectId: event.payload.subject_id,
           knowledgePoints: event.payload.knowledge_points,
           difficulty: event.payload.difficulty,
         },
@@ -202,7 +222,7 @@ export function createContainer(config: AppConfig): AppContainer {
       });
   });
 
-  return { orchestratorAgent, knowledgeBaseAgent };
+  return { orchestratorAgent, knowledgeBaseAgent, assessmentAgent, learningSummaryAgent };
 }
 
 export function loadConfig(): AppConfig {

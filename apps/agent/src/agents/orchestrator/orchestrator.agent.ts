@@ -19,8 +19,11 @@ import type {
   OrchestratorInput,
   OrchestratorOutput,
   IntentClassification,
+  IntentRaw,
   OrchestratorState,
   ImageSemanticOutput,
+  ImageSemanticRaw,
+  SubjectOption,
   VideoRunRecord,
 } from './orchestrator.types.js';
 import type { LLMClient } from '../../harness/core/llm-client.js';
@@ -33,22 +36,20 @@ import type { LearningReportInput } from '../../subgraphs/learning-report.subgra
 import type { LearningRecordOutput } from '../learning-record/learning-record.types.js';
 import { initVideoRunArtifactContext, writeRunJson } from '../../harness/artifact/video-run-artifact.js';
 import type { HttpVideoRunMemory } from '../../harness/memory/video-run-memory.js';
-
-interface IntentRaw {
-  intent: string;
-  subject_id?: string;
-  confidence: number;
-  video_required?: boolean;
-  reasoning?: string;
-}
-
-interface ImageSemanticRaw {
-  problem_text: string;
-  visual_description: string;
-  known_conditions: string[];
-  target_question: string;
-  semantic_summary: string;
-}
+import type { HttpUserSubjectClient } from '../../harness/subjects/user-subject-client.js';
+import { emitIntentReasoning } from './orchestrator-events.js';
+import { buildHeuristicConversationTitle, normalizeConversationTitle, shouldGenerateConversationTitle } from './orchestrator-title.js';
+import {
+  VIDEO_CONTEXT_STATE_KEY,
+  buildKnowledgeDescription,
+  buildUpdatedVideoContext,
+  classifyVideoFollowUp,
+  getInputImages,
+  hasVideoIntent,
+  resolveVideoContext,
+  type VideoContextResolution,
+  type VideoConversationContext,
+} from './orchestrator-video-context.js';
 
 export class OrchestratorAgent extends BaseAgent<OrchestratorInput, OrchestratorOutput> {
   private readonly schemaParser = new SchemaParser();
@@ -60,36 +61,47 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     private readonly scheduler: WorkflowScheduler,
     private readonly modelConfig: ModelGovernanceConfig['orchestrator'],
     private readonly videoRunMemory?: HttpVideoRunMemory,
+    private readonly userSubjectClient?: HttpUserSubjectClient,
   ) {
     super(llm, observer);
   }
 
   async execute(input: OrchestratorInput, ctx: AgentContext): Promise<OrchestratorOutput> {
-    const conversationId = input.conversationId ?? uuidv4();
+    const enrichedInput = await this.enrichInputWithUserSubjects(input, ctx);
+    const conversationId = enrichedInput.conversationId ?? uuidv4();
 
-    // 1. 加载对话历史
     const history = await this.memory.getHistory(ctx.sessionId);
-
-    // 2. 图片语义抽取（仅当存在图片）
-    const imageSemantic = await this.extractImageSemantic(input);
-
-    // 3. 意图分类
-    const intent = await this.classifyIntent(input, imageSemantic);
-
-    // 4. 根据意图路由
-    const state: OrchestratorState = { input, history, intent, imageSemantic };
+    const imageSemantic = await this.extractImageSemantic(enrichedInput);
+    const intent = await this.classifyIntent(enrichedInput, imageSemantic);
+    emitIntentReasoning(ctx, intent, imageSemantic?.semanticSummary);
+    const state: OrchestratorState = { input: enrichedInput, history, intent, imageSemantic };
     const result = await this.routeAndExecute(state, ctx);
-
-    // 5. 更新对话历史
     await this.memory.appendHistory(ctx.sessionId, [
-      { role: 'user', content: input.userMessage },
+      { role: 'user', content: enrichedInput.userMessage },
       { role: 'assistant', content: result.reply },
     ]);
+    const title = shouldGenerateConversationTitle(enrichedInput, history.length) ? intent.title : undefined;
 
     return {
       ...result,
       conversationId,
       intent: intent.intent as OrchestratorOutput['intent'],
+      title,
+    };
+  }
+
+  private async enrichInputWithUserSubjects(
+    input: OrchestratorInput,
+    ctx: AgentContext,
+  ): Promise<OrchestratorInput> {
+    const serverSubjects = await this.userSubjectClient?.listUserSubjects(ctx.userId) ?? [];
+    const availableSubjects = serverSubjects.length > 0
+      ? serverSubjects
+      : this.normalizeSubjectOptions(input.availableSubjects);
+    return {
+      ...input,
+      availableSubjects,
+      subjectId: this.normalizeSubjectId(input.subjectId, availableSubjects),
     };
   }
 
@@ -104,6 +116,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         confidence: 1,
         videoRequired: true,
         reasoning: '前端显式开启生成视频开关',
+        title: buildHeuristicConversationTitle(input.userMessage),
       };
     }
     if (hasVideoIntent(input.userMessage, getInputImages(input).length > 0)) {
@@ -113,6 +126,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         confidence: 0.95,
         videoRequired: true,
         reasoning: '命中视频生成/修复意图关键词规则',
+        title: buildHeuristicConversationTitle(input.userMessage),
       };
     }
 
@@ -125,7 +139,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         userMessage: input.userMessage,
         subjectHint: input.subjectId ? `### 当前科目\n\n${input.subjectId}` : '',
         availableSubjectsHint: availableSubjectsHint
-          ? `### 可选科目（仅可从以下列表选择）\n\n${availableSubjectsHint}`
+          ? `### 可选科目（subject_id 优先从以下列表选择；无匹配时可留空，不影响 qa 意图）\n\n${availableSubjectsHint}`
           : '',
         imageSemanticHint: imageSemantic
           ? `### 图片语义信息（仅用于意图判断）\n\n${imageSemantic.semanticSummary}`
@@ -144,17 +158,62 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
 
     try {
       const raw = this.schemaParser.parse<IntentRaw>(response.content, INTENT_OUTPUT_SCHEMA);
+      const subjectId = this.normalizeSubjectId(raw.subject_id, input.availableSubjects)
+        ?? this.normalizeSubjectId(input.subjectId, input.availableSubjects);
       return {
         intent: raw.intent as IntentClassification['intent'],
-        subjectId: raw.subject_id ?? input.subjectId,
+        subjectId,
         confidence: raw.confidence,
         videoRequired: raw.video_required ?? raw.intent === 'video_request',
         reasoning: raw.reasoning,
+        title: normalizeConversationTitle(raw.title),
       };
     } catch {
       // 解析失败时降级为 qa
-      return { intent: 'qa', subjectId: input.subjectId, confidence: 0.5, videoRequired: false };
+      return {
+        intent: 'qa',
+        subjectId: this.normalizeSubjectId(input.subjectId, input.availableSubjects),
+        confidence: 0.5,
+        videoRequired: false,
+        reasoning: '意图输出解析失败，降级为学习问答',
+        title: buildHeuristicConversationTitle(input.userMessage),
+      };
     }
+  }
+
+  private normalizeSubjectOptions(
+    subjects: OrchestratorInput['availableSubjects'],
+  ): SubjectOption[] {
+    return (subjects ?? [])
+      .map((item) => ({
+        id: String(item.id ?? '').trim(),
+        name: String(item.name ?? '').trim(),
+        code: item.code !== undefined ? String(item.code).trim() : undefined,
+      }))
+      .filter((item) => item.id && item.name);
+  }
+
+  private normalizeSubjectId(
+    subjectId: unknown,
+    availableSubjects: SubjectOption[] | undefined,
+  ): string | undefined {
+    if (subjectId === null || subjectId === undefined) return undefined;
+    const candidate = String(subjectId).trim();
+    if (!candidate) return undefined;
+    const subjects = availableSubjects ?? [];
+    if (subjects.length === 0) return candidate;
+    const matched = subjects.find(
+      (subject) => subject.id === candidate || subject.name === candidate || subject.code === candidate,
+    );
+    return matched?.id;
+  }
+
+  private findSubjectOption(
+    subjectId: string | undefined,
+    availableSubjects: SubjectOption[] | undefined,
+  ): SubjectOption | undefined {
+    const normalizedSubjectId = this.normalizeSubjectId(subjectId, availableSubjects);
+    return availableSubjects?.find((subject) => subject.id === normalizedSubjectId);
   }
 
   private async routeAndExecute(
@@ -166,6 +225,8 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
 
     switch (intent.intent) {
       case 'qa': {
+        const selectedSubject = this.findSubjectOption(intent.subjectId ?? input.subjectId, input.availableSubjects);
+        const resolvedSubjectId = selectedSubject?.id ?? intent.subjectId ?? input.subjectId ?? 'general';
         const enrichedQuestion = buildKnowledgeDescription(
           input.userMessage,
           state.imageSemantic,
@@ -173,7 +234,8 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         const qaInput: QAInput = {
           question: enrichedQuestion,
           images: getInputImages(input),
-          subjectId: intent.subjectId ?? input.subjectId ?? 'general',
+          subjectId: resolvedSubjectId,
+          subjectName: selectedSubject?.name,
           history: state.history,
           generateVideo: false,
         };
@@ -186,17 +248,13 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         );
 
         if (this.shouldRunVideoSubgraph(state, qaResult.needsVideo)) {
-          const videoResult = await this.executeVideoSubgraph(state, ctx, workflowId, {
-            knowledgeDescription: buildKnowledgeDescription(
-              input.userMessage,
-              state.imageSemantic,
-              qaResult.answer,
-            ),
-            subject: intent.subjectId ?? input.subjectId ?? qaResult.subject ?? '通用',
+          const videoResult = await this.executeContextualVideoSubgraph(state, ctx, workflowId, {
+            subject: selectedSubject?.name ?? qaResult.subject ?? '通用',
+            qaAnswer: qaResult.answer,
           });
           return {
             reply: qaResult.answer,
-            subjectId: qaResult.subject || intent.subjectId,
+            subjectId: resolvedSubjectId,
             videoUrl: videoResult.videoUrl,
             videoRunId: videoResult.videoRunRecord?.runId,
             artifactBundleUrl: videoResult.videoRunRecord?.artifactBundleUrl,
@@ -206,13 +264,22 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
 
         return {
           reply: qaResult.answer,
-          subjectId: qaResult.subject || intent.subjectId,
+          subjectId: resolvedSubjectId,
         };
       }
 
       case 'video_request': {
-        const videoResult = await this.executeVideoSubgraph(state, ctx, workflowId, {
-          knowledgeDescription: buildKnowledgeDescription(input.userMessage, state.imageSemantic),
+        const previousContext = await this.memory.getState<VideoConversationContext>(
+          ctx.sessionId,
+          VIDEO_CONTEXT_STATE_KEY,
+        );
+        if (!previousContext && classifyVideoFollowUp(input.userMessage) && getInputImages(input).length === 0) {
+          return {
+            reply: '我没有找到上一条可复用的视频上下文。请重新发送题目或图片，我再为你生成视频。',
+            subjectId: intent.subjectId ?? input.subjectId,
+          };
+        }
+        const videoResult = await this.executeContextualVideoSubgraph(state, ctx, workflowId, {
           subject: intent.subjectId ?? input.subjectId ?? '通用',
         });
 
@@ -253,7 +320,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
 
       default:
         return {
-          reply: '抱歉，我只能回答与学习相关的问题，包括数学、英语、政治等科目的知识点和题目解析。',
+          reply: '抱歉，我只能回答与学习相关的问题',
         };
     }
   }
@@ -313,7 +380,12 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     state: OrchestratorState,
     ctx: AgentContext,
     workflowId: string,
-    params: { knowledgeDescription: string; subject: string },
+    params: {
+      knowledgeDescription: string;
+      subject: string;
+      useVideoCache?: boolean;
+      contextResolution?: VideoContextResolution;
+    },
   ): Promise<{
     success: boolean;
     videoUrl?: string;
@@ -340,6 +412,17 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
     if (state.imageSemantic) {
       await writeRunJson(runContext.runDir, 'image-semantic.json', state.imageSemantic);
     }
+    if (params.contextResolution) {
+      await writeRunJson(runContext.runDir, 'video-context.json', {
+        mode: params.contextResolution.mode,
+        reason: params.contextResolution.reason,
+        subject: params.contextResolution.subject,
+        useVideoCache: params.contextResolution.useVideoCache,
+        modelFacingSummary: params.contextResolution.context.modelFacingSummary,
+        hasPreviousVideoContent: Boolean(params.contextResolution.context.previousVideoContent),
+        generatedAt: new Date().toISOString(),
+      });
+    }
 
     await this.videoRunMemory?.write({
       run_id: runContext.runId,
@@ -362,7 +445,7 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
         {
           knowledgeDescription: params.knowledgeDescription,
           subject: params.subject,
-          useVideoCache: true,
+          useVideoCache: params.useVideoCache ?? true,
           runId: runContext.runId,
           artifactRunDir: runContext.runDir,
           artifactObjectPrefix: runContext.objectPrefix,
@@ -416,79 +499,43 @@ export class OrchestratorAgent extends BaseAgent<OrchestratorInput, Orchestrator
       };
     }
   }
-}
 
-function buildKnowledgeDescription(
-  userMessage: string,
-  imageSemantic?: ImageSemanticOutput,
-  qaAnswer?: string,
-): string {
-  const sections = [userMessage.trim()];
-  if (imageSemantic) {
-    sections.push(
-      [
-        '[图片语义重建]',
-        `题干: ${imageSemantic.problemText}`,
-        `图像描述: ${imageSemantic.visualDescription}`,
-        `已知条件: ${imageSemantic.knownConditions.join('；')}`,
-        `目标问题: ${imageSemantic.targetQuestion}`,
-        `语义摘要: ${imageSemantic.semanticSummary}`,
-      ].join('\n'),
+  private async executeContextualVideoSubgraph(
+    state: OrchestratorState,
+    ctx: AgentContext,
+    workflowId: string,
+    params: { subject: string; qaAnswer?: string },
+  ): Promise<{
+    success: boolean;
+    videoUrl?: string;
+    failureReason?: string;
+    videoRunRecord?: VideoRunRecord;
+  }> {
+    const previousContext = await this.memory.getState<VideoConversationContext>(
+      ctx.sessionId,
+      VIDEO_CONTEXT_STATE_KEY,
     );
+    const resolution = resolveVideoContext({
+      input: state.input,
+      subject: params.subject,
+      imageSemantic: state.imageSemantic,
+      previousContext,
+      qaAnswer: params.qaAnswer,
+    });
+    const videoResult = await this.executeVideoSubgraph(state, ctx, workflowId, {
+      knowledgeDescription: resolution.knowledgeDescription,
+      subject: resolution.subject,
+      useVideoCache: resolution.useVideoCache,
+      contextResolution: resolution,
+    });
+    const nextContext = await buildUpdatedVideoContext({
+      resolution,
+      videoRunRecord: videoResult.videoRunRecord,
+      success: videoResult.success,
+      videoUrl: videoResult.videoUrl,
+      failureReason: videoResult.failureReason,
+    });
+    await this.memory.setState(ctx.sessionId, VIDEO_CONTEXT_STATE_KEY, nextContext);
+    return videoResult;
   }
-  if (qaAnswer && qaAnswer.trim().length > 0) {
-    sections.push(`[问答结论]\n${qaAnswer.trim()}`);
-  }
-  return sections.join('\n\n');
-}
-
-function getInputImages(input: OrchestratorInput): Array<{ url: string; mediaType?: string }> {
-  const images = (input.images ?? [])
-    .filter((item) => item.url)
-    .slice(0, 9);
-  return images;
-}
-
-function hasVideoIntent(userMessage: string, hasImage: boolean): boolean {
-  const text = userMessage.toLowerCase().replace(/\s+/g, '');
-
-  const directVideoKeywords = [
-    '生成视频',
-    '讲解视频',
-    '做个视频',
-    '出视频',
-    '视频讲解',
-    '视频版',
-    '录个视频',
-    '制作视频',
-    '生成动画',
-    '做个动画',
-    '重生成视频',
-    '重新生成视频',
-    '重新渲染',
-    '重渲染',
-    '重新跑视频',
-    '修视频',
-    '修复视频',
-    '视频有问题',
-    '视频不对',
-    '视频错误',
-    '渲染失败',
-    '渲染报错',
-    'manim',
-  ];
-  if (directVideoKeywords.some((keyword) => text.includes(keyword))) return true;
-
-  const frameKeywords = ['帧', '第几帧', '某一帧', '哪一帧', '卡住', '花屏', '抖动'];
-  const fixKeywords = ['修', '修复', '改', '调整', '重做', '重生成', '重新生成', '重新渲染', '定位代码'];
-  if (frameKeywords.some((keyword) => text.includes(keyword)) && fixKeywords.some((keyword) => text.includes(keyword))) {
-    return true;
-  }
-
-  // 用户带截图反馈视频问题，通常是希望定位并重生成视频。
-  if (hasImage && (text.includes('视频') || text.includes('帧')) && fixKeywords.some((keyword) => text.includes(keyword))) {
-    return true;
-  }
-
-  return false;
 }

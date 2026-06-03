@@ -16,15 +16,6 @@
           maxlength="20"
         />
       </a-form-item>
-      <a-form-item label="学科编号" required>
-        <a-input-number
-          v-model:value="form.code"
-          style="width: 100%"
-          :min="1"
-          :precision="0"
-          placeholder="如：1001"
-        />
-      </a-form-item>
       <a-form-item v-if="creatingParentSubject" label="所属一级学科">
         <a-tag color="blue">{{ creatingParentSubject.name }}（ID: {{ creatingParentSubject.id }}）</a-tag>
       </a-form-item>
@@ -50,7 +41,6 @@ import type { UserSubject } from '@tutor/shared';
 
 interface SubjectFormData {
   name: string;
-  code: number | null;
   parentId: number | null;
   description: string;
 }
@@ -67,7 +57,7 @@ const emit = defineEmits<{
   save: [data: SubjectFormData];
 }>();
 
-const form = ref<SubjectFormData>({ name: '', code: null, parentId: null, description: '' });
+const form = ref<SubjectFormData>({ name: '', parentId: null, description: '' });
 
 watch(
   () => props.open,
@@ -76,13 +66,11 @@ watch(
       form.value = props.editingSubject
         ? {
             name: props.editingSubject.name,
-            code: props.editingSubject.code,
             parentId: props.editingSubject.parentId,
             description: props.editingSubject.description ?? '',
           }
         : {
             name: '',
-            code: null,
             parentId: props.creatingParentSubject?.id ?? null,
             description: '',
           };

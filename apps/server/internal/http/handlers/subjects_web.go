@@ -13,7 +13,6 @@ import (
 
 type createSubjectReq struct {
 	Name        string `json:"name"`
-	Code        int    `json:"code"`
 	ParentID    *int   `json:"parentId"`
 	Description string `json:"description"`
 }
@@ -25,13 +24,16 @@ type identifySubjectReq struct {
 type updateSubjectReq struct {
 	ID          int     `json:"id"`
 	Name        *string `json:"name"`
-	Code        *int    `json:"code"`
 	ParentID    *int    `json:"parentId"`
 	Description *string `json:"description"`
 }
 
 type searchSubjectReq struct {
 	Keyword string `json:"keyword"`
+}
+
+type internalListUserSubjectsReq struct {
+	UserID string `json:"userId"`
 }
 
 type updateOutlineReq struct {
@@ -48,6 +50,30 @@ func ListMySubjects() gin.HandlerFunc {
 		subjects, err := queryWebSubjects(c, db, "")
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, "SUBJECTS_LIST_FAILED", "failed to list subjects")
+			return
+		}
+		result := make([]webUserSubject, 0, len(subjects))
+		for _, item := range subjects {
+			result = append(result, webUserSubject{webSubject: item, IsOwner: true})
+		}
+		response.OK(c, gin.H{"list": result, "total": len(result)})
+	}
+}
+
+func InternalListUserSubjects() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req internalListUserSubjectsReq
+		if err := c.ShouldBindJSON(&req); err != nil || req.UserID == "" || req.UserID == "anonymous" {
+			response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "userId is required")
+			return
+		}
+		db, _, ok := dbOrError(c)
+		if !ok {
+			return
+		}
+		subjects, err := queryUserSubjects(c, db, req.UserID)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "USER_SUBJECTS_LIST_FAILED", "failed to list user subjects")
 			return
 		}
 		result := make([]webUserSubject, 0, len(subjects))
@@ -89,28 +115,25 @@ func CreateSubject() gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		id := req.Code
-		if id <= 0 {
-			id = int(time.Now().Unix() % 1000000000)
-		}
 		level := 1
 		if req.ParentID != nil {
 			level = 2
 		}
 		subject := webSubject{
-			ID: id, Name: req.Name, Code: req.Code, ParentID: req.ParentID, Level: level,
+			Name: req.Name, ParentID: req.ParentID, Level: level,
 			Description: req.Description, Outline: subjectOutline{Modules: []outlineModule{}},
 			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 			UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		}
-		if err := insertWebSubject(c, db, subject); err != nil {
+		createdSubject, err := insertWebSubject(c, db, subject)
+		if err != nil {
 			response.Error(c, http.StatusInternalServerError, "SUBJECT_CREATE_FAILED", "failed to create subject")
 			return
 		}
+		subject = createdSubject
 		response.OK(c, gin.H{
 			"id":          subject.ID,
 			"name":        subject.Name,
-			"code":        subject.Code,
 			"parentId":    subject.ParentID,
 			"level":       subject.Level,
 			"description": subject.Description,
@@ -153,9 +176,6 @@ func UpdateSubject() gin.HandlerFunc {
 		if req.Name != nil {
 			subject.Name = *req.Name
 		}
-		if req.Code != nil {
-			subject.Code = *req.Code
-		}
 		if req.ParentID != nil {
 			subject.ParentID = req.ParentID
 			subject.Level = 2
@@ -171,7 +191,6 @@ func UpdateSubject() gin.HandlerFunc {
 		response.OK(c, gin.H{
 			"id":          subject.ID,
 			"name":        subject.Name,
-			"code":        subject.Code,
 			"parentId":    subject.ParentID,
 			"level":       subject.Level,
 			"description": subject.Description,
@@ -312,7 +331,7 @@ func UpdateSubjectOutline() gin.HandlerFunc {
 			response.Error(c, http.StatusInternalServerError, "OUTLINE_UPDATE_FAILED", "failed to update outline")
 			return
 		}
-		_, _ = db.ExecContext(c, `UPDATE subjects SET updated_at = NOW() WHERE subject_id = ?`, id)
+		_, _ = db.ExecContext(c, `UPDATE subjects SET updated_at = NOW() WHERE id = ?`, id)
 		response.OK(c, gin.H{"updated": true})
 	}
 }
@@ -338,16 +357,16 @@ func AdminDeleteSubject() gin.HandlerFunc {
 
 func queryWebSubjects(c *gin.Context, db *sql.DB, keyword string) ([]webSubject, error) {
 	args := []any{}
-	query := `SELECT s.subject_id, s.name, s.code, s.parent_subject_id, s.level, s.description, s.created_at, s.updated_at,
+	query := `SELECT s.id, s.name, s.parent_subject_id, s.level, s.description, s.created_at, s.updated_at,
 		COALESCE(so.outline_json, '')
 		FROM subjects s
-		LEFT JOIN subject_outlines so ON so.subject_id = s.subject_id`
+		LEFT JOIN subject_outlines so ON so.subject_id = s.id`
 	if keyword != "" {
-		query += ` WHERE s.name LIKE ? OR CAST(s.code AS CHAR) LIKE ?`
+		query += ` WHERE s.name LIKE ?`
 		like := "%" + keyword + "%"
-		args = append(args, like, like)
+		args = append(args, like)
 	}
-	query += ` ORDER BY s.code ASC, s.subject_id ASC`
+	query += ` ORDER BY s.id ASC`
 	rows, err := db.QueryContext(c, query, args...)
 	if err != nil {
 		return nil, err
@@ -359,7 +378,48 @@ func queryWebSubjects(c *gin.Context, db *sql.DB, keyword string) ([]webSubject,
 		var parent sql.NullInt64
 		var description sql.NullString
 		var outlineRaw string
-		if err := rows.Scan(&item.ID, &item.Name, &item.Code, &parent, &item.Level, &description, &item.CreatedAt, &item.UpdatedAt, &outlineRaw); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &parent, &item.Level, &description, &item.CreatedAt, &item.UpdatedAt, &outlineRaw); err != nil {
+			return nil, err
+		}
+		if parent.Valid {
+			val := int(parent.Int64)
+			item.ParentID = &val
+		}
+		if description.Valid {
+			item.Description = description.String
+		}
+		item.Outline = subjectOutline{Modules: []outlineModule{}}
+		if outlineRaw != "" {
+			_ = json.Unmarshal([]byte(outlineRaw), &item.Outline)
+		}
+		list = append(list, item)
+	}
+	return list, rows.Err()
+}
+
+func queryUserSubjects(c *gin.Context, db *sql.DB, userID string) ([]webSubject, error) {
+	rows, err := db.QueryContext(
+		c,
+		`SELECT s.id, s.name, s.parent_subject_id, s.level, s.description, s.created_at, s.updated_at,
+		COALESCE(so.outline_json, '')
+		FROM user_subjects us
+		JOIN subjects s ON s.id = us.subject_id
+		LEFT JOIN subject_outlines so ON so.subject_id = s.id
+		WHERE us.user_id = ?
+		ORDER BY s.id ASC`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := make([]webSubject, 0, 16)
+	for rows.Next() {
+		var item webSubject
+		var parent sql.NullInt64
+		var description sql.NullString
+		var outlineRaw string
+		if err := rows.Scan(&item.ID, &item.Name, &parent, &item.Level, &description, &item.CreatedAt, &item.UpdatedAt, &outlineRaw); err != nil {
 			return nil, err
 		}
 		if parent.Valid {
@@ -385,13 +445,13 @@ func getWebSubjectByID(c *gin.Context, db *sql.DB, id int) (webSubject, error) {
 	var outlineRaw string
 	err := db.QueryRowContext(
 		c,
-		`SELECT s.subject_id, s.name, s.code, s.parent_subject_id, s.level, s.description, s.created_at, s.updated_at,
+		`SELECT s.id, s.name, s.parent_subject_id, s.level, s.description, s.created_at, s.updated_at,
 		COALESCE(so.outline_json, '')
 		FROM subjects s
-		LEFT JOIN subject_outlines so ON so.subject_id = s.subject_id
-		WHERE s.subject_id = ?`,
+		LEFT JOIN subject_outlines so ON so.subject_id = s.id
+		WHERE s.id = ?`,
 		id,
-	).Scan(&item.ID, &item.Name, &item.Code, &parent, &item.Level, &description, &item.CreatedAt, &item.UpdatedAt, &outlineRaw)
+	).Scan(&item.ID, &item.Name, &parent, &item.Level, &description, &item.CreatedAt, &item.UpdatedAt, &outlineRaw)
 	if err != nil {
 		return webSubject{}, err
 	}
@@ -409,20 +469,21 @@ func getWebSubjectByID(c *gin.Context, db *sql.DB, id int) (webSubject, error) {
 	return item, nil
 }
 
-func insertWebSubject(c *gin.Context, db *sql.DB, subject webSubject) error {
-	_, err := db.ExecContext(
+func insertWebSubject(c *gin.Context, db *sql.DB, subject webSubject) (webSubject, error) {
+	result, err := db.ExecContext(
 		c,
-		`INSERT INTO subjects (subject_id, parent_subject_id, level, name, code, education_stage, description, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, '', ?, NOW(), NOW())`,
-		subject.ID,
+		`INSERT INTO subjects (parent_subject_id, level, name, education_stage, description, created_at, updated_at)
+		 VALUES (?, ?, ?, '', ?, NOW(), NOW())`,
 		subject.ParentID,
 		subject.Level,
 		subject.Name,
-		strconv.Itoa(subject.Code),
 		subject.Description,
 	)
 	if err != nil {
-		return err
+		return subject, err
+	}
+	if insertedID, err := result.LastInsertId(); err == nil {
+		subject.ID = int(insertedID)
 	}
 	outlineRaw, _ := json.Marshal(subject.Outline)
 	_, err = db.ExecContext(
@@ -432,19 +493,18 @@ func insertWebSubject(c *gin.Context, db *sql.DB, subject webSubject) error {
 		subject.ID,
 		string(outlineRaw),
 	)
-	return err
+	return subject, err
 }
 
 func updateWebSubject(c *gin.Context, db *sql.DB, subject webSubject) error {
 	_, err := db.ExecContext(
 		c,
 		`UPDATE subjects
-		 SET parent_subject_id = ?, level = ?, name = ?, code = ?, description = ?, updated_at = NOW()
-		 WHERE subject_id = ?`,
+		 SET parent_subject_id = ?, level = ?, name = ?, description = ?, updated_at = NOW()
+		 WHERE id = ?`,
 		subject.ParentID,
 		subject.Level,
 		subject.Name,
-		strconv.Itoa(subject.Code),
 		subject.Description,
 		subject.ID,
 	)
@@ -454,7 +514,7 @@ func updateWebSubject(c *gin.Context, db *sql.DB, subject webSubject) error {
 func deleteWebSubject(c *gin.Context, db *sql.DB, id int) error {
 	_, _ = db.ExecContext(c, `DELETE FROM subject_outlines WHERE subject_id = ?`, id)
 	_, _ = db.ExecContext(c, `DELETE FROM user_subjects WHERE subject_id = ?`, id)
-	_, err := db.ExecContext(c, `DELETE FROM subjects WHERE subject_id = ?`, id)
+	_, err := db.ExecContext(c, `DELETE FROM subjects WHERE id = ?`, id)
 	return err
 }
 

@@ -14,11 +14,13 @@ from typing import Optional
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    PayloadSchemaType,
     VectorParams,
     PointStruct,
     Filter,
     FilterSelector,
     FieldCondition,
+    MatchAny,
     MatchValue,
     ScoredPoint,
 )
@@ -26,6 +28,17 @@ from qdrant_client.models import (
 from ..config import settings
 
 logger = logging.getLogger(__name__)
+PAYLOAD_INDEX_FIELDS = {
+    "tenant_id": PayloadSchemaType.KEYWORD,
+    "knowledge_base_id": PayloadSchemaType.KEYWORD,
+    "doc_id": PayloadSchemaType.KEYWORD,
+    "doc_version": PayloadSchemaType.INTEGER,
+    "visibility": PayloadSchemaType.KEYWORD,
+    "owner_user_id": PayloadSchemaType.KEYWORD,
+    "subject_id": PayloadSchemaType.KEYWORD,
+    "chunk_type": PayloadSchemaType.KEYWORD,
+    "page_start": PayloadSchemaType.INTEGER,
+}
 
 _client_lock = threading.Lock()
 _client: QdrantClient | None = None
@@ -64,6 +77,7 @@ def ensure_collection(collection_name: str, vector_size: int | None = None) -> N
             vectors_config=VectorParams(size=size, distance=Distance.COSINE),
         )
         logger.info(f"Created collection: {collection_name}")
+    _ensure_payload_indexes(client, collection_name)
 
 
 def upsert_chunks(
@@ -100,11 +114,15 @@ def search(
 
     qdrant_filter = None
     if filter_conditions:
-        must_conditions = [
-            FieldCondition(key=k, match=MatchValue(value=v))
-            for k, v in filter_conditions.items()
-            if v is not None
-        ]
+        must_conditions = []
+        for key, value in filter_conditions.items():
+            if value is None:
+                continue
+            if isinstance(value, list):
+                if value:
+                    must_conditions.append(FieldCondition(key=key, match=MatchAny(any=value)))
+            else:
+                must_conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
         if must_conditions:
             qdrant_filter = Filter(must=must_conditions)
 
@@ -122,6 +140,9 @@ def search(
 def delete_by_filter(collection_name: str, filter_conditions: dict) -> None:
     """按 payload filter 删除记录"""
     client = _get_client()
+    existing = {c.name for c in client.get_collections().collections}
+    if collection_name not in existing:
+        return
     must_conditions = [
         FieldCondition(key=k, match=MatchValue(value=v))
         for k, v in filter_conditions.items()
@@ -140,3 +161,16 @@ def _resolve_point_id(payload: dict) -> str:
         digest = hashlib.sha1(str(chunk_key).encode("utf-8")).hexdigest()
         return str(uuid.UUID(digest[:32]))
     return str(uuid.uuid4())
+
+
+def _ensure_payload_indexes(client: QdrantClient, collection_name: str) -> None:
+    for field_name, schema in PAYLOAD_INDEX_FIELDS.items():
+        try:
+            client.create_payload_index(
+                collection_name=collection_name,
+                field_name=field_name,
+                field_schema=schema,
+            )
+        except Exception:
+            # Qdrant returns an error when an index already exists; keep startup idempotent.
+            continue

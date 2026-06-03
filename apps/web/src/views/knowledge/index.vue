@@ -80,7 +80,6 @@
       :uploading="uploading"
       @upload="uploadFile"
       @reorder="onFileReorder"
-      @save-md="saveMdContent"
       @rename="renameFile"
       @delete-file="deleteFile"
     />
@@ -193,20 +192,14 @@ async function uploadFile(file: File) {
   if (!selectedKb.value) return;
   uploading.value = true;
   try {
-    const newFile = await knowledgeApi.uploadFile(selectedKb.value.id, file);
-    selectedKb.value.files.push(newFile);
+    const kbId = selectedKb.value.id;
+    await knowledgeApi.uploadFile(kbId, file);
+    selectedKb.value = await knowledgeApi.getKnowledgeBase(kbId);
+    await loadKnowledgeBases();
     message.success('上传成功');
   } finally {
     uploading.value = false;
   }
-}
-
-async function saveMdContent(fileId: string, content: string) {
-  if (!selectedKb.value) return;
-  await knowledgeApi.updateFile(selectedKb.value.id, fileId, { content });
-  const file = selectedKb.value.files.find((f) => f.id === fileId);
-  if (file) file.content = content;
-  message.success('保存成功');
 }
 
 async function renameFile(fileId: string, displayName: string) {

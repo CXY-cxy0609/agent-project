@@ -44,6 +44,8 @@
                   :video-run-id="item.videoRunId"
                   :artifact-bundle-url="item.artifactBundleUrl"
                   :artifact-manifest-url="item.artifactManifestUrl"
+                  :reasoning="item.reasoning"
+                  :semantic-summary="item.semanticSummary"
                 />
                 <div v-if="item.role !== 'assistant' && item.content" class="plain-text">
                   {{ item.content }}
@@ -55,15 +57,6 @@
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- ThoughtChain (collapsible) -->
-        <div v-if="lastThoughtChain.length" class="thought-chain-wrap">
-          <a-collapse ghost>
-            <a-collapse-panel key="thought" header="推理过程">
-              <x-thought-chain :items="lastThoughtChain" />
-            </a-collapse-panel>
-          </a-collapse>
         </div>
       </template>
 
@@ -92,11 +85,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { message, Modal } from 'ant-design-vue';
-import { ThoughtChain as XThoughtChain } from 'ant-design-x-vue';
 import { useChatStore } from '@/stores/chat';
 import { useSubjectStore } from '@/stores/subject';
 import { useAuthStore } from '@/stores/auth';
-import { chatApi, type StreamAssistantMeta } from '@/api/chat';
+import { chatApi } from '@/api/chat';
 import { subjectsApi } from '@/api/subjects';
 import ConversationSidebar from '@/components/chat/ConversationSidebar.vue';
 import ChatHeader from '@/components/chat/ChatHeader.vue';
@@ -106,7 +98,7 @@ import LearningPanel from '@/components/chat/LearningPanel.vue';
 import MessageSender from '@/components/chat/MessageSender.vue';
 import MessageAttachments from '@/components/chat/MessageAttachments.vue';
 import AssistantMessageContent from '@/components/chat/AssistantMessageContent.vue';
-import type { Conversation, Message, MessageAttachment } from '@tutor/shared';
+import type { ChatStreamEvent, Conversation, Message, MessageAttachment } from '@tutor/shared';
 import { normalizeAssistantStreamContent } from '@/utils/chat-stream';
 
 const chatStore = useChatStore();
@@ -159,37 +151,10 @@ const bubbleItems = computed(() =>
     videoRunId: m.metadata?.videoRunId,
     artifactBundleUrl: m.metadata?.artifactBundleUrl,
     artifactManifestUrl: m.metadata?.artifactManifestUrl,
+    reasoning: m.metadata?.reasoning,
+    semanticSummary: m.metadata?.semanticSummary,
   })),
 );
-
-type ThoughtChainStatus = 'pending' | 'error' | 'success';
-
-function mapThoughtStatus(status: 'pending' | 'running' | 'done' | 'error'): ThoughtChainStatus {
-  switch (status) {
-    case 'done':
-      return 'success';
-    case 'error':
-      return 'error';
-    default:
-      return 'pending';
-  }
-}
-
-const lastThoughtChain = computed(() => {
-  let last: Message | undefined;
-  for (let i = chatStore.messages.length - 1; i >= 0; i--) {
-    const candidate = chatStore.messages[i];
-    if (candidate?.role === 'assistant' && candidate.metadata?.thoughtChain) {
-      last = candidate;
-      break;
-    }
-  }
-  return (last?.metadata?.thoughtChain ?? []).map((step) => ({
-    title: step.title,
-    description: step.content,
-    status: mapThoughtStatus(step.status),
-  }));
-});
 
 async function loadSubjects() {
   try {
@@ -250,144 +215,119 @@ async function handleSend(text: string) {
       mediaType: item.mimeType,
     }));
   const streamContent = text.trim() || (streamImages.length > 0 ? '请分析这些图片。' : '我发送了附件，请查看。');
-  const titleSource = text.trim() || pendingAttachments[0]?.name || '新对话';
 
   const existingConversationId = chatStore.activeConversationId;
-  let conversationId = existingConversationId ?? '';
+  const messageCountBeforeSend = chatStore.messages.length;
   const inferredSubjectId =
     activeConversation.value?.subjectId ?? subjectStore.activeSubjectId ?? subjectStore.subjects[0]?.id ?? 0;
-  if (!existingConversationId) {
-    try {
-      const createdConversation = await chatApi.createConversation({
-        title: titleSource.slice(0, 24) || '新对话',
-        subjectId: inferredSubjectId || undefined,
-        userId: authStore.user?.id ?? 'anonymous',
-      });
-      conversationId = createdConversation.id;
-      chatStore.addConversation(createdConversation);
-      chatStore.setActiveConversation(createdConversation.id);
-      if (createdConversation.subjectId) {
-        subjectStore.setActiveSubject(createdConversation.subjectId);
-      }
-    } catch {
-      // 创建会话失败时降级为流式后端建会话，避免阻塞用户问答。
-      conversationId = '';
-    }
+  if (!inferredSubjectId) {
+    message.warning('请先创建或选择学科后再提问');
+    return;
   }
 
   inputValue.value = '';
   generateVideo.value = false;
   clearAttachments();
-  const userMsg: Message = {
-    id: Date.now().toString(),
-    conversationId,
-    role: 'user',
-    content: text,
-    status: 'done',
-    createdAt: new Date().toISOString(),
-    attachments: messageAttachments,
-  };
-  chatStore.appendMessage(userMsg);
-
-  const assistantMsg: Message = {
-    id: (Date.now() + 1).toString(),
-    conversationId,
-    role: 'assistant',
-    content: '',
-    status: 'streaming',
-    createdAt: new Date().toISOString(),
-  };
-  chatStore.appendMessage(assistantMsg);
   chatStore.setStreaming(true);
   scrollToBottom();
 
-  let accumulatedRaw = '';
+  const turnSeed = Date.now().toString();
+  const turnId = `turn-${turnSeed}`;
+  const userMessageId = `msg-${turnSeed}-u`;
+  const assistantMessageId = `msg-${turnSeed}-a`;
+  const assistantRawById = new Map<string, string>();
 
   cancelStream = chatApi.sendMessage(
     {
-      conversationId: conversationId || undefined,
+      conversationId: existingConversationId || undefined,
       subjectId: inferredSubjectId || undefined,
       content: streamContent,
+      messageCount: messageCountBeforeSend,
       generateVideo: shouldGenerateVideo,
       userId: authStore.user?.id ?? 'anonymous',
       images: streamImages,
+      attachments: messageAttachments,
+      turnId,
+      userMessageId,
+      assistantMessageId,
       availableSubjects: subjectStore.subjects.map((subject) => ({
         id: subject.id,
         name: subject.name,
-        code: subject.code,
       })),
     },
-    (chunk) => {
-      accumulatedRaw += chunk;
-      chatStore.updateLastAssistantMessage(normalizeAssistantStreamContent(accumulatedRaw), false);
+    (event) => {
+      applyChatStreamEvent(event, assistantRawById);
       scrollToBottom();
     },
-    (conv, meta: StreamAssistantMeta) => {
-      const normalizedAssistant = normalizeAssistantStreamContent(accumulatedRaw);
-      chatStore.updateLastAssistantMessage(normalizedAssistant, true);
-      if (meta.videoUrl || meta.videoRunId || meta.artifactBundleUrl || meta.artifactManifestUrl) {
-        chatStore.updateLastAssistantMetadata({
-          videoUrl: meta.videoUrl,
-          videoRunId: meta.videoRunId,
-          artifactBundleUrl: meta.artifactBundleUrl,
-          artifactManifestUrl: meta.artifactManifestUrl,
-        });
-      }
-      chatStore.setStreaming(false);
-      const finalConversationId = conv.id || conversationId;
-      if (finalConversationId) {
-        const finalSubjectId = conv.subjectId || inferredSubjectId || 0;
-        const existing = chatStore.conversations.find((item) => item.id === finalConversationId);
-        const mergedConversation: Conversation = {
-          ...conv,
-          id: finalConversationId,
-          subjectId: finalSubjectId,
-          subjectName:
-            conv.subjectName ??
-            (finalSubjectId ? `学科 ${finalSubjectId}` : '未分配学科'),
-        };
-        if (!existing) {
-          chatStore.addConversation(mergedConversation);
-        } else {
-          chatStore.setConversations(
-            chatStore.conversations.map((item) => (
-              item.id === finalConversationId ? { ...item, ...mergedConversation } : item
-            )),
-          );
-        }
-        if (finalSubjectId) {
-          subjectStore.setActiveSubject(finalSubjectId);
-        }
-        if (!chatStore.activeConversationId || chatStore.activeConversationId === conversationId) {
-          chatStore.setActiveConversation(finalConversationId);
-        }
-        chatApi.appendMessage(finalConversationId, {
-          id: userMsg.id,
-          role: 'user',
-          content: text,
-          status: 'done',
-          attachments: messageAttachments,
-        }).catch(() => {});
-        chatApi.appendMessage(finalConversationId, {
-          id: assistantMsg.id,
-          role: 'assistant',
-          content: normalizedAssistant,
-          status: 'done',
-          metadata: {
-            videoUrl: meta.videoUrl,
-            videoRunId: meta.videoRunId,
-            artifactBundleUrl: meta.artifactBundleUrl,
-            artifactManifestUrl: meta.artifactManifestUrl,
-          },
-        }).catch(() => {});
-      }
-    },
     (_err) => {
-      const normalizedAssistant = normalizeAssistantStreamContent(accumulatedRaw);
-      chatStore.updateLastAssistantMessage(normalizedAssistant || '发生错误，请重试', true);
+      chatStore.patchMessage(assistantMessageId, {
+        content: '发生错误，请重试',
+        status: 'error',
+      });
       chatStore.setStreaming(false);
     },
   );
+}
+
+function applyChatStreamEvent(event: ChatStreamEvent, assistantRawById: Map<string, string>) {
+  switch (event.type) {
+    case 'conversation.meta':
+      chatStore.upsertConversation(event.conversation);
+      if (!chatStore.activeConversationId) {
+        chatStore.setActiveConversation(event.conversation.id);
+      }
+      if (event.conversation.subjectId) {
+        subjectStore.setActiveSubject(event.conversation.subjectId);
+      }
+      break;
+    case 'message.created':
+      chatStore.upsertMessage(event.userMessage);
+      chatStore.upsertMessage(event.assistantMessage);
+      assistantRawById.set(event.assistantMessage.id, '');
+      break;
+    case 'intent':
+      if (event.assistantMessageId && (event.reasoning || event.semanticSummary)) {
+        const target = chatStore.messages.find((item) => item.id === event.assistantMessageId);
+        chatStore.patchMessage(event.assistantMessageId, {
+          metadata: {
+            ...(target?.metadata ?? {}),
+            ...(event.reasoning ? { reasoning: event.reasoning } : {}),
+            ...(event.semanticSummary ? { semanticSummary: event.semanticSummary } : {}),
+          },
+        });
+      }
+      break;
+    case 'delta': {
+      const raw = (assistantRawById.get(event.assistantMessageId) ?? '') + event.delta;
+      assistantRawById.set(event.assistantMessageId, raw);
+      chatStore.patchMessage(event.assistantMessageId, {
+        content: normalizeAssistantStreamContent(raw),
+        status: 'streaming',
+      });
+      break;
+    }
+    case 'message.finalized': {
+      const target = chatStore.messages.find((item) => item.id === event.assistantMessage.id);
+      chatStore.upsertMessage({
+        ...event.assistantMessage,
+        content: normalizeAssistantStreamContent(event.assistantMessage.content),
+        metadata: {
+          ...(target?.metadata ?? {}),
+          ...(event.assistantMessage.metadata ?? {}),
+        },
+      });
+      break;
+    }
+    case 'done':
+      chatStore.setStreaming(false);
+      break;
+    case 'error':
+      message.error(event.message || '流式对话失败');
+      chatStore.setStreaming(false);
+      break;
+    default:
+      break;
+  }
 }
 
 function handleCancel() {

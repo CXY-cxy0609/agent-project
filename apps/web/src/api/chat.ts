@@ -1,5 +1,5 @@
 import http from './http';
-import type { Conversation, Message, ConversationListQuery, MessageAttachment, PageResult } from '@tutor/shared';
+import type { ChatStreamEvent, Conversation, Message, ConversationListQuery, MessageAttachment, PageResult } from '@tutor/shared';
 import { USE_MOCK } from '@/mock/config';
 import { mockChatApi } from '@/mock/handlers/chat';
 
@@ -25,14 +25,19 @@ interface CreateConversationPayload {
   conversation?: ServerConversation;
 }
 
-interface SendMessagePayload {
+export interface SendMessagePayload {
   conversationId?: string;
   subjectId?: number;
   content: string;
+  messageCount?: number;
   model?: string;
   generateVideo?: boolean;
   userId?: string;
   images?: Array<{ url: string; mediaType?: string }>;
+  attachments?: MessageAttachment[];
+  turnId?: string;
+  userMessageId?: string;
+  assistantMessageId?: string;
   availableSubjects?: Array<{ id: number; name: string; code?: number | string }>;
 }
 
@@ -40,6 +45,8 @@ interface PersistMessagePayload {
   id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  turnId?: string;
+  replyToMessageId?: string;
   status?: 'pending' | 'streaming' | 'done' | 'error';
   metadata?: Record<string, unknown>;
   attachments?: MessageAttachment[];
@@ -49,24 +56,17 @@ interface UploadAttachmentPayload {
   attachment?: MessageAttachment;
 }
 
-export interface StreamAssistantMeta {
-  videoUrl?: string;
-  videoRunId?: string;
-  artifactBundleUrl?: string;
-  artifactManifestUrl?: string;
-}
-
 interface ChatApi {
   getConversations: (params?: ConversationListQuery) => Promise<PageResult<Conversation>>;
   getConversation: (id: string) => Promise<Conversation>;
   getMessages: (conversationId: string) => Promise<Message[]>;
   deleteConversation: (id: string) => Promise<unknown>;
   createConversation: (data: { id?: string; title: string; subjectId?: number; userId?: string }) => Promise<Conversation>;
+  updateConversation: (data: { id: string; title: string; subjectId?: number }) => Promise<Conversation>;
   appendMessage: (conversationId: string, data: PersistMessagePayload) => Promise<unknown>;
   sendMessage: (
     data: SendMessagePayload,
-    onChunk: (text: string) => void,
-    onDone: (conversation: Conversation, meta: StreamAssistantMeta) => void,
+    onEvent: (event: ChatStreamEvent) => void,
     onError: (err: Error) => void,
   ) => () => void;
   uploadAttachment: (file: File) => Promise<MessageAttachment>;
@@ -134,25 +134,21 @@ const realChatApi: ChatApi = {
       .post<CreateConversationPayload, CreateConversationPayload>('/conversations', data)
       .then((payload) => normalizeConversation(payload.conversation ?? {})),
 
+  updateConversation: (data: { id: string; title: string; subjectId?: number }) =>
+    http
+      .post<CreateConversationPayload, CreateConversationPayload>('/conversations/update', data)
+      .then((payload) => normalizeConversation(payload.conversation ?? {})),
+
   appendMessage: (conversationId: string, data: PersistMessagePayload) =>
     http.post('/conversations/messages/create', { conversationId, ...data }),
 
   sendMessage(
     data: SendMessagePayload,
-    onChunk: (text: string) => void,
-    onDone: (conversation: Conversation, meta: StreamAssistantMeta) => void,
+    onEvent: (event: ChatStreamEvent) => void,
     onError: (err: Error) => void,
   ) {
     const ctrl = new AbortController();
     const token = getAccessToken();
-    let doneNotified = false;
-
-    let latestMeta: StreamAssistantMeta = {};
-    const notifyDoneOnce = (conversation: Conversation) => {
-      if (doneNotified) return;
-      doneNotified = true;
-      onDone(conversation, latestMeta);
-    };
 
     fetch('/api/chat/stream', {
       method: 'POST',
@@ -170,12 +166,6 @@ const realChatApi: ChatApi = {
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        const fallbackConversation: Conversation = normalizeConversation({
-          id: data.conversationId,
-          title: data.content.slice(0, 20),
-          subject_id: data.subjectId,
-          user_id: data.userId ?? '',
-        });
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -185,65 +175,23 @@ const realChatApi: ChatApi = {
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const payload = line.slice(6).trim();
-              if (payload === '[DONE]') {
-                notifyDoneOnce(fallbackConversation);
-              } else {
+              if (payload !== '[DONE]') {
                 let parsed: any;
                 try {
                   parsed = JSON.parse(payload);
                 } catch {
                   continue;
                 }
-                if (parsed.type === 'text' && typeof parsed.content === 'string') {
-                  onChunk(parsed.content);
-                }
-                if (parsed.type === 'delta' && typeof parsed.delta === 'string') {
-                  onChunk(parsed.delta);
-                  fallbackConversation.id = parsed.conversationId ?? fallbackConversation.id;
-                  fallbackConversation.subjectId = toNumber(parsed.subjectId, fallbackConversation.subjectId);
-                  fallbackConversation.subjectName =
-                    parsed.subjectName ??
-                    (fallbackConversation.subjectId
-                      ? `学科 ${fallbackConversation.subjectId}`
-                      : fallbackConversation.subjectName);
-                  latestMeta = {
-                    videoUrl: parsed.videoUrl ?? latestMeta.videoUrl,
-                    videoRunId: parsed.videoRunId ?? latestMeta.videoRunId,
-                    artifactBundleUrl: parsed.artifactBundleUrl ?? latestMeta.artifactBundleUrl,
-                    artifactManifestUrl: parsed.artifactManifestUrl ?? latestMeta.artifactManifestUrl,
-                  };
-                }
-                if (parsed.type === 'reply' && typeof parsed.content === 'string') {
-                  onChunk(parsed.content);
-                  fallbackConversation.id = parsed.conversationId ?? fallbackConversation.id;
-                  fallbackConversation.subjectId = toNumber(parsed.subjectId, fallbackConversation.subjectId);
-                  fallbackConversation.subjectName =
-                    parsed.subjectName ??
-                    (fallbackConversation.subjectId
-                      ? `学科 ${fallbackConversation.subjectId}`
-                      : fallbackConversation.subjectName);
-                  latestMeta = {
-                    videoUrl: parsed.videoUrl ?? latestMeta.videoUrl,
-                    videoRunId: parsed.videoRunId ?? latestMeta.videoRunId,
-                    artifactBundleUrl: parsed.artifactBundleUrl ?? latestMeta.artifactBundleUrl,
-                    artifactManifestUrl: parsed.artifactManifestUrl ?? latestMeta.artifactManifestUrl,
-                  };
-                  notifyDoneOnce(fallbackConversation);
-                }
-                if (parsed.type === 'done') {
-                  notifyDoneOnce(fallbackConversation);
-                }
                 if (parsed.type === 'error') {
                   throw new Error(parsed.message ?? 'stream error');
                 }
+                onEvent(parsed as ChatStreamEvent);
               }
             }
           }
         }
-        notifyDoneOnce(fallbackConversation);
       })
       .catch((error) => {
-        if (doneNotified) return;
         if (error instanceof DOMException && error.name === 'AbortError') return;
         onError(error instanceof Error ? error : new Error('chat stream failed'));
       });

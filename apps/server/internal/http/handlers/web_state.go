@@ -13,7 +13,6 @@ type webUser struct {
 type webSubject struct {
 	ID          int            `json:"id"`
 	Name        string         `json:"name"`
-	Code        int            `json:"code"`
 	ParentID    *int           `json:"parentId"`
 	Level       int            `json:"level"`
 	Description string         `json:"description,omitempty"`
@@ -65,6 +64,7 @@ type webConversation struct {
 type webMessage struct {
 	ID             string                 `json:"id"`
 	ConversationID string                 `json:"conversationId"`
+	Seq            int64                  `json:"seq,omitempty"`
 	Role           string                 `json:"role"`
 	Content        string                 `json:"content"`
 	ContentInline  string                 `json:"contentInline,omitempty"`
@@ -103,6 +103,10 @@ type webKnowledgeFile struct {
 	Size            int64  `json:"size"`
 	Order           int    `json:"order"`
 	Content         string `json:"content,omitempty"`
+	MimeType        string `json:"mimeType,omitempty"`
+	StorageKey      string `json:"storageKey,omitempty"`
+	Hash            string `json:"hash,omitempty"`
+	Status          string `json:"status,omitempty"`
 	CreatedAt       string `json:"createdAt"`
 	UpdatedAt       string `json:"updatedAt"`
 }

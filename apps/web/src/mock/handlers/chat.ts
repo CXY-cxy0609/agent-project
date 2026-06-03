@@ -1,5 +1,5 @@
-import type { Conversation, Message, ConversationListQuery, MessageAttachment, MessageMetadata, PageResult } from '@tutor/shared';
-import type { StreamAssistantMeta } from '@/api/chat';
+import type { ChatStreamEvent, Conversation, Message, ConversationListQuery, MessageAttachment, MessageMetadata, PageResult } from '@tutor/shared';
+import type { SendMessagePayload } from '@/api/chat';
 import { MOCK_CONVERSATIONS, MOCK_MESSAGES, MOCK_STREAM_RESPONSE } from '../data';
 
 const delay = (ms = 400) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -63,6 +63,16 @@ export const mockChatApi = {
     return { ...created };
   },
 
+  async updateConversation(data: { id: string; title: string; subjectId?: number }): Promise<Conversation> {
+    await delay(100);
+    const conv = _conversations.find((item) => item.id === data.id);
+    if (!conv) throw new Error('会话不存在');
+    conv.title = data.title;
+    if (data.subjectId) conv.subjectId = data.subjectId;
+    conv.updatedAt = new Date().toISOString();
+    return { ...conv };
+  },
+
   async appendMessage(
     conversationId: string,
     data: {
@@ -91,17 +101,8 @@ export const mockChatApi = {
   },
 
   sendMessage(
-    data: {
-      conversationId?: string;
-      subjectId?: number;
-      content: string;
-      model?: string;
-      generateVideo?: boolean;
-      userId?: string;
-      availableSubjects?: Array<{ id: number; name: string; code?: number | string }>;
-    },
-    onChunk: (text: string) => void,
-    onDone: (conversation: Conversation, meta: StreamAssistantMeta) => void,
+    data: SendMessagePayload,
+    onEvent: (event: ChatStreamEvent) => void,
     onError: (err: Error) => void,
   ): () => void {
     let cancelled = false;
@@ -119,7 +120,7 @@ export const mockChatApi = {
         if (!conv) {
           conv = {
             id: `conv-${Date.now()}`,
-            title: data.content.slice(0, 30),
+            title: '新对话',
             subjectId: data.subjectId ?? data.availableSubjects?.[0]?.id ?? 0,
             subjectName:
               MOCK_CONVERSATIONS.find((c) => c.subjectId === data.subjectId)?.subjectName ??
@@ -133,19 +134,49 @@ export const mockChatApi = {
           _conversations.unshift(conv);
           _messages[conv.id] = [];
         }
+        const streamId = `mock-stream-${Date.now()}`;
+        let eventSeq = 0;
+        const nextSeq = () => ++eventSeq;
+        const turnId = data.turnId ?? `turn-${Date.now()}`;
 
-        // Add user message
         const userMsg: Message = {
-          id: `msg-${Date.now()}-u`,
+          id: data.userMessageId ?? `msg-${Date.now()}-u`,
           conversationId: conv.id,
+          seq: conv.messageCount + 1,
           role: 'user',
           content: data.content,
           status: 'done',
+          turnId,
           createdAt: new Date().toISOString(),
+          attachments: data.attachments,
         };
-        _messages[conv.id].push(userMsg);
+        const assistantMsg: Message = {
+          id: data.assistantMessageId ?? `msg-${Date.now()}-a`,
+          conversationId: conv.id,
+          seq: conv.messageCount + 2,
+          role: 'assistant',
+          content: '',
+          status: 'streaming',
+          turnId,
+          replyToMessageId: userMsg.id,
+          createdAt: new Date().toISOString(),
+          metadata: { model: data.model ?? 'default' },
+        };
+        _messages[conv.id].push(userMsg, assistantMsg);
+        onEvent({ type: 'start', streamId, sequence: nextSeq(), conversationId: conv.id });
+        onEvent({ type: 'conversation.meta', streamId, sequence: nextSeq(), conversation: { ...conv } });
+        onEvent({ type: 'message.created', streamId, sequence: nextSeq(), userMessage: { ...userMsg }, assistantMessage: { ...assistantMsg } });
+        onEvent({
+          type: 'intent',
+          streamId,
+          sequence: nextSeq(),
+          intent: 'qa',
+          reasoning: '识别为学习问答，路由到 QA Agent。',
+          semanticSummary: data.content,
+          title: data.content.slice(0, 24),
+          assistantMessageId: assistantMsg.id,
+        });
 
-        // Stream the response in small chunks
         const words = MOCK_STREAM_RESPONSE.split('');
         let accumulated = '';
         const chunkSize = 5;
@@ -154,27 +185,27 @@ export const mockChatApi = {
           if (cancelled) return;
           const chunk = words.slice(i, i + chunkSize).join('');
           accumulated += chunk;
-          onChunk(chunk);
+          onEvent({ type: 'delta', streamId, sequence: nextSeq(), assistantMessageId: assistantMsg.id, delta: chunk });
           await delay(30);
         }
 
         if (cancelled) return;
 
-        // Add assistant message to store
-        const assistantMsg: Message = {
-          id: `msg-${Date.now()}-a`,
-          conversationId: conv.id,
-          role: 'assistant',
-          content: MOCK_STREAM_RESPONSE,
-          status: 'done',
-          createdAt: new Date().toISOString(),
-          metadata: { model: data.model ?? 'default', tokens: 128 },
+        if ((data.messageCount ?? conv.messageCount) <= 0) {
+          conv.title = data.content.slice(0, 24);
+        }
+        assistantMsg.content = accumulated;
+        assistantMsg.status = 'done';
+        assistantMsg.metadata = {
+          ...assistantMsg.metadata,
+          tokens: 128,
+          thoughtChain: [{ title: '意图识别', content: '识别为学习问答，路由到 QA Agent。', status: 'done' }],
         };
-        _messages[conv.id].push(assistantMsg);
         conv.messageCount += 2;
         conv.updatedAt = new Date().toISOString();
-
-        onDone({ ...conv }, {});
+        onEvent({ type: 'message.finalized', streamId, sequence: nextSeq(), assistantMessage: { ...assistantMsg }, metadata: assistantMsg.metadata });
+        onEvent({ type: 'conversation.meta', streamId, sequence: nextSeq(), conversation: { ...conv } });
+        onEvent({ type: 'done', streamId, sequence: nextSeq(), conversationId: conv.id });
       } catch (err) {
         if (!cancelled) onError(err as Error);
       }

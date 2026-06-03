@@ -39,6 +39,11 @@
         <span>学情记录</span>
       </a-menu-item>
 
+      <a-menu-item key="assessments" @click="$router.push('/app/assessments')">
+        <template #icon><FileDoneOutlined /></template>
+        <span>测试训练</span>
+      </a-menu-item>
+
       <a-menu-item key="knowledge" @click="$router.push('/app/knowledge')">
         <template #icon><BookOutlined /></template>
         <span>知识库</span>
@@ -83,6 +88,7 @@ import {
   MessageOutlined,
   HistoryOutlined,
   BarChartOutlined,
+  FileDoneOutlined,
   BookOutlined,
   AppstoreOutlined,
   SettingOutlined,
@@ -97,6 +103,7 @@ const collapsed = ref(false);
 
 const selectedKeys = computed(() => {
   const name = route.name as string;
+  if (name?.startsWith('assessments')) return ['assessments'];
   return [name];
 });
 

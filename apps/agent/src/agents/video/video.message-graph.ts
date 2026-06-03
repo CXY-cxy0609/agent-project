@@ -129,6 +129,8 @@ export function buildVideoMessageGraphNodes(
         sceneIndex: normalizedSceneIndex,
         title: String(item.title ?? `场景 ${index + 1}`),
         layout,
+        geometryRenderMode: normalizeGeometryRenderMode(item.geometry_render_mode),
+        solidFigure: isRecord(item.solid_figure) ? item.solid_figure : undefined,
         description: String(item.description ?? ''),
         animationNotes: String(item.animation_notes ?? ''),
         narration: String(item.narration ?? ''),
@@ -465,6 +467,13 @@ function extractPythonScript(content: string): string {
   const codeMatch = content.match(/```python\s*([\s\S]*?)```/) ?? content.match(/```\s*([\s\S]*?)```/);
   return (codeMatch ? codeMatch[1] : content).trim();
 }
+
+function normalizeGeometryRenderMode(value: unknown): StoryboardScene['geometryRenderMode'] {
+  return value === 'oblique_projection' || value === 'flat_2d' ? value : undefined;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function tailRenderError(error: string): string {
   const normalized = error.trim();

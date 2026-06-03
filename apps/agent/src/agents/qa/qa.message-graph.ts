@@ -61,6 +61,10 @@ export function buildQAMessageGraphNodes(
     try {
       const result = await ragClient.retrieve(processedQuestion, {
         subjectId,
+        tenantId: 'public',
+        requestUserId: typeof state.userId === 'string' ? state.userId : undefined,
+        includePublic: true,
+        includePrivate: typeof state.userId === 'string' && state.userId !== 'anonymous',
         topK: 5,
         retrievalMode,
         budgetTokens: prepare?.ragBudgetTokens,
@@ -87,7 +91,7 @@ export function buildQAMessageGraphNodes(
     const prepare = findLatestEvent<PrepareEventPayload>(ctx, 'qa.prepare.completed');
     const rag = findLatestEvent<RagEventPayload>(ctx, 'qa.rag.completed');
     const question = prepare?.processedQuestion ?? String(state.question ?? '');
-    const subject = String(state.subjectId ?? '通用');
+    const subject = String(state.subjectName ?? state.subjectId ?? '通用');
     const history = Array.isArray(state.history) ? state.history as Message[] : [];
     const generateVideo = state.generateVideo === true;
     const conversationContext = buildConversationContext(history);

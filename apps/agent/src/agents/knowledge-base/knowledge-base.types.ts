@@ -2,9 +2,14 @@ export interface KnowledgeBaseInput {
   action: 'index_document' | 'index_text' | 'delete_document';
   knowledgeBaseId: string;
   subjectId: string;
+  visibility?: 'public' | 'private';
+  ownerUserId?: string;
   /** action = index_document 时需要 */
   fileContentBase64?: string;
   filename?: string;
+  parseMode?: 'fast' | 'balanced' | 'quality';
+  maxUpgradePages?: number;
+  budgetTokens?: number;
   /** action = index_text 时需要 */
   text?: string;
   docName?: string;

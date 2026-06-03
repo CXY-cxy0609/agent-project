@@ -1,6 +1,0 @@
-{
-  "attempt": 2,
-  "success": false,
-  "lastError": "iangle(color=YELLOW, fill_opacity=0.9).scale(0.2)        │\n│ ❱ 167 │   │   ).arrange(UP, buff=0, aligned_edge=DOWN).rotate(PI/4).next_to( │\n│   168 │   │   ul_flame = VGroup(                                             │\n│   169 │   │   │   Triangle(color=PINK, fill_opacity=0.8).scale(0.5),         │\n│   170 │   │   │   Triangle(color=RED, fill_opacity=0.9).scale(0.3).move_to(T │\n╰──────────────────────────────────────────────────────────────────────────────╯\nNameError: name 'PI' is not defined",
-  "createdAt": "2026-06-02T11:05:57.176Z"
-}

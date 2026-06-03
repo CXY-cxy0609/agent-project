@@ -139,7 +139,7 @@ type SubjectTreeNode = UserSubject & { children?: UserSubject[] };
 const tableSubjects = computed<SubjectTreeNode[]>(() => {
   const roots = subjects.value
     .filter((subject) => subject.level === 1)
-    .sort((a, b) => a.code - b.code);
+    .sort((a, b) => a.id - b.id);
 
   const childrenByParent = new Map<number, UserSubject[]>();
   subjects.value
@@ -153,7 +153,7 @@ const tableSubjects = computed<SubjectTreeNode[]>(() => {
 
   return roots.map((root) => ({
     ...root,
-    children: (childrenByParent.get(root.id) ?? []).sort((a, b) => a.code - b.code),
+    children: (childrenByParent.get(root.id) ?? []).sort((a, b) => a.id - b.id),
   }));
 });
 
@@ -176,7 +176,6 @@ const columns = [
     width: 100,
     customRender: ({ record }: { record: UserSubject }) => (record.level === 1 ? '一级学科' : '二级学科'),
   },
-  { title: '学科编号', dataIndex: 'code', key: 'code', width: 110 },
   { title: '说明', dataIndex: 'description', key: 'description', ellipsis: true },
   { title: '操作', key: 'actions', width: 260 },
 ];
@@ -190,7 +189,7 @@ async function loadSubjects() {
         ...subject,
         level: (subject.parentId ? 2 : 1) as SubjectLevel,
       }))
-      .sort((a, b) => a.code - b.code);
+      .sort((a, b) => a.id - b.id);
     subjects.value = normalized;
     subjectStore.setSubjects(normalized);
   } finally {
@@ -216,14 +215,13 @@ function openEditModal(subject: UserSubject) {
   formModalVisible.value = true;
 }
 
-async function saveSubject(data: { name: string; code: number | null; parentId: number | null; description: string }) {
-  if (!data.name || data.code === null) {
-    message.warning('学科名称和编号为必填项');
+async function saveSubject(data: { name: string; parentId: number | null; description: string }) {
+  if (!data.name) {
+    message.warning('学科名称为必填项');
     return;
   }
   const payload = {
     name: data.name.trim(),
-    code: data.code,
     parentId: editingSubject.value
       ? editingSubject.value.parentId
       : (creatingParentSubject.value?.id ?? null),

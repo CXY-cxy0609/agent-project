@@ -13,7 +13,7 @@
       <div class="right-panel-content">
         <div v-if="activeSubject" class="subject-info-card">
           <div class="sic-title">{{ activeSubject.name }}</div>
-          <div class="sic-code">{{ activeSubject.code }}</div>
+          <div class="sic-code">ID {{ activeSubject.id }}</div>
         </div>
 
         <div class="right-panel-section">
@@ -50,8 +50,8 @@
 import { LeftOutlined, RightOutlined, BarChartOutlined, BookOutlined } from '@ant-design/icons-vue';
 
 interface Subject {
+  id: number;
   name: string;
-  code: number;
 }
 
 interface WeakPoint {

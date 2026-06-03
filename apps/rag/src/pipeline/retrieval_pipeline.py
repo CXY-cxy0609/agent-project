@@ -39,6 +39,7 @@ class RetrievalResult:
     context: str
     chunks: list[RetrievedChunk]
     subject: Optional[str]
+    security_scope: dict
 
 
 class RetrievalPipeline:
@@ -53,8 +54,13 @@ class RetrievalPipeline:
     async def retrieve(
         self,
         query: str,
+        tenant_id: str,
         subject_id: Optional[str] = None,
         knowledge_base_id: Optional[str] = None,
+        knowledge_base_ids: Optional[list[str]] = None,
+        request_user_id: Optional[str] = None,
+        include_public: bool = True,
+        include_private: bool = False,
         top_k: int | None = None,
         retrieval_mode: str = "text_only",
         budget_tokens: Optional[int] = None,
@@ -64,7 +70,7 @@ class RetrievalPipeline:
         if not self._breaker.allow():
             DEGRADE_TOTAL.labels("circuit_open").inc()
             logger.warning("retrieval circuit breaker open, return empty context")
-            return RetrievalResult(context="", chunks=[], subject=subject_id)
+            return RetrievalResult(context="", chunks=[], subject=subject_id, security_scope={})
         top_k = max(1, top_k or settings.top_k_rerank)
         mode = retrieval_mode if retrieval_mode in {"text_only", "hybrid_visual"} else "text_only"
         effective_budget = budget_tokens if isinstance(budget_tokens, int) and budget_tokens > 0 else None
@@ -75,11 +81,19 @@ class RetrievalPipeline:
             preprocessed = query_preprocessor.preprocess(query, subject_id, use_hyde=use_hyde)
 
         # ② 向量检索（用原始 Query 和 HyDE Query 分别检索，合并去重）
-        filter_conditions: dict = {}
+        filter_conditions: dict = {"tenant_id": tenant_id}
         if preprocessed.detected_subject:
             filter_conditions["subject_id"] = preprocessed.detected_subject
-        if knowledge_base_id:
-            filter_conditions["knowledge_base_id"] = knowledge_base_id
+        resolved_kb_ids = knowledge_base_ids or ([knowledge_base_id] if knowledge_base_id else None)
+        if resolved_kb_ids:
+            filter_conditions["knowledge_base_id"] = resolved_kb_ids
+        security_scope = {
+            "tenant_id": tenant_id,
+            "request_user_id": request_user_id,
+            "include_public": include_public,
+            "include_private": include_private,
+            "knowledge_base_ids": resolved_kb_ids or [],
+        }
 
         # 并行检索（原始 query + HyDE query）
         try:
@@ -88,6 +102,9 @@ class RetrievalPipeline:
                     original_query=preprocessed.processed_query,
                     hyde_query=preprocessed.hyde_query if use_hyde else None,
                     filter_conditions=filter_conditions or None,
+                    request_user_id=request_user_id,
+                    include_public=include_public,
+                    include_private=include_private,
                     top_k_retrieve=self._resolve_top_k_retrieve(
                         top_k=top_k,
                         retrieval_mode=mode,
@@ -110,8 +127,8 @@ class RetrievalPipeline:
                 effective_budget,
                 elapsed_ms,
             )
-            self._breaker.record_failure()
-            return RetrievalResult(context="", chunks=[], subject=preprocessed.detected_subject)
+            self._breaker.record_success()
+            return RetrievalResult(context="", chunks=[], subject=preprocessed.detected_subject, security_scope=security_scope)
 
         # ③ Rerank
         should_rerank = self._should_rerank(preprocessed.original_query)
@@ -176,13 +193,16 @@ class RetrievalPipeline:
         )
 
         self._breaker.record_success()
-        return RetrievalResult(context=context, chunks=chunks, subject=preprocessed.detected_subject)
+        return RetrievalResult(context=context, chunks=chunks, subject=preprocessed.detected_subject, security_scope=security_scope)
 
     async def _retrieve_candidates(
         self,
         original_query: str,
         hyde_query: Optional[str],
         filter_conditions: Optional[dict],
+        request_user_id: Optional[str],
+        include_public: bool,
+        include_private: bool,
         top_k_retrieve: int,
     ) -> list[dict]:
         """向量检索，合并原始 query 和 HyDE query 结果，按分数去重"""
@@ -204,17 +224,20 @@ class RetrievalPipeline:
                 logger.warning("embedding timeout, skip query branch")
                 continue
             with stage_timer("vector_search"):
-                results = await asyncio.to_thread(
-                    search,
-                    settings.qdrant_collection,
-                    query_vector,
-                    top_k_retrieve,
-                    filter_conditions,
-                )
+                results = []
+                for scoped_filter in build_acl_filters(filter_conditions or {}, request_user_id, include_public, include_private):
+                    scoped_results = await asyncio.to_thread(
+                        search,
+                        settings.qdrant_collection,
+                        query_vector,
+                        top_k_retrieve,
+                        scoped_filter,
+                    )
+                    results.extend(scoped_results)
 
             for hit in results:
                 payload = hit.payload or {}
-                key = payload.get("doc_id", "") + "_" + str(payload.get("chunk_index", ""))
+                key = _candidate_identity(payload)
                 if key not in seen_ids:
                     seen_ids.add(key)
                     all_candidates.append({
@@ -268,6 +291,38 @@ class stage_timer:
     def __exit__(self, *_args: object) -> None:
         elapsed = time.perf_counter() - self._start
         RETRIEVE_STAGE_LATENCY_SECONDS.labels(self._stage).observe(elapsed)
+
+
+def build_acl_filters(
+    base_filter: dict,
+    request_user_id: Optional[str],
+    include_public: bool,
+    include_private: bool,
+) -> list[dict]:
+    filters: list[dict] = []
+    if include_public:
+        filters.append({**base_filter, "visibility": "public"})
+    if include_private and request_user_id:
+        filters.append({**base_filter, "visibility": "private", "owner_user_id": request_user_id})
+    if not filters:
+        filters.append({**base_filter, "visibility": "public"})
+    return filters
+
+
+def _candidate_identity(payload: dict) -> str:
+    if payload.get("chunk_id"):
+        return str(payload["chunk_id"])
+    if payload.get("chunk_key"):
+        return str(payload["chunk_key"])
+    return ":".join(
+        [
+            str(payload.get("tenant_id", "")),
+            str(payload.get("knowledge_base_id", "")),
+            str(payload.get("doc_id", "")),
+            str(payload.get("doc_version", "")),
+            str(payload.get("chunk_index", "")),
+        ]
+    )
 
 
 retrieval_pipeline = RetrievalPipeline()

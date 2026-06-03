@@ -1,8 +1,17 @@
 package handlers
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -102,6 +111,11 @@ func GetKnowledgeBase() gin.HandlerFunc {
 			response.Error(c, http.StatusNotFound, "KNOWLEDGE_BASE_NOT_FOUND", "knowledge base not found")
 			return
 		}
+		userID, _ := latestUserID(c, db)
+		if !canAccessKnowledgeBase(base, userID) {
+			response.Error(c, http.StatusForbidden, "KNOWLEDGE_BASE_FORBIDDEN", "knowledge base is not accessible")
+			return
+		}
 		response.OK(c, gin.H{
 			"id":          base.ID,
 			"name":        base.Name,
@@ -134,12 +148,16 @@ func CreateKnowledgeBase() gin.HandlerFunc {
 		if userID == "" {
 			userID = "0"
 		}
+		visibility := req.Type
+		if visibility != "private" {
+			visibility = "public"
+		}
 		base := webKnowledgeBase{
 			ID:          id,
 			Name:        req.Name,
 			SubjectID:   req.SubjectID,
 			SubjectName: "未知学科",
-			Type:        req.Type,
+			Type:        visibility,
 			UserID:      userID,
 			Description: req.Description,
 			Files:       []webKnowledgeFile{},
@@ -151,12 +169,14 @@ func CreateKnowledgeBase() gin.HandlerFunc {
 		}
 		_, err := db.ExecContext(
 			c,
-			`INSERT INTO knowledge_bases (knowledge_base_id, name, subject_id, type, user_id, description, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+			`INSERT INTO knowledge_bases (knowledge_base_id, tenant_id, name, subject_id, type, visibility, user_id, owner_user_id, description, created_at, updated_at)
+			 VALUES (?, 'public', ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
 			base.ID,
 			base.Name,
 			base.SubjectID,
 			base.Type,
+			visibility,
+			base.UserID,
 			base.UserID,
 			base.Description,
 		)
@@ -187,6 +207,11 @@ func UpdateKnowledgeBase() gin.HandlerFunc {
 		base, err := getKnowledgeBaseByID(c, db, id)
 		if err != nil {
 			response.Error(c, http.StatusNotFound, "KNOWLEDGE_BASE_NOT_FOUND", "knowledge base not found")
+			return
+		}
+		userID, _ := latestUserID(c, db)
+		if !canAccessKnowledgeBase(base, userID) {
+			response.Error(c, http.StatusForbidden, "KNOWLEDGE_BASE_FORBIDDEN", "knowledge base is not accessible")
 			return
 		}
 		if req.Name != nil {
@@ -227,13 +252,25 @@ func DeleteKnowledgeBase() gin.HandlerFunc {
 		if !ok {
 			return
 		}
+		base, err := getKnowledgeBaseByID(c, db, id)
+		if err != nil {
+			response.Error(c, http.StatusNotFound, "KNOWLEDGE_BASE_NOT_FOUND", "knowledge base not found")
+			return
+		}
+		userID, _ := latestUserID(c, db)
+		if !canAccessKnowledgeBase(base, userID) {
+			response.Error(c, http.StatusForbidden, "KNOWLEDGE_BASE_FORBIDDEN", "knowledge base is not accessible")
+			return
+		}
 		_, _ = db.ExecContext(c, `DELETE FROM knowledge_files WHERE knowledge_base_id = ?`, id)
 		_, _ = db.ExecContext(c, `DELETE FROM knowledge_bases WHERE knowledge_base_id = ?`, id)
 		response.OK(c, gin.H{"deleted": true})
 	}
 }
 
-func UploadKnowledgeFile() gin.HandlerFunc {
+const maxKnowledgeFileBytes = 100 << 20
+
+func UploadKnowledgeFile(ragServiceURL string, internalToken string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		baseID := c.PostForm("knowledgeBaseId")
 		if baseID == "" {
@@ -245,29 +282,85 @@ func UploadKnowledgeFile() gin.HandlerFunc {
 			response.Error(c, http.StatusBadRequest, "INVALID_FILE", "file is required")
 			return
 		}
+		if fh.Size <= 0 {
+			response.Error(c, http.StatusBadRequest, "EMPTY_FILE", "file is empty")
+			return
+		}
+		if fh.Size > maxKnowledgeFileBytes {
+			response.Error(c, http.StatusBadRequest, "FILE_TOO_LARGE", "file exceeds 100MB limit")
+			return
+		}
+		uploadedFile, err := fh.Open()
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "FILE_OPEN_FAILED", "failed to open uploaded file")
+			return
+		}
+		defer uploadedFile.Close()
+		data, err := io.ReadAll(io.LimitReader(uploadedFile, maxKnowledgeFileBytes+1))
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "FILE_READ_FAILED", "failed to read uploaded file")
+			return
+		}
+		if int64(len(data)) > maxKnowledgeFileBytes {
+			response.Error(c, http.StatusBadRequest, "FILE_TOO_LARGE", "file exceeds 100MB limit")
+			return
+		}
 		now := time.Now().UTC().Format(time.RFC3339)
-		fileType := "md"
-		if strings.HasSuffix(strings.ToLower(fh.Filename), ".pdf") {
-			fileType = "pdf"
+		contentType := detectKnowledgeFileContentType(fh.Filename, fh.Header.Get("Content-Type"), data)
+		fileType := classifyKnowledgeFileType(contentType, fh.Filename)
+		if fileType == "" {
+			response.Error(c, http.StatusBadRequest, "UNSUPPORTED_FILE_TYPE", "unsupported knowledge file type")
+			return
 		}
 		db, _, ok := dbOrError(c)
 		if !ok {
 			return
 		}
-		if _, err := getKnowledgeBaseByID(c, db, baseID); err != nil {
+		base, err := getKnowledgeBaseByID(c, db, baseID)
+		if err != nil {
 			response.Error(c, http.StatusNotFound, "KNOWLEDGE_BASE_NOT_FOUND", "knowledge base not found")
 			return
 		}
+		userID, _ := latestUserID(c, db)
+		if !canAccessKnowledgeBase(base, userID) {
+			response.Error(c, http.StatusForbidden, "KNOWLEDGE_BASE_FORBIDDEN", "knowledge base is not accessible")
+			return
+		}
+		fileID := "kf-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		objectKey := buildKnowledgeFileObjectKey(baseID, fileID, fh.Filename)
+		url, storageKey, err := storeChatAttachment(c, objectKey, contentType, data)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "KNOWLEDGE_OBJECT_UPLOAD_FAILED", "failed to upload knowledge file object")
+			return
+		}
+		if err := submitKnowledgeFileToRAG(
+			c,
+			ragServiceURL,
+			internalToken,
+			base,
+			fileID,
+			fh.Filename,
+			contentType,
+			data,
+		); err != nil {
+			response.Error(c, http.StatusBadGateway, "KNOWLEDGE_RAG_INDEX_FAILED", err.Error())
+			return
+		}
 		orderVal := nextKnowledgeFileOrder(c, db, baseID)
+		hashBytes := sha256.Sum256(data)
 		file := webKnowledgeFile{
-			ID:              "kf-" + strconv.FormatInt(time.Now().UnixNano(), 10),
+			ID:              fileID,
 			KnowledgeBaseID: baseID,
 			Name:            fh.Filename,
 			DisplayName:     fh.Filename,
 			Type:            fileType,
-			URL:             "/uploads/" + fh.Filename,
-			Size:            fh.Size,
+			URL:             url,
+			Size:            int64(len(data)),
 			Order:           orderVal,
+			StorageKey:      storageKey,
+			MimeType:        contentType,
+			Hash:            hex.EncodeToString(hashBytes[:]),
+			Status:          "done",
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		}
@@ -293,6 +386,129 @@ func UploadKnowledgeFile() gin.HandlerFunc {
 
 		response.Created(c, gin.H{"file": file})
 	}
+}
+
+func detectKnowledgeFileContentType(filename string, headerContentType string, data []byte) string {
+	contentType := strings.TrimSpace(strings.Split(headerContentType, ";")[0])
+	if contentType == "" || contentType == "application/octet-stream" {
+		contentType = strings.TrimSpace(mime.TypeByExtension(strings.ToLower(filepath.Ext(filename))))
+	}
+	if contentType == "" || contentType == "application/octet-stream" {
+		contentType = http.DetectContentType(data)
+	}
+	if contentType == "text/x-markdown" {
+		return "text/markdown"
+	}
+	return contentType
+}
+
+func classifyKnowledgeFileType(contentType string, filename string) string {
+	normalized := strings.ToLower(strings.TrimSpace(contentType))
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".pdf":
+		return "pdf"
+	case ".md", ".markdown":
+		return "md"
+	case ".txt":
+		return "txt"
+	case ".docx":
+		return "docx"
+	case ".pptx":
+		return "pptx"
+	case ".xlsx":
+		return "xlsx"
+	case ".csv":
+		return "csv"
+	case ".html", ".htm":
+		return "html"
+	}
+	if normalized == "application/pdf" {
+		return "pdf"
+	}
+	if strings.Contains(normalized, "markdown") {
+		return "md"
+	}
+	if strings.HasPrefix(normalized, "text/") {
+		return "txt"
+	}
+	return ""
+}
+
+func buildKnowledgeFileObjectKey(baseID string, fileID string, filename string) string {
+	_, policy := getObjectStorageRuntime()
+	prefix := strings.Trim(strings.TrimSpace(policy.pathPrefix), "/")
+	if prefix == "" {
+		prefix = "knowledge"
+	}
+	ext := strings.ToLower(filepath.Ext(filename))
+	return path.Join(prefix, "knowledge-bases", baseID, time.Now().UTC().Format("20060102"), fileID+ext)
+}
+
+func submitKnowledgeFileToRAG(
+	c *gin.Context,
+	ragServiceURL string,
+	internalToken string,
+	base webKnowledgeBase,
+	fileID string,
+	filename string,
+	contentType string,
+	data []byte,
+) error {
+	ragURL := strings.TrimRight(strings.TrimSpace(ragServiceURL), "/")
+	if ragURL == "" {
+		return fmt.Errorf("RAG service URL is not configured")
+	}
+	if strings.TrimSpace(internalToken) == "" {
+		return fmt.Errorf("internal token is not configured")
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	fields := map[string]string{
+		"knowledge_base_id": base.ID,
+		"subject_id":        strconv.Itoa(base.SubjectID),
+		"doc_name":          filename,
+		"visibility":        base.Type,
+		"owner_user_id":     base.UserID,
+		"doc_id":            fileID,
+		"wait":              "false",
+		"mode":              "balanced",
+	}
+	for key, value := range fields {
+		if err := writer.WriteField(key, value); err != nil {
+			return err
+		}
+	}
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		return err
+	}
+	if _, err := part.Write(data); err != nil {
+		return err
+	}
+	if err := writer.Close(); err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, ragURL+"/index/upload", &body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("x-internal-token", internalToken)
+	if contentType != "" {
+		req.Header.Set("x-file-content-type", contentType)
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("RAG index upload failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+	return nil
 }
 
 func UpdateKnowledgeFile() gin.HandlerFunc {
@@ -346,7 +562,7 @@ func UpdateKnowledgeFile() gin.HandlerFunc {
 	}
 }
 
-func DeleteKnowledgeFile() gin.HandlerFunc {
+func DeleteKnowledgeFile(ragServiceURL string, internalToken string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req identifyKnowledgeFileReq
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -363,10 +579,59 @@ func DeleteKnowledgeFile() gin.HandlerFunc {
 		if !ok {
 			return
 		}
+		base, err := getKnowledgeBaseByID(c, db, baseID)
+		if err != nil {
+			response.Error(c, http.StatusNotFound, "KNOWLEDGE_BASE_NOT_FOUND", "knowledge base not found")
+			return
+		}
+		userID, _ := latestUserID(c, db)
+		if !canAccessKnowledgeBase(base, userID) {
+			response.Error(c, http.StatusForbidden, "KNOWLEDGE_BASE_FORBIDDEN", "knowledge base is not accessible")
+			return
+		}
+		if _, err := getKnowledgeFileByID(c, db, baseID, fileID); err != nil {
+			response.Error(c, http.StatusNotFound, "KNOWLEDGE_FILE_NOT_FOUND", "knowledge file not found")
+			return
+		}
+		if err := deleteKnowledgeFileFromRAG(c, ragServiceURL, internalToken, baseID, fileID); err != nil {
+			response.Error(c, http.StatusBadGateway, "KNOWLEDGE_RAG_DELETE_FAILED", err.Error())
+			return
+		}
 		_, _ = db.ExecContext(c, `DELETE FROM knowledge_files WHERE knowledge_base_id = ? AND file_id = ?`, baseID, fileID)
 		_, _ = db.ExecContext(c, `UPDATE knowledge_bases SET updated_at = NOW() WHERE knowledge_base_id = ?`, baseID)
 		response.OK(c, gin.H{"deleted": true})
 	}
+}
+
+func deleteKnowledgeFileFromRAG(c *gin.Context, ragServiceURL string, internalToken string, knowledgeBaseID string, fileID string) error {
+	ragURL := strings.TrimRight(strings.TrimSpace(ragServiceURL), "/")
+	if ragURL == "" {
+		return fmt.Errorf("RAG service URL is not configured")
+	}
+	if strings.TrimSpace(internalToken) == "" {
+		return fmt.Errorf("internal token is not configured")
+	}
+	req, err := http.NewRequestWithContext(
+		c.Request.Context(),
+		http.MethodDelete,
+		ragURL+"/index/"+knowledgeBaseID+"/"+fileID,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("x-internal-token", internalToken)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("RAG index delete failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+	return nil
 }
 
 func ReorderKnowledgeFiles() gin.HandlerFunc {
@@ -397,7 +662,7 @@ func ReorderKnowledgeFiles() gin.HandlerFunc {
 				baseID,
 				fileID,
 			)
-			}
+		}
 		_, _ = db.ExecContext(c, `UPDATE knowledge_bases SET updated_at = NOW() WHERE knowledge_base_id = ?`, baseID)
 		response.OK(c, gin.H{"updated": true})
 	}
@@ -440,12 +705,13 @@ func GetKnowledgeFileContent() gin.HandlerFunc {
 }
 
 func queryKnowledgeBases(c *gin.Context, db *sql.DB, req listKnowledgeBaseReq) ([]webKnowledgeBase, error) {
+	userID, _ := latestUserID(c, db)
 	query := `SELECT kb.knowledge_base_id, kb.name, kb.subject_id, COALESCE(s.name, '未知学科') AS subject_name,
 		kb.type, kb.user_id, kb.description, kb.created_at, kb.updated_at
 		FROM knowledge_bases kb
-		LEFT JOIN subjects s ON s.subject_id = kb.subject_id
-		WHERE 1=1`
-	args := []any{}
+		LEFT JOIN subjects s ON s.id = kb.subject_id
+		WHERE (kb.visibility = 'public' OR (kb.visibility = 'private' AND kb.owner_user_id = ?))`
+	args := []any{userID}
 	if req.SubjectID != nil && *req.SubjectID > 0 {
 		query += ` AND kb.subject_id = ?`
 		args = append(args, *req.SubjectID)
@@ -483,7 +749,7 @@ func getKnowledgeBaseByID(c *gin.Context, db *sql.DB, id string) (webKnowledgeBa
 		`SELECT kb.knowledge_base_id, kb.name, kb.subject_id, COALESCE(s.name, '未知学科') AS subject_name,
 		kb.type, kb.user_id, kb.description, kb.created_at, kb.updated_at
 		FROM knowledge_bases kb
-		LEFT JOIN subjects s ON s.subject_id = kb.subject_id
+		LEFT JOIN subjects s ON s.id = kb.subject_id
 		WHERE kb.knowledge_base_id = ?`,
 		id,
 	).Scan(&item.ID, &item.Name, &item.SubjectID, &item.SubjectName, &item.Type, &item.UserID, &item.Description, &item.CreatedAt, &item.UpdatedAt)
@@ -541,4 +807,11 @@ func nextKnowledgeFileOrder(c *gin.Context, db *sql.DB, baseID string) int {
 		return 1
 	}
 	return int(order.Int64) + 1
+}
+
+func canAccessKnowledgeBase(base webKnowledgeBase, userID string) bool {
+	if base.Type != "private" {
+		return true
+	}
+	return base.UserID != "" && base.UserID == userID
 }

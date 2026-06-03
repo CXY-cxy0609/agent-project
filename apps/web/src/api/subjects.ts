@@ -7,7 +7,6 @@ interface ServerSubject {
   id?: string | number;
   subject_id?: string | number;
   name?: string;
-  code?: string | number;
   education_stage?: string;
   parentId?: number | null;
   parent_id?: number | null;
@@ -31,7 +30,6 @@ function normalizeSubject(item: ServerSubject, index: number): UserSubject {
   return {
     id,
     name: item.name ?? `未命名学科 ${id}`,
-    code: toNumber(item.code, id),
     parentId,
     level,
     description: item.description ?? item.education_stage ?? '',

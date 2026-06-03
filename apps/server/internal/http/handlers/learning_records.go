@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -33,6 +34,10 @@ func CreateLearningRecord(recordService *service.LearningRecordService) gin.Hand
 			response.Error(c, http.StatusBadRequest, "INVALID_LEARNING_RECORD_FIELDS", "userId, sessionId, subject, knowledgePoint are required")
 			return
 		}
+		if _, err := parsePositiveUserID(req.UserID); err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "userId must reference users.id")
+			return
+		}
 
 		err := recordService.Write(c.Request.Context(), domain.LearningRecord{
 			RecordID:       req.RecordID,
@@ -45,6 +50,7 @@ func CreateLearningRecord(recordService *service.LearningRecordService) gin.Hand
 			AskedAt:        req.AskedAt,
 		})
 		if err != nil {
+			fmt.Printf("[LearningRecord] create failed user_id=%s session_id=%s subject=%s err=%v\n", req.UserID, req.SessionID, req.Subject, err)
 			response.Error(c, http.StatusInternalServerError, "LEARNING_RECORD_CREATE_FAILED", "failed to create learning record")
 			return
 		}
@@ -58,6 +64,10 @@ func QueryLearningRecords(recordService *service.LearningRecordService) gin.Hand
 		userID := c.Query("user_id")
 		if userID == "" {
 			response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "user_id is required")
+			return
+		}
+		if _, err := parsePositiveUserID(userID); err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "user_id must reference users.id")
 			return
 		}
 		limit := 30
@@ -80,4 +90,12 @@ func QueryLearningRecords(recordService *service.LearningRecordService) gin.Hand
 		// Keep backward compatibility for current agent side query implementation.
 		c.JSON(http.StatusOK, list)
 	}
+}
+
+func parsePositiveUserID(value string) (uint64, error) {
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || parsed == 0 {
+		return 0, strconv.ErrSyntax
+	}
+	return parsed, nil
 }

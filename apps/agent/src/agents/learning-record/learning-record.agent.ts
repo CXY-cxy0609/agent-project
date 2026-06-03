@@ -49,6 +49,11 @@ export class LearningRecordAgent extends BaseAgent<LearningRecordInput, Learning
     summary: ConversationSummary,
     ctx: AgentContext,
   ): Promise<LearningRecordOutput> {
+    if (!this.canPersistLearningRecord(ctx.userId)) {
+      console.info('[LearningRecordAgent] skip learning record for anonymous user');
+      return { success: true, recordedPoints: [] };
+    }
+
     const { messages, systemPrompt } = new PromptBuilder()
       .setPersona(LEARNING_RECORD_PERSONA, {})
       .setTask(EXTRACT_KNOWLEDGE_TASK, {
@@ -76,16 +81,19 @@ export class LearningRecordAgent extends BaseAgent<LearningRecordInput, Learning
 
       for (const kp of extraction.knowledge_points) {
         const point = kp as Record<string, unknown>;
+        const knowledgePoint = normalizeKnowledgePoint(String(point.point ?? ''));
+        if (!knowledgePoint) continue;
         await this.structuredMemory.write({
           userId: ctx.userId,
           sessionId: ctx.sessionId,
           subject: String(point.subject ?? summary.subject),
+          subjectId: summary.subjectId,
           chapter: String(point.chapter ?? ''),
-          knowledgePoint: String(point.point ?? ''),
+          knowledgePoint,
           difficulty: (point.difficulty as 'easy' | 'medium' | 'hard') ?? 'medium',
           askedAt: new Date(),
         });
-        recordedPoints.push(String(point.point ?? ''));
+        recordedPoints.push(knowledgePoint);
       }
 
       return { success: true, recordedPoints };
@@ -99,8 +107,16 @@ export class LearningRecordAgent extends BaseAgent<LearningRecordInput, Learning
     subjectId: string | undefined,
     _ctx: AgentContext,
   ): Promise<LearningRecordOutput> {
+    if (!this.canPersistLearningRecord(userId)) {
+      return {
+        success: true,
+        report: '请先登录后查看学情报告。登录后系统会自动记录你的学习轨迹。',
+      };
+    }
+
+    const subjectFilter = subjectId && Number.isNaN(Number(subjectId)) ? subjectId : undefined;
     const records = await this.structuredMemory.query(userId, {
-      subject: subjectId,
+      subject: subjectFilter,
       limit: 30,
     });
 
@@ -122,7 +138,7 @@ export class LearningRecordAgent extends BaseAgent<LearningRecordInput, Learning
       .setPersona(LEARNING_RECORD_PERSONA, {})
       .setTask(GENERATE_REPORT_TASK, {
         userId,
-        subject: subjectId ?? '所有科目',
+        subject: subjectFilter ?? '所有科目',
         records: recordsText,
       })
       .build();
@@ -136,4 +152,18 @@ export class LearningRecordAgent extends BaseAgent<LearningRecordInput, Learning
 
     return { success: true, report: response.content };
   }
+
+  private canPersistLearningRecord(userId: string | undefined): boolean {
+    const normalized = userId?.trim();
+    return Boolean(normalized && normalized !== 'anonymous' && /^[1-9]\d*$/.test(normalized));
+  }
+}
+
+function normalizeKnowledgePoint(raw: string): string {
+  const compact = raw
+    .replace(/[（(].*?[）)]/g, '')
+    .replace(/[，,、；;:：/｜|].*$/g, '')
+    .replace(/\s+/g, '')
+    .trim();
+  return Array.from(compact).slice(0, 6).join('');
 }

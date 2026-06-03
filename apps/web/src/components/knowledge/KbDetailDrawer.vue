@@ -10,7 +10,7 @@
       <a-upload
         :show-upload-list="false"
         :before-upload="handleUpload"
-        accept=".pdf,.md"
+        accept=".pdf,.md,.markdown,.txt,.docx,.pptx,.xlsx,.csv,.html,.htm"
         :disabled="uploading"
       >
         <a-button type="primary" size="small" :loading="uploading">
@@ -19,71 +19,48 @@
       </a-upload>
     </template>
 
-    <div class="drawer-upload-hint">支持 PDF 和 Markdown 格式，拖拽可调整顺序</div>
+    <div class="drawer-upload-hint">支持 PDF、Markdown、Office、CSV、HTML 格式，拖拽可调整顺序</div>
 
     <div v-if="kb" class="file-list">
-      <draggable
-        v-model="localFiles"
-        item-key="id"
-        handle=".drag-handle"
-        @end="handleReorder"
-      >
-        <template #item="{ element: file }">
-          <div class="file-item">
-            <div class="drag-handle">
-              <HolderOutlined />
-            </div>
-            <div class="file-icon">
-              <FilePdfOutlined v-if="file.type === 'pdf'" class="pdf-icon" />
-              <FileMarkdownOutlined v-else class="md-icon" />
-            </div>
-            <div class="file-info">
-              <div class="file-name">{{ file.displayName || file.name }}</div>
-              <div class="file-size">{{ formatFileSize(file.size) }}</div>
-            </div>
-            <div class="file-actions">
-              <a-tooltip v-if="file.type === 'md'" title="在线编辑">
-                <a-button size="small" type="text" @click="openMdEditor(file)">
-                  <EditOutlined />
-                </a-button>
-              </a-tooltip>
-              <a-tooltip title="重命名">
-                <a-button size="small" type="text" @click="openRename(file)">
-                  <TagOutlined />
-                </a-button>
-              </a-tooltip>
-              <a-tooltip title="删除">
-                <a-button size="small" type="text" danger @click="$emit('delete-file', file.id)">
-                  <DeleteOutlined />
-                </a-button>
-              </a-tooltip>
-            </div>
+      <div v-for="file in localFiles" :key="file.id" class="file-item">
+        <div class="drag-handle">
+          <HolderOutlined />
+        </div>
+        <div class="file-icon">
+          <FilePdfOutlined v-if="file.type === 'pdf'" class="pdf-icon" />
+          <FileMarkdownOutlined v-else-if="file.type === 'md'" class="md-icon" />
+          <FileTextOutlined v-else class="file-generic-icon" />
+        </div>
+        <div class="file-info">
+          <div class="file-name">{{ file.displayName || file.name }}</div>
+          <div class="file-size">
+            {{ formatFileSize(file.size) }}
+            <span v-if="file.status" class="file-status"> · {{ file.status }}</span>
           </div>
-        </template>
-      </draggable>
+        </div>
+        <div class="file-actions">
+          <a-tooltip title="下载">
+            <a-button size="small" type="text" :disabled="!file.url" @click="downloadFile(file)">
+              <DownloadOutlined />
+            </a-button>
+          </a-tooltip>
+          <a-tooltip title="重命名">
+            <a-button size="small" type="text" @click="openRename(file)">
+              <TagOutlined />
+            </a-button>
+          </a-tooltip>
+          <a-tooltip title="删除">
+            <a-button size="small" type="text" danger @click="$emit('delete-file', file.id)">
+              <DeleteOutlined />
+            </a-button>
+          </a-tooltip>
+        </div>
+      </div>
 
       <div v-if="localFiles.length === 0" class="file-empty">
         <a-empty description="暂无文件，点击「上传文档」添加" />
       </div>
     </div>
-
-    <!-- MD Editor Modal -->
-    <a-modal
-      v-model:open="mdEditorVisible"
-      :title="`编辑 · ${editingFile?.displayName || editingFile?.name}`"
-      width="800"
-      :ok-loading="savingMd"
-      ok-text="保存"
-      cancel-text="取消"
-      @ok="saveMdContent"
-    >
-      <a-textarea
-        v-model:value="mdContent"
-        :rows="20"
-        placeholder="在此编辑 Markdown 内容..."
-        style="font-family: 'Courier New', monospace; font-size: 13px"
-      />
-    </a-modal>
 
     <!-- Rename Modal -->
     <a-modal
@@ -110,19 +87,12 @@ import {
   HolderOutlined,
   FilePdfOutlined,
   FileMarkdownOutlined,
-  EditOutlined,
+  FileTextOutlined,
+  DownloadOutlined,
   TagOutlined,
   DeleteOutlined,
 } from '@ant-design/icons-vue';
 import type { KnowledgeBase, KnowledgeFile } from '@tutor/shared';
-
-// Simple draggable stub (matches parent's impl)
-const draggable = {
-  template: '<div><slot name="item" v-for="(el, i) in modelValue" :element="el" :index="i" /></div>',
-  props: ['modelValue', 'itemKey', 'handle'],
-  emits: ['update:modelValue', 'end'],
-  setup() { return {}; },
-};
 
 const props = defineProps<{
   open: boolean;
@@ -134,7 +104,6 @@ const emit = defineEmits<{
   'update:open': [value: boolean];
   upload: [file: File];
   reorder: [fileIds: string[]];
-  'save-md': [fileId: string, content: string];
   rename: [fileId: string, displayName: string];
   'delete-file': [fileId: string];
 }>();
@@ -144,17 +113,13 @@ const localFiles = computed({
   set: () => {},
 });
 
-const mdEditorVisible = ref(false);
 const renameVisible = ref(false);
 const editingFile = ref<KnowledgeFile | null>(null);
-const mdContent = ref('');
 const renameValue = ref('');
-const savingMd = ref(false);
 const renameSaving = ref(false);
 
 watch(() => props.open, (val) => {
   if (!val) {
-    mdEditorVisible.value = false;
     renameVisible.value = false;
   }
 });
@@ -170,25 +135,16 @@ function handleUpload(file: File) {
   return false;
 }
 
-function handleReorder() {
-  emit('reorder', localFiles.value.map((f) => f.id));
-}
-
-function openMdEditor(file: KnowledgeFile) {
-  editingFile.value = file;
-  mdContent.value = file.content ?? '';
-  mdEditorVisible.value = true;
-}
-
-async function saveMdContent() {
-  if (!editingFile.value) return;
-  savingMd.value = true;
-  try {
-    emit('save-md', editingFile.value.id, mdContent.value);
-    mdEditorVisible.value = false;
-  } finally {
-    savingMd.value = false;
-  }
+function downloadFile(file: KnowledgeFile) {
+  if (!file.url) return;
+  const link = document.createElement('a');
+  link.href = file.url;
+  link.download = file.displayName || file.name;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function openRename(file: KnowledgeFile) {
@@ -268,6 +224,10 @@ async function confirmRename() {
   color: @color-primary;
 }
 
+.file-generic-icon {
+  color: @color-text-secondary;
+}
+
 .file-info {
   flex: 1;
   min-width: 0;
@@ -286,6 +246,10 @@ async function confirmRename() {
   font-size: 12px;
   color: @color-text-muted;
   margin-top: 2px;
+}
+
+.file-status {
+  color: #52c41a;
 }
 
 .file-actions {

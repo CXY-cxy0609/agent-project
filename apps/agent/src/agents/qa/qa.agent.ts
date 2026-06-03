@@ -52,6 +52,8 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
       question: input.question,
       images: input.images,
       subjectId: input.subjectId,
+      subjectName: input.subjectName,
+      userId: ctx.userId,
       history: input.history,
       generateVideo: input.generateVideo ?? false,
     })
@@ -84,7 +86,8 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
       answer: generated?.answer ?? '抱歉，无法生成回答，请重试。',
       knowledgePoints: generated?.knowledgePoints ?? [],
       difficulty: generated?.difficulty ?? 'medium',
-      subject: generated?.subject ?? input.subjectId,
+      subject: generated?.subject ?? input.subjectName ?? input.subjectId,
+      subjectId: input.subjectId,
       videoUrl: undefined,
       needsVideo: generated?.needsVideo ?? false,
     };
@@ -107,6 +110,7 @@ export class QAAgent extends BaseAgent<QAInput, QAOutput> {
         question: input.question,
         answer: output.answer,
         subject: output.subject,
+        subject_id: output.subjectId,
         knowledge_points: output.knowledgePoints,
         difficulty: output.difficulty,
       },

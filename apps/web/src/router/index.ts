@@ -56,6 +56,24 @@ const router = createRouter({
           meta: { title: '知识库', icon: 'BookOutlined' },
         },
         {
+          path: 'assessments',
+          name: 'assessments',
+          component: () => import('@/views/assessments/index.vue'),
+          meta: { title: '测试训练', icon: 'FileDoneOutlined' },
+        },
+        {
+          path: 'assessments/:assessmentId/take',
+          name: 'assessments-take',
+          component: () => import('@/views/assessments/take.vue'),
+          meta: { title: '测试作答', icon: 'FileDoneOutlined' },
+        },
+        {
+          path: 'assessments/:assessmentId/result',
+          name: 'assessments-result',
+          component: () => import('@/views/assessments/result.vue'),
+          meta: { title: '批改结果', icon: 'FileDoneOutlined' },
+        },
+        {
           path: 'subjects',
           name: 'subjects',
           component: () => import('@/views/subjects/index.vue'),

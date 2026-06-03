@@ -42,6 +42,15 @@ export class KnowledgeBaseAgent extends BaseAgent<KnowledgeBaseInput, KnowledgeB
     formData.append('knowledge_base_id', input.knowledgeBaseId);
     formData.append('subject_id', input.subjectId);
     formData.append('doc_name', input.docName ?? input.filename);
+    formData.append('visibility', input.visibility ?? 'public');
+    if (input.ownerUserId) formData.append('owner_user_id', input.ownerUserId);
+    if (input.parseMode) formData.append('mode', input.parseMode);
+    if (typeof input.maxUpgradePages === 'number') {
+      formData.append('max_upgrade_pages', String(input.maxUpgradePages));
+    }
+    if (typeof input.budgetTokens === 'number') {
+      formData.append('budget_tokens', String(input.budgetTokens));
+    }
     formData.append('wait', 'true');
 
     const res = await fetch(`${this.ragServiceUrl}/index/upload`, {
@@ -83,6 +92,8 @@ export class KnowledgeBaseAgent extends BaseAgent<KnowledgeBaseInput, KnowledgeB
         knowledge_base_id: input.knowledgeBaseId,
         subject_id: input.subjectId,
         doc_name: input.docName ?? 'text_input',
+        visibility: input.visibility ?? 'public',
+        owner_user_id: input.ownerUserId,
         doc_id: input.docId,
         wait: true,
       }),

@@ -68,12 +68,35 @@ export class RedisShortTermMemory implements ShortTermMemory {
     }
   }
 
+  async getState<T>(sessionId: string, key: string): Promise<T | undefined> {
+    try {
+      const raw = await this.redis.get(this.makeStateKey(sessionId, key));
+      if (!raw) return undefined;
+      return JSON.parse(raw) as T;
+    } catch (err) {
+      console.warn(`[RedisShortTermMemory] getState failed: ${formatError(err)}`);
+      return undefined;
+    }
+  }
+
+  async setState<T>(sessionId: string, key: string, value: T, ttlSeconds = this.ttlSeconds): Promise<void> {
+    try {
+      await this.redis.set(this.makeStateKey(sessionId, key), JSON.stringify(value), 'EX', ttlSeconds);
+    } catch (err) {
+      console.warn(`[RedisShortTermMemory] setState failed: ${formatError(err)}`);
+    }
+  }
+
   private makeKey(sessionId: string): string {
     return `session:memory:${sessionId}`;
   }
 
   private makeSummaryKey(sessionId: string): string {
     return `session:memory:summary:${sessionId}`;
+  }
+
+  private makeStateKey(sessionId: string, key: string): string {
+    return `session:state:${sessionId}:${key}`;
   }
 
   private async getRawHistory(sessionId: string): Promise<Message[]> {
@@ -95,6 +118,7 @@ export class RedisShortTermMemory implements ShortTermMemory {
 export class InMemoryShortTermMemory implements ShortTermMemory {
   private store = new Map<string, Message[]>();
   private summaries = new Map<string, string>();
+  private states = new Map<string, { value: unknown; expiresAt?: number }>();
 
   constructor(
     private readonly maxTurns: number = DEFAULT_MAX_TURNS,
@@ -133,7 +157,32 @@ export class InMemoryShortTermMemory implements ShortTermMemory {
   async clearHistory(sessionId: string): Promise<void> {
     this.store.delete(sessionId);
     this.summaries.delete(sessionId);
+    for (const key of this.states.keys()) {
+      if (key.startsWith(`${sessionId}:`)) this.states.delete(key);
+    }
   }
+
+  async getState<T>(sessionId: string, key: string): Promise<T | undefined> {
+    const stateKey = makeInMemoryStateKey(sessionId, key);
+    const entry = this.states.get(stateKey);
+    if (!entry) return undefined;
+    if (entry.expiresAt && entry.expiresAt <= Date.now()) {
+      this.states.delete(stateKey);
+      return undefined;
+    }
+    return entry.value as T;
+  }
+
+  async setState<T>(sessionId: string, key: string, value: T, ttlSeconds?: number): Promise<void> {
+    this.states.set(makeInMemoryStateKey(sessionId, key), {
+      value,
+      expiresAt: ttlSeconds ? Date.now() + ttlSeconds * 1000 : undefined,
+    });
+  }
+}
+
+function makeInMemoryStateKey(sessionId: string, key: string): string {
+  return `${sessionId}:${key}`;
 }
 
 function splitForWindow(messages: Message[], maxMessages: number): {

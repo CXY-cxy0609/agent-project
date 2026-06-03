@@ -25,6 +25,8 @@ export interface StoryboardScene {
   sceneIndex: number;
   title: string;
   layout: 'left_right' | 'center';
+  geometryRenderMode?: 'none' | 'oblique_projection' | 'flat_2d';
+  solidFigure?: Record<string, unknown>;
   description: string;
   animationNotes: string;
   narration: string;
@@ -86,6 +88,8 @@ export interface StoryboardRaw {
     scene_index: number;
     title: string;
     layout: 'left_right' | 'center';
+    geometry_render_mode?: 'none' | 'oblique_projection' | 'flat_2d';
+    solid_figure?: Record<string, unknown>;
     description: string;
     animation_notes: string;
     narration: string;

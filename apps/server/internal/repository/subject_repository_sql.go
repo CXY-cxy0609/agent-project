@@ -19,7 +19,7 @@ func NewSQLSubjectRepository(store *database.Store) *SQLSubjectRepository {
 func (r *SQLSubjectRepository) List(ctx context.Context) ([]domain.Subject, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT subject_id, name, code, education_stage FROM subjects ORDER BY id DESC`,
+		`SELECT id, name, education_stage FROM subjects ORDER BY id DESC`,
 	)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func (r *SQLSubjectRepository) List(ctx context.Context) ([]domain.Subject, erro
 	list := make([]domain.Subject, 0, 16)
 	for rows.Next() {
 		var s domain.Subject
-		if err := rows.Scan(&s.ID, &s.Name, &s.Code, &s.EducationStage); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.EducationStage); err != nil {
 			return nil, err
 		}
 		list = append(list, s)
